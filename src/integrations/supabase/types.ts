@@ -14,7 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      investments: {
+        Row: {
+          annual_return: number | null
+          applied: number | null
+          created_at: string
+          id: string
+          name: string
+          percentage: number
+          snapshot_id: string
+          sort_order: number
+          total_return: number | null
+          value: number
+          year_started: string | null
+        }
+        Insert: {
+          annual_return?: number | null
+          applied?: number | null
+          created_at?: string
+          id?: string
+          name: string
+          percentage?: number
+          snapshot_id: string
+          sort_order?: number
+          total_return?: number | null
+          value?: number
+          year_started?: string | null
+        }
+        Update: {
+          annual_return?: number | null
+          applied?: number | null
+          created_at?: string
+          id?: string
+          name?: string
+          percentage?: number
+          snapshot_id?: string
+          sort_order?: number
+          total_return?: number | null
+          value?: number
+          year_started?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investments_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_snapshots: {
+        Row: {
+          brazil: number | null
+          change_percentage: number | null
+          change_value: number | null
+          created_at: string
+          exterior: number | null
+          fixed_income: number | null
+          growth_2025: number | null
+          id: string
+          label: string
+          month: string
+          total: number
+          updated_at: string
+          variable_income: number | null
+        }
+        Insert: {
+          brazil?: number | null
+          change_percentage?: number | null
+          change_value?: number | null
+          created_at?: string
+          exterior?: number | null
+          fixed_income?: number | null
+          growth_2025?: number | null
+          id?: string
+          label: string
+          month: string
+          total?: number
+          updated_at?: string
+          variable_income?: number | null
+        }
+        Update: {
+          brazil?: number | null
+          change_percentage?: number | null
+          change_value?: number | null
+          created_at?: string
+          exterior?: number | null
+          fixed_income?: number | null
+          growth_2025?: number | null
+          id?: string
+          label?: string
+          month?: string
+          total?: number
+          updated_at?: string
+          variable_income?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

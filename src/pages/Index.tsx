@@ -1,15 +1,91 @@
 import { useState } from "react";
-import { monthlyData } from "@/data/investments";
+import { useSnapshots, useSaveSnapshot, useDeleteSnapshot } from "@/hooks/useSnapshots";
+import type { SnapshotFormData } from "@/hooks/useSnapshots";
 import MonthSelector from "@/components/MonthSelector";
 import SummaryCards from "@/components/SummaryCards";
 import InvestmentTable from "@/components/InvestmentTable";
 import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
-import { BarChart3 } from "lucide-react";
+import SnapshotDialog from "@/components/SnapshotDialog";
+import { BarChart3, Plus, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
-  const [currentIndex, setCurrentIndex] = useState(monthlyData.length - 1);
-  const snapshot = monthlyData[currentIndex];
+  const { data: monthlyData = [], isLoading } = useSnapshots();
+  const saveSnapshot = useSaveSnapshot();
+  const deleteSnapshot = useDeleteSnapshot();
+
+  const [currentIndex, setCurrentIndex] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSnapshot, setEditingSnapshot] = useState<typeof monthlyData[0] | undefined>();
+  const [deleteMonth, setDeleteMonth] = useState<string | null>(null);
+
+  // Auto-select last month when data loads
+  const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
+  const snapshot = monthlyData[effectiveIndex];
+
+  const handleSave = (data: SnapshotFormData, existingMonth?: string) => {
+    saveSnapshot.mutate(
+      { data, existingMonth },
+      {
+        onSuccess: () => {
+          toast({ title: existingMonth ? "Mês atualizado!" : "Novo mês criado!" });
+          setDialogOpen(false);
+          setEditingSnapshot(undefined);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao salvar", description: String(err), variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    if (!deleteMonth) return;
+    deleteSnapshot.mutate(deleteMonth, {
+      onSuccess: () => {
+        toast({ title: "Mês excluído!" });
+        setDeleteMonth(null);
+        if (effectiveIndex >= monthlyData.length - 1) {
+          setCurrentIndex(Math.max(0, monthlyData.length - 2));
+        }
+      },
+      onError: (err) => {
+        toast({ title: "Erro ao excluir", description: String(err), variant: "destructive" });
+      },
+    });
+  };
+
+  const openAdd = () => {
+    setEditingSnapshot(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEdit = () => {
+    if (snapshot) {
+      setEditingSnapshot(snapshot);
+      setDialogOpen(true);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground animate-pulse">Carregando dados...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,41 +101,101 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Acompanhamento mensal de investimentos</p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            {snapshot && (
+              <>
+                <Button variant="ghost" size="icon" onClick={openEdit} title="Editar mês">
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDeleteMonth(snapshot.month)}
+                  title="Excluir mês"
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              </>
+            )}
+            <Button onClick={openAdd} size="sm">
+              <Plus className="w-4 h-4 mr-1" /> Novo Mês
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Month Selector */}
-        <div className="overflow-x-auto">
-          <MonthSelector currentIndex={currentIndex} onChange={setCurrentIndex} />
-        </div>
-
-        {/* Summary Cards */}
-        <SummaryCards snapshot={snapshot} />
-
-        {/* Charts Row */}
-        <div className="grid lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3">
-            <EvolutionChart />
+        {monthlyData.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground mb-4">Nenhum dado encontrado.</p>
+            <Button onClick={openAdd}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar Primeiro Mês
+            </Button>
           </div>
-          <div className="lg:col-span-2">
-            <AllocationChart snapshot={snapshot} />
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* Month Selector */}
+            <div className="overflow-x-auto">
+              <MonthSelector
+                currentIndex={effectiveIndex}
+                onChange={setCurrentIndex}
+                months={monthlyData}
+              />
+            </div>
 
-        {/* Table */}
-        <InvestmentTable snapshot={snapshot} />
+            {snapshot && (
+              <>
+                <SummaryCards snapshot={snapshot} />
 
-        {/* Growth 2025 */}
-        {snapshot.growth2025 && (
-          <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
-            <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2025</p>
-            <p className="text-2xl font-bold text-primary">
-              {snapshot.growth2025.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </p>
-          </div>
+                <div className="grid lg:grid-cols-5 gap-6">
+                  <div className="lg:col-span-3">
+                    <EvolutionChart snapshots={monthlyData} />
+                  </div>
+                  <div className="lg:col-span-2">
+                    <AllocationChart snapshot={snapshot} />
+                  </div>
+                </div>
+
+                <InvestmentTable snapshot={snapshot} />
+
+                {snapshot.growth2025 && (
+                  <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2025</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {snapshot.growth2025.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
       </main>
+
+      {/* Edit/Add Dialog */}
+      <SnapshotDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSave={handleSave}
+        snapshot={editingSnapshot}
+        isSaving={saveSnapshot.isPending}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteMonth} onOpenChange={() => setDeleteMonth(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir mês?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Todos os investimentos deste mês serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

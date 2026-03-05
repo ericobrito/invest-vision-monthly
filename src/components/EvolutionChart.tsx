@@ -1,7 +1,13 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { evolutionData, formatBRL } from "@/data/investments";
+import { formatBRL, type MonthlySnapshot } from "@/data/investments";
 
-const EvolutionChart = () => {
+interface EvolutionChartProps {
+  snapshots: MonthlySnapshot[];
+}
+
+const EvolutionChart = ({ snapshots }: EvolutionChartProps) => {
+  const evolutionData = snapshots.map(m => ({ month: m.label, total: m.total }));
+
   return (
     <div className="gradient-card rounded-xl border border-border p-5">
       <h2 className="text-lg font-semibold text-foreground mb-4">Evolução Patrimonial</h2>
