@@ -1,12 +1,13 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { monthlyData } from "@/data/investments";
+import type { MonthlySnapshot } from "@/data/investments";
 
 interface MonthSelectorProps {
   currentIndex: number;
   onChange: (index: number) => void;
+  months: MonthlySnapshot[];
 }
 
-const MonthSelector = ({ currentIndex, onChange }: MonthSelectorProps) => {
+const MonthSelector = ({ currentIndex, onChange, months }: MonthSelectorProps) => {
   return (
     <div className="flex items-center gap-1">
       <button
@@ -18,7 +19,7 @@ const MonthSelector = ({ currentIndex, onChange }: MonthSelectorProps) => {
       </button>
 
       <div className="flex gap-1 overflow-x-auto scrollbar-hide px-1">
-        {monthlyData.map((m, i) => (
+        {months.map((m, i) => (
           <button
             key={m.month}
             onClick={() => onChange(i)}
@@ -34,8 +35,8 @@ const MonthSelector = ({ currentIndex, onChange }: MonthSelectorProps) => {
       </div>
 
       <button
-        onClick={() => onChange(Math.min(monthlyData.length - 1, currentIndex + 1))}
-        disabled={currentIndex === monthlyData.length - 1}
+        onClick={() => onChange(Math.min(months.length - 1, currentIndex + 1))}
+        disabled={currentIndex === months.length - 1}
         className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-foreground"
       >
         <ChevronRight className="w-5 h-5" />
