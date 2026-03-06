@@ -20,8 +20,10 @@ export type Database = {
           applied: number | null
           created_at: string
           id: string
+          income_type: string
           name: string
           percentage: number
+          region: string
           snapshot_id: string
           sort_order: number
           total_return: number | null
@@ -33,8 +35,10 @@ export type Database = {
           applied?: number | null
           created_at?: string
           id?: string
+          income_type?: string
           name: string
           percentage?: number
+          region?: string
           snapshot_id: string
           sort_order?: number
           total_return?: number | null
@@ -46,8 +50,10 @@ export type Database = {
           applied?: number | null
           created_at?: string
           id?: string
+          income_type?: string
           name?: string
           percentage?: number
+          region?: string
           snapshot_id?: string
           sort_order?: number
           total_return?: number | null
