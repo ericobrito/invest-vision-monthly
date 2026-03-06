@@ -9,8 +9,8 @@ export interface Investment {
   totalReturn?: number;
   yearStarted?: string;
   annualReturn?: number;
-  incomeType: IncomeType;
-  region: Region;
+  incomeType?: IncomeType;
+  region?: Region;
 }
 
 export interface MonthlySnapshot {
