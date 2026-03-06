@@ -1,8 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { MonthlySnapshot, Investment } from "@/data/investments";
+import type { MonthlySnapshot, Investment, IncomeType, Region } from "@/data/investments";
 
 function mapRow(row: any, investments: any[]): MonthlySnapshot {
+  const mappedInvestments: Investment[] = investments
+    .sort((a: any, b: any) => a.sort_order - b.sort_order)
+    .map((inv: any): Investment => ({
+      name: inv.name,
+      value: Number(inv.value),
+      percentage: Number(inv.percentage),
+      applied: inv.applied != null ? Number(inv.applied) : undefined,
+      totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
+      annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
+      yearStarted: inv.year_started ?? undefined,
+      incomeType: (inv.income_type as IncomeType) || 'fixed',
+      region: (inv.region as Region) || 'brazil',
+    }));
+
   return {
     month: row.month,
     label: row.label,
@@ -13,17 +27,7 @@ function mapRow(row: any, investments: any[]): MonthlySnapshot {
     brazil: row.brazil != null ? Number(row.brazil) : undefined,
     exterior: row.exterior != null ? Number(row.exterior) : undefined,
     growth2025: row.growth_2025 != null ? Number(row.growth_2025) : undefined,
-    investments: investments
-      .sort((a: any, b: any) => a.sort_order - b.sort_order)
-      .map((inv: any): Investment => ({
-        name: inv.name,
-        value: Number(inv.value),
-        percentage: Number(inv.percentage),
-        applied: inv.applied != null ? Number(inv.applied) : undefined,
-        totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
-        annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
-        yearStarted: inv.year_started ?? undefined,
-      })),
+    investments: mappedInvestments,
   };
 }
 
@@ -73,7 +77,50 @@ export interface SnapshotFormData {
     totalReturn?: number;
     annualReturn?: number;
     yearStarted?: string;
+    incomeType: IncomeType;
+    region: Region;
   }[];
+}
+
+/** Auto-calculate derived snapshot fields from investments and previous month */
+export function computeDerivedFields(
+  investments: SnapshotFormData['investments'],
+  allSnapshots: MonthlySnapshot[],
+  currentMonth: string
+): Pick<SnapshotFormData, 'total' | 'changeValue' | 'changePercentage' | 'fixedIncome' | 'variableIncome' | 'brazil' | 'exterior' | 'growth2025'> {
+  const total = investments.reduce((sum, inv) => sum + inv.value, 0);
+
+  // Percentages by type
+  const fixedTotal = investments.filter(i => i.incomeType === 'fixed').reduce((s, i) => s + i.value, 0);
+  const variableTotal = investments.filter(i => i.incomeType === 'variable').reduce((s, i) => s + i.value, 0);
+  const brazilTotal = investments.filter(i => i.region === 'brazil').reduce((s, i) => s + i.value, 0);
+  const exteriorTotal = investments.filter(i => i.region === 'exterior').reduce((s, i) => s + i.value, 0);
+
+  const fixedIncome = total > 0 ? Number(((fixedTotal / total) * 100).toFixed(2)) : undefined;
+  const variableIncome = total > 0 ? Number(((variableTotal / total) * 100).toFixed(2)) : undefined;
+  const brazil = total > 0 ? Number(((brazilTotal / total) * 100).toFixed(2)) : undefined;
+  const exterior = total > 0 ? Number(((exteriorTotal / total) * 100).toFixed(2)) : undefined;
+
+  // Change from previous month
+  const sorted = [...allSnapshots].sort((a, b) => a.month.localeCompare(b.month));
+  const prevMonths = sorted.filter(s => s.month < currentMonth);
+  const prev = prevMonths.length > 0 ? prevMonths[prevMonths.length - 1] : undefined;
+
+  let changeValue: number | undefined;
+  let changePercentage: number | undefined;
+  if (prev) {
+    changeValue = Number((total - prev.total).toFixed(2));
+    changePercentage = prev.total > 0 ? Number(((changeValue / prev.total) * 100).toFixed(2)) : undefined;
+  }
+
+  // Growth since Jan 2025
+  const jan2025 = sorted.find(s => s.month === '2025-01');
+  let growth2025: number | undefined;
+  if (jan2025 && currentMonth >= '2025-01') {
+    growth2025 = Number((total - jan2025.total).toFixed(2));
+  }
+
+  return { total, changeValue, changePercentage, fixedIncome, variableIncome, brazil, exterior, growth2025 };
 }
 
 export function useSaveSnapshot() {
@@ -81,9 +128,7 @@ export function useSaveSnapshot() {
 
   return useMutation({
     mutationFn: async ({ data, existingMonth }: { data: SnapshotFormData; existingMonth?: string }) => {
-      // Upsert snapshot
       if (existingMonth) {
-        // Update existing
         const { data: existing } = await supabase
           .from("monthly_snapshots")
           .select("id")
@@ -108,10 +153,8 @@ export function useSaveSnapshot() {
           .eq("id", existing.id)
           .throwOnError();
 
-        // Delete old investments
         await supabase.from("investments").delete().eq("snapshot_id", existing.id).throwOnError();
 
-        // Insert new investments
         if (data.investments.length > 0) {
           await supabase
             .from("investments")
@@ -125,13 +168,14 @@ export function useSaveSnapshot() {
                 total_return: inv.totalReturn ?? null,
                 annual_return: inv.annualReturn ?? null,
                 year_started: inv.yearStarted ?? null,
+                income_type: inv.incomeType,
+                region: inv.region,
                 sort_order: i,
               }))
             )
             .throwOnError();
         }
       } else {
-        // Insert new
         const { data: snap, error } = await supabase
           .from("monthly_snapshots")
           .insert({
@@ -163,6 +207,8 @@ export function useSaveSnapshot() {
                 total_return: inv.totalReturn ?? null,
                 annual_return: inv.annualReturn ?? null,
                 year_started: inv.yearStarted ?? null,
+                income_type: inv.incomeType,
+                region: inv.region,
                 sort_order: i,
               }))
             )

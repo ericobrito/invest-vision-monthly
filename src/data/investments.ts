@@ -1,3 +1,6 @@
+export type IncomeType = 'fixed' | 'variable';
+export type Region = 'brazil' | 'exterior';
+
 export interface Investment {
   name: string;
   value: number;
@@ -6,6 +9,8 @@ export interface Investment {
   totalReturn?: number;
   yearStarted?: string;
   annualReturn?: number;
+  incomeType: IncomeType;
+  region: Region;
 }
 
 export interface MonthlySnapshot {

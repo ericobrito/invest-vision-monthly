@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,75 +9,88 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
-import type { MonthlySnapshot } from "@/data/investments";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { MonthlySnapshot, IncomeType, Region } from "@/data/investments";
+import { computeDerivedFields } from "@/hooks/useSnapshots";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface InvestmentRow {
+  name: string;
+  value: string;
+  applied: string;
+  totalReturn: string;
+  annualReturn: string;
+  yearStarted: string;
+  incomeType: IncomeType;
+  region: Region;
+}
 
 interface SnapshotDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: SnapshotFormData, existingMonth?: string) => void;
   snapshot?: MonthlySnapshot;
+  allSnapshots?: MonthlySnapshot[];
   isSaving?: boolean;
 }
 
-const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, isSaving }: SnapshotDialogProps) => {
+const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [], isSaving }: SnapshotDialogProps) => {
   const isEdit = !!snapshot;
 
   const [month, setMonth] = useState("");
   const [label, setLabel] = useState("");
-  const [total, setTotal] = useState("");
-  const [changeValue, setChangeValue] = useState("");
-  const [changePercentage, setChangePercentage] = useState("");
-  const [fixedIncome, setFixedIncome] = useState("");
-  const [variableIncome, setVariableIncome] = useState("");
-  const [brazil, setBrazil] = useState("");
-  const [exterior, setExterior] = useState("");
-  const [growth2025, setGrowth2025] = useState("");
-  const [investments, setInvestments] = useState<
-    { name: string; value: string; percentage: string; applied: string; totalReturn: string; annualReturn: string; yearStarted: string }[]
-  >([]);
+  const [investments, setInvestments] = useState<InvestmentRow[]>([]);
 
   useEffect(() => {
     if (snapshot) {
       setMonth(snapshot.month);
       setLabel(snapshot.label);
-      setTotal(String(snapshot.total));
-      setChangeValue(snapshot.change?.value != null ? String(snapshot.change.value) : "");
-      setChangePercentage(snapshot.change?.percentage != null ? String(snapshot.change.percentage) : "");
-      setFixedIncome(snapshot.fixedIncome != null ? String(snapshot.fixedIncome) : "");
-      setVariableIncome(snapshot.variableIncome != null ? String(snapshot.variableIncome) : "");
-      setBrazil(snapshot.brazil != null ? String(snapshot.brazil) : "");
-      setExterior(snapshot.exterior != null ? String(snapshot.exterior) : "");
-      setGrowth2025(snapshot.growth2025 != null ? String(snapshot.growth2025) : "");
       setInvestments(
         snapshot.investments.map((inv) => ({
           name: inv.name,
           value: String(inv.value),
-          percentage: String(inv.percentage),
           applied: inv.applied != null ? String(inv.applied) : "",
           totalReturn: inv.totalReturn != null ? String(inv.totalReturn) : "",
           annualReturn: inv.annualReturn != null ? String(inv.annualReturn) : "",
           yearStarted: inv.yearStarted ?? "",
+          incomeType: inv.incomeType || 'fixed',
+          region: inv.region || 'brazil',
         }))
       );
     } else {
       setMonth("");
       setLabel("");
-      setTotal("");
-      setChangeValue("");
-      setChangePercentage("");
-      setFixedIncome("");
-      setVariableIncome("");
-      setBrazil("");
-      setExterior("");
-      setGrowth2025("");
       setInvestments([]);
     }
   }, [snapshot, open]);
 
+  // Auto-calculated values
+  const computed = useMemo(() => {
+    const invData = investments
+      .filter((inv) => inv.name && inv.value)
+      .map((inv) => ({
+        name: inv.name,
+        value: Number(inv.value) || 0,
+        percentage: 0,
+        incomeType: inv.incomeType,
+        region: inv.region,
+      }));
+    // Recalculate percentages
+    const total = invData.reduce((s, i) => s + i.value, 0);
+    invData.forEach(i => { i.percentage = total > 0 ? Number(((i.value / total) * 100).toFixed(2)) : 0; });
+
+    return computeDerivedFields(invData, allSnapshots, month);
+  }, [investments, allSnapshots, month]);
+
   const addInvestment = () => {
-    setInvestments([...investments, { name: "", value: "", percentage: "", applied: "", totalReturn: "", annualReturn: "", yearStarted: "" }]);
+    setInvestments([...investments, { name: "", value: "", applied: "", totalReturn: "", annualReturn: "", yearStarted: "", incomeType: "fixed", region: "brazil" }]);
   };
 
   const removeInvestment = (index: number) => {
@@ -89,38 +102,42 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, isSaving }: Snap
   };
 
   const handleSubmit = () => {
-    const num = (v: string) => (v ? Number(v) : undefined);
-    const data: SnapshotFormData = {
-      month,
-      label,
-      total: Number(total),
-      changeValue: num(changeValue),
-      changePercentage: num(changePercentage),
-      fixedIncome: num(fixedIncome),
-      variableIncome: num(variableIncome),
-      brazil: num(brazil),
-      exterior: num(exterior),
-      growth2025: num(growth2025),
-      investments: investments
-        .filter((inv) => inv.name && inv.value)
-        .map((inv) => ({
+    const total = computed.total;
+    const parsedInvestments = investments
+      .filter((inv) => inv.name && inv.value)
+      .map((inv) => {
+        const value = Number(inv.value) || 0;
+        return {
           name: inv.name,
-          value: Number(inv.value),
-          percentage: Number(inv.percentage) || 0,
+          value,
+          percentage: total > 0 ? Number(((value / total) * 100).toFixed(2)) : 0,
           applied: inv.applied ? Number(inv.applied) : undefined,
           totalReturn: inv.totalReturn ? Number(inv.totalReturn) : undefined,
           annualReturn: inv.annualReturn ? Number(inv.annualReturn) : undefined,
           yearStarted: inv.yearStarted || undefined,
-        })),
+          incomeType: inv.incomeType,
+          region: inv.region,
+        };
+      });
+
+    const data: SnapshotFormData = {
+      month,
+      label,
+      total: computed.total,
+      changeValue: computed.changeValue,
+      changePercentage: computed.changePercentage,
+      fixedIncome: computed.fixedIncome,
+      variableIncome: computed.variableIncome,
+      brazil: computed.brazil,
+      exterior: computed.exterior,
+      growth2025: computed.growth2025,
+      investments: parsedInvestments,
     };
     onSave(data, isEdit ? snapshot.month : undefined);
   };
 
-  // Auto-calculate total from investments
-  const recalcTotal = () => {
-    const sum = investments.reduce((acc, inv) => acc + (Number(inv.value) || 0), 0);
-    setTotal(sum.toFixed(2));
-  };
+  const fmt = (v?: number) => v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+  const pct = (v?: number) => v != null ? `${v.toFixed(2)}%` : "—";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -143,44 +160,40 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, isSaving }: Snap
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Total (R$)</Label>
-                <Input type="number" step="0.01" value={total} onChange={(e) => setTotal(e.target.value)} />
-              </div>
-              <div>
-                <Label>Variação (R$)</Label>
-                <Input type="number" step="0.01" value={changeValue} onChange={(e) => setChangeValue(e.target.value)} />
-              </div>
-              <div>
-                <Label>Variação (%)</Label>
-                <Input type="number" step="0.01" value={changePercentage} onChange={(e) => setChangePercentage(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Renda Fixa (%)</Label>
-                <Input type="number" step="0.01" value={fixedIncome} onChange={(e) => setFixedIncome(e.target.value)} />
-              </div>
-              <div>
-                <Label>Renda Variável (%)</Label>
-                <Input type="number" step="0.01" value={variableIncome} onChange={(e) => setVariableIncome(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Brasil (%)</Label>
-                <Input type="number" step="0.01" value={brazil} onChange={(e) => setBrazil(e.target.value)} />
-              </div>
-              <div>
-                <Label>Exterior (%)</Label>
-                <Input type="number" step="0.01" value={exterior} onChange={(e) => setExterior(e.target.value)} />
-              </div>
-              <div>
-                <Label>Crescimento 2025 (R$)</Label>
-                <Input type="number" step="0.01" value={growth2025} onChange={(e) => setGrowth2025(e.target.value)} />
+            {/* Auto-calculated summary */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Valores calculados automaticamente</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Total:</span>
+                  <p className="font-semibold">{fmt(computed.total)}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Variação:</span>
+                  <p className="font-semibold">{fmt(computed.changeValue)} ({pct(computed.changePercentage)})</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Renda Fixa:</span>
+                  <p className="font-semibold">{pct(computed.fixedIncome)}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Renda Variável:</span>
+                  <p className="font-semibold">{pct(computed.variableIncome)}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Brasil:</span>
+                  <p className="font-semibold">{pct(computed.brazil)}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Exterior:</span>
+                  <p className="font-semibold">{pct(computed.exterior)}</p>
+                </div>
+                {computed.growth2025 != null && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Cresc. 2025:</span>
+                    <p className="font-semibold">{fmt(computed.growth2025)}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -188,14 +201,9 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, isSaving }: Snap
             <div>
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-base font-semibold">Investimentos</Label>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={recalcTotal}>
-                    Recalcular Total
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={addInvestment}>
-                    <Plus className="w-4 h-4 mr-1" /> Adicionar
-                  </Button>
-                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addInvestment}>
+                  <Plus className="w-4 h-4 mr-1" /> Adicionar
+                </Button>
               </div>
 
               <div className="space-y-3">
@@ -211,13 +219,33 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, isSaving }: Snap
                       <div className="col-span-2">
                         <Input placeholder="Nome" value={inv.name} onChange={(e) => updateInvestment(i, "name", e.target.value)} />
                       </div>
-                      <Input type="number" step="0.01" placeholder="Valor" value={inv.value} onChange={(e) => updateInvestment(i, "value", e.target.value)} />
+                      <Input type="number" step="0.01" placeholder="Valor (R$)" value={inv.value} onChange={(e) => updateInvestment(i, "value", e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select value={inv.incomeType} onValueChange={(v) => updateInvestment(i, "incomeType", v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">Renda Fixa</SelectItem>
+                          <SelectItem value="variable">Renda Variável</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={inv.region} onValueChange={(v) => updateInvestment(i, "region", v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Região" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="brazil">Brasil</SelectItem>
+                          <SelectItem value="exterior">Exterior</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
-                      <Input type="number" step="0.01" placeholder="%" value={inv.percentage} onChange={(e) => updateInvestment(i, "percentage", e.target.value)} />
                       <Input type="number" step="0.01" placeholder="Aplicado" value={inv.applied} onChange={(e) => updateInvestment(i, "applied", e.target.value)} />
                       <Input type="number" step="0.01" placeholder="Rent. Total %" value={inv.totalReturn} onChange={(e) => updateInvestment(i, "totalReturn", e.target.value)} />
                       <Input type="number" step="0.01" placeholder="Rent. Anual %" value={inv.annualReturn} onChange={(e) => updateInvestment(i, "annualReturn", e.target.value)} />
+                      <Input placeholder="Ano início" value={inv.yearStarted} onChange={(e) => updateInvestment(i, "yearStarted", e.target.value)} />
                     </div>
                   </div>
                 ))}
@@ -236,7 +264,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, isSaving }: Snap
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={!month || !label || !total || isSaving}>
+          <Button onClick={handleSubmit} disabled={!month || !label || investments.length === 0 || isSaving}>
             {isSaving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Mês"}
           </Button>
         </div>

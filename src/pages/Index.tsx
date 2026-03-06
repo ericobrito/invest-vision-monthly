@@ -178,6 +178,7 @@ const Index = () => {
         onOpenChange={setDialogOpen}
         onSave={handleSave}
         snapshot={editingSnapshot}
+        allSnapshots={monthlyData}
         isSaving={saveSnapshot.isPending}
       />
 
