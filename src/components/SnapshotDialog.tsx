@@ -75,18 +75,35 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   const computed = useMemo(() => {
     const invData = investments
       .filter((inv) => inv.name && inv.value)
-      .map((inv) => ({
-        name: inv.name,
-        value: Number(inv.value) || 0,
-        percentage: 0,
-        incomeType: inv.incomeType,
-        region: inv.region,
-      }));
-    // Recalculate percentages
+      .map((inv) => {
+        const value = Number(inv.value) || 0;
+        const applied = Number(inv.applied) || 0;
+        const totalReturn = applied > 0 ? Number((((value - applied) / applied) * 100).toFixed(2)) : undefined;
+        let annualReturn: number | undefined;
+        if (totalReturn != null && inv.yearStarted) {
+          const startDate = new Date(inv.yearStarted);
+          const now = new Date();
+          const years = (now.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+          if (years > 0 && applied > 0) {
+            annualReturn = Number(((Math.pow(value / applied, 1 / years) - 1) * 100).toFixed(2));
+          }
+        }
+        return {
+          name: inv.name,
+          value,
+          percentage: 0,
+          applied,
+          totalReturn,
+          annualReturn,
+          yearStarted: inv.yearStarted || undefined,
+          incomeType: inv.incomeType,
+          region: inv.region,
+        };
+      });
     const total = invData.reduce((s, i) => s + i.value, 0);
     invData.forEach(i => { i.percentage = total > 0 ? Number(((i.value / total) * 100).toFixed(2)) : 0; });
 
-    return computeDerivedFields(invData, allSnapshots, month);
+    return { derived: computeDerivedFields(invData, allSnapshots, month), invData };
   }, [investments, allSnapshots, month]);
 
   const addInvestment = () => {
@@ -102,42 +119,25 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   };
 
   const handleSubmit = () => {
-    const total = computed.total;
-    const parsedInvestments = investments
-      .filter((inv) => inv.name && inv.value)
-      .map((inv) => {
-        const value = Number(inv.value) || 0;
-        return {
-          name: inv.name,
-          value,
-          percentage: total > 0 ? Number(((value / total) * 100).toFixed(2)) : 0,
-          applied: inv.applied ? Number(inv.applied) : undefined,
-          totalReturn: inv.totalReturn ? Number(inv.totalReturn) : undefined,
-          annualReturn: inv.annualReturn ? Number(inv.annualReturn) : undefined,
-          yearStarted: inv.yearStarted || undefined,
-          incomeType: inv.incomeType,
-          region: inv.region,
-        };
-      });
-
     const data: SnapshotFormData = {
       month,
       label,
-      total: computed.total,
-      changeValue: computed.changeValue,
-      changePercentage: computed.changePercentage,
-      fixedIncome: computed.fixedIncome,
-      variableIncome: computed.variableIncome,
-      brazil: computed.brazil,
-      exterior: computed.exterior,
-      growth2025: computed.growth2025,
-      investments: parsedInvestments,
+      total: computed.derived.total,
+      changeValue: computed.derived.changeValue,
+      changePercentage: computed.derived.changePercentage,
+      fixedIncome: computed.derived.fixedIncome,
+      variableIncome: computed.derived.variableIncome,
+      brazil: computed.derived.brazil,
+      exterior: computed.derived.exterior,
+      growth2025: computed.derived.growth2025,
+      investments: computed.invData,
     };
     onSave(data, isEdit ? snapshot.month : undefined);
   };
 
   const fmt = (v?: number) => v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
   const pct = (v?: number) => v != null ? `${v.toFixed(2)}%` : "—";
+  const d = computed.derived;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,32 +166,32 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Total:</span>
-                  <p className="font-semibold">{fmt(computed.total)}</p>
+                  <p className="font-semibold">{fmt(d.total)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Variação:</span>
-                  <p className="font-semibold">{fmt(computed.changeValue)} ({pct(computed.changePercentage)})</p>
+                  <p className="font-semibold">{fmt(d.changeValue)} ({pct(d.changePercentage)})</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Renda Fixa:</span>
-                  <p className="font-semibold">{pct(computed.fixedIncome)}</p>
+                  <p className="font-semibold">{pct(d.fixedIncome)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Renda Variável:</span>
-                  <p className="font-semibold">{pct(computed.variableIncome)}</p>
+                  <p className="font-semibold">{pct(d.variableIncome)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Brasil:</span>
-                  <p className="font-semibold">{pct(computed.brazil)}</p>
+                  <p className="font-semibold">{pct(d.brazil)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Exterior:</span>
-                  <p className="font-semibold">{pct(computed.exterior)}</p>
+                  <p className="font-semibold">{pct(d.exterior)}</p>
                 </div>
-                {computed.growth2025 != null && (
+                {d.growth2025 != null && (
                   <div className="col-span-2">
                     <span className="text-muted-foreground">Cresc. 2025:</span>
-                    <p className="font-semibold">{fmt(computed.growth2025)}</p>
+                    <p className="font-semibold">{fmt(d.growth2025)}</p>
                   </div>
                 )}
               </div>
@@ -241,12 +241,26 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      <Input type="number" step="0.01" placeholder="Aplicado" value={inv.applied} onChange={(e) => updateInvestment(i, "applied", e.target.value)} />
-                      <Input type="number" step="0.01" placeholder="Rent. Total %" value={inv.totalReturn} onChange={(e) => updateInvestment(i, "totalReturn", e.target.value)} />
-                      <Input type="number" step="0.01" placeholder="Rent. Anual %" value={inv.annualReturn} onChange={(e) => updateInvestment(i, "annualReturn", e.target.value)} />
-                      <Input placeholder="Ano início" value={inv.yearStarted} onChange={(e) => updateInvestment(i, "yearStarted", e.target.value)} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input type="number" step="0.01" placeholder="Valor Aplicado (R$)" value={inv.applied} onChange={(e) => updateInvestment(i, "applied", e.target.value)} />
+                      <Input type="date" placeholder="Data do aporte" value={inv.yearStarted} onChange={(e) => updateInvestment(i, "yearStarted", e.target.value)} />
                     </div>
+                    {(() => {
+                      const value = Number(inv.value) || 0;
+                      const applied = Number(inv.applied) || 0;
+                      const totalRet = applied > 0 ? (((value - applied) / applied) * 100).toFixed(2) : null;
+                      let annualRet: string | null = null;
+                      if (inv.yearStarted && applied > 0 && value > 0) {
+                        const years = (new Date().getTime() - new Date(inv.yearStarted).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+                        if (years > 0) annualRet = ((Math.pow(value / applied, 1 / years) - 1) * 100).toFixed(2);
+                      }
+                      return (totalRet || annualRet) ? (
+                        <div className="flex gap-4 text-xs text-muted-foreground px-1">
+                          {totalRet && <span>Rent. Total: <strong>{totalRet}%</strong></span>}
+                          {annualRet && <span>Rent. Anual: <strong>{annualRet}%</strong></span>}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 ))}
 
