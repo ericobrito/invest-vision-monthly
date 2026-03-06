@@ -137,6 +137,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
 
   const fmt = (v?: number) => v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
   const pct = (v?: number) => v != null ? `${v.toFixed(2)}%` : "—";
+  const d = computed.derived;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
