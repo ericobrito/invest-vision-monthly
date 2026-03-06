@@ -166,32 +166,32 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Total:</span>
-                  <p className="font-semibold">{fmt(computed.total)}</p>
+                  <p className="font-semibold">{fmt(d.total)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Variação:</span>
-                  <p className="font-semibold">{fmt(computed.changeValue)} ({pct(computed.changePercentage)})</p>
+                  <p className="font-semibold">{fmt(d.changeValue)} ({pct(d.changePercentage)})</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Renda Fixa:</span>
-                  <p className="font-semibold">{pct(computed.fixedIncome)}</p>
+                  <p className="font-semibold">{pct(d.fixedIncome)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Renda Variável:</span>
-                  <p className="font-semibold">{pct(computed.variableIncome)}</p>
+                  <p className="font-semibold">{pct(d.variableIncome)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Brasil:</span>
-                  <p className="font-semibold">{pct(computed.brazil)}</p>
+                  <p className="font-semibold">{pct(d.brazil)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Exterior:</span>
-                  <p className="font-semibold">{pct(computed.exterior)}</p>
+                  <p className="font-semibold">{pct(d.exterior)}</p>
                 </div>
-                {computed.growth2025 != null && (
+                {d.growth2025 != null && (
                   <div className="col-span-2">
                     <span className="text-muted-foreground">Cresc. 2025:</span>
-                    <p className="font-semibold">{fmt(computed.growth2025)}</p>
+                    <p className="font-semibold">{fmt(d.growth2025)}</p>
                   </div>
                 )}
               </div>
