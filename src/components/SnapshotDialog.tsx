@@ -241,12 +241,26 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      <Input type="number" step="0.01" placeholder="Aplicado" value={inv.applied} onChange={(e) => updateInvestment(i, "applied", e.target.value)} />
-                      <Input type="number" step="0.01" placeholder="Rent. Total %" value={inv.totalReturn} onChange={(e) => updateInvestment(i, "totalReturn", e.target.value)} />
-                      <Input type="number" step="0.01" placeholder="Rent. Anual %" value={inv.annualReturn} onChange={(e) => updateInvestment(i, "annualReturn", e.target.value)} />
-                      <Input placeholder="Ano início" value={inv.yearStarted} onChange={(e) => updateInvestment(i, "yearStarted", e.target.value)} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input type="number" step="0.01" placeholder="Valor Aplicado (R$)" value={inv.applied} onChange={(e) => updateInvestment(i, "applied", e.target.value)} />
+                      <Input type="date" placeholder="Data do aporte" value={inv.yearStarted} onChange={(e) => updateInvestment(i, "yearStarted", e.target.value)} />
                     </div>
+                    {(() => {
+                      const value = Number(inv.value) || 0;
+                      const applied = Number(inv.applied) || 0;
+                      const totalRet = applied > 0 ? (((value - applied) / applied) * 100).toFixed(2) : null;
+                      let annualRet: string | null = null;
+                      if (inv.yearStarted && applied > 0 && value > 0) {
+                        const years = (new Date().getTime() - new Date(inv.yearStarted).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+                        if (years > 0) annualRet = ((Math.pow(value / applied, 1 / years) - 1) * 100).toFixed(2);
+                      }
+                      return (totalRet || annualRet) ? (
+                        <div className="flex gap-4 text-xs text-muted-foreground px-1">
+                          {totalRet && <span>Rent. Total: <strong>{totalRet}%</strong></span>}
+                          {annualRet && <span>Rent. Anual: <strong>{annualRet}%</strong></span>}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 ))}
 
