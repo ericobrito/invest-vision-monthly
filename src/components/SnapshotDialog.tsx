@@ -75,18 +75,35 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   const computed = useMemo(() => {
     const invData = investments
       .filter((inv) => inv.name && inv.value)
-      .map((inv) => ({
-        name: inv.name,
-        value: Number(inv.value) || 0,
-        percentage: 0,
-        incomeType: inv.incomeType,
-        region: inv.region,
-      }));
-    // Recalculate percentages
+      .map((inv) => {
+        const value = Number(inv.value) || 0;
+        const applied = Number(inv.applied) || 0;
+        const totalReturn = applied > 0 ? Number((((value - applied) / applied) * 100).toFixed(2)) : undefined;
+        let annualReturn: number | undefined;
+        if (totalReturn != null && inv.yearStarted) {
+          const startDate = new Date(inv.yearStarted);
+          const now = new Date();
+          const years = (now.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+          if (years > 0 && applied > 0) {
+            annualReturn = Number(((Math.pow(value / applied, 1 / years) - 1) * 100).toFixed(2));
+          }
+        }
+        return {
+          name: inv.name,
+          value,
+          percentage: 0,
+          applied,
+          totalReturn,
+          annualReturn,
+          yearStarted: inv.yearStarted || undefined,
+          incomeType: inv.incomeType,
+          region: inv.region,
+        };
+      });
     const total = invData.reduce((s, i) => s + i.value, 0);
     invData.forEach(i => { i.percentage = total > 0 ? Number(((i.value / total) * 100).toFixed(2)) : 0; });
 
-    return computeDerivedFields(invData, allSnapshots, month);
+    return { derived: computeDerivedFields(invData, allSnapshots, month), invData };
   }, [investments, allSnapshots, month]);
 
   const addInvestment = () => {
