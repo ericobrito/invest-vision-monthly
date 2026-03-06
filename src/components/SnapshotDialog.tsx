@@ -119,36 +119,18 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   };
 
   const handleSubmit = () => {
-    const total = computed.total;
-    const parsedInvestments = investments
-      .filter((inv) => inv.name && inv.value)
-      .map((inv) => {
-        const value = Number(inv.value) || 0;
-        return {
-          name: inv.name,
-          value,
-          percentage: total > 0 ? Number(((value / total) * 100).toFixed(2)) : 0,
-          applied: inv.applied ? Number(inv.applied) : undefined,
-          totalReturn: inv.totalReturn ? Number(inv.totalReturn) : undefined,
-          annualReturn: inv.annualReturn ? Number(inv.annualReturn) : undefined,
-          yearStarted: inv.yearStarted || undefined,
-          incomeType: inv.incomeType,
-          region: inv.region,
-        };
-      });
-
     const data: SnapshotFormData = {
       month,
       label,
-      total: computed.total,
-      changeValue: computed.changeValue,
-      changePercentage: computed.changePercentage,
-      fixedIncome: computed.fixedIncome,
-      variableIncome: computed.variableIncome,
-      brazil: computed.brazil,
-      exterior: computed.exterior,
-      growth2025: computed.growth2025,
-      investments: parsedInvestments,
+      total: computed.derived.total,
+      changeValue: computed.derived.changeValue,
+      changePercentage: computed.derived.changePercentage,
+      fixedIncome: computed.derived.fixedIncome,
+      variableIncome: computed.derived.variableIncome,
+      brazil: computed.derived.brazil,
+      exterior: computed.derived.exterior,
+      growth2025: computed.derived.growth2025,
+      investments: computed.invData,
     };
     onSave(data, isEdit ? snapshot.month : undefined);
   };
