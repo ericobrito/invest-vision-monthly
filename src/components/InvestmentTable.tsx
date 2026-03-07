@@ -49,7 +49,7 @@ const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
                   <th className="text-right p-4 font-medium">Rent. Total</th>
                 </>
               )}
-              {snapshot.investments.some(i => i.annualReturn !== undefined) && (
+              {hasAnnualReturn && (
                 <th className="text-right p-4 font-medium">Rent. Anual</th>
               )}
             </tr>
