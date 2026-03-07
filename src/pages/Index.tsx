@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useSnapshots, useSaveSnapshot, useDeleteSnapshot } from "@/hooks/useSnapshots";
+import { useUpdateInvestment } from "@/hooks/useUpdateInvestment";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
+import type { Investment } from "@/data/investments";
 import MonthSelector from "@/components/MonthSelector";
 import SummaryCards from "@/components/SummaryCards";
 import InvestmentTable from "@/components/InvestmentTable";
 import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
+import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import { BarChart3, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -25,13 +28,15 @@ const Index = () => {
   const { data: monthlyData = [], isLoading } = useSnapshots();
   const saveSnapshot = useSaveSnapshot();
   const deleteSnapshot = useDeleteSnapshot();
+  const updateInvestment = useUpdateInvestment();
 
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSnapshot, setEditingSnapshot] = useState<typeof monthlyData[0] | undefined>();
   const [deleteMonth, setDeleteMonth] = useState<string | null>(null);
+  const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+  const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false);
 
-  // Auto-select last month when data loads
   const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
   const snapshot = monthlyData[effectiveIndex];
 
@@ -67,6 +72,33 @@ const Index = () => {
     });
   };
 
+  const handleEditInvestment = (inv: Investment) => {
+    setEditingInvestment(inv);
+    setInvestmentDialogOpen(true);
+  };
+
+  const handleSaveInvestment = (updated: Investment) => {
+    if (!snapshot || !editingInvestment) return;
+    updateInvestment.mutate(
+      {
+        investmentName: editingInvestment.name,
+        snapshotMonth: snapshot.month,
+        updated,
+        allSnapshots: monthlyData,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Investimento atualizado!" });
+          setInvestmentDialogOpen(false);
+          setEditingInvestment(null);
+        },
+        onError: (err) => {
+          toast({ title: "Erro ao salvar", description: String(err), variant: "destructive" });
+        },
+      }
+    );
+  };
+
   const openAdd = () => {
     setEditingSnapshot(undefined);
     setDialogOpen(true);
@@ -89,7 +121,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border sticky top-0 z-50 bg-background/80 backdrop-blur-md">
         <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -134,7 +165,6 @@ const Index = () => {
           </div>
         ) : (
           <>
-            {/* Month Selector */}
             <div className="overflow-x-auto">
               <MonthSelector
                 currentIndex={effectiveIndex}
@@ -156,7 +186,7 @@ const Index = () => {
                   </div>
                 </div>
 
-                <InvestmentTable snapshot={snapshot} />
+                <InvestmentTable snapshot={snapshot} onEditInvestment={handleEditInvestment} />
 
                 {snapshot.growth2025 && (
                   <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
@@ -172,7 +202,6 @@ const Index = () => {
         )}
       </main>
 
-      {/* Edit/Add Dialog */}
       <SnapshotDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -182,7 +211,14 @@ const Index = () => {
         isSaving={saveSnapshot.isPending}
       />
 
-      {/* Delete Confirmation */}
+      <InvestmentEditDialog
+        open={investmentDialogOpen}
+        onOpenChange={setInvestmentDialogOpen}
+        investment={editingInvestment}
+        onSave={handleSaveInvestment}
+        isSaving={updateInvestment.isPending}
+      />
+
       <AlertDialog open={!!deleteMonth} onOpenChange={() => setDeleteMonth(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
