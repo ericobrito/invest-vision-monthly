@@ -1,5 +1,4 @@
 import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
-import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

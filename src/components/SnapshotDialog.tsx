@@ -141,12 +141,12 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar Mês" : "Adicionar Novo Mês"}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 overflow-y-auto pr-4">
           <div className="space-y-6 py-2">
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
