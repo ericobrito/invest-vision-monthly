@@ -82,7 +82,7 @@ const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
                     </td>
                   </>
                 )}
-                {snapshot.investments.some(i => i.annualReturn !== undefined) && (
+              {hasAnnualReturn && (
                   <td className={`text-right p-4 font-mono ${
                     inv.annualReturn !== undefined
                       ? inv.annualReturn >= 0 ? "text-positive" : "text-negative"
