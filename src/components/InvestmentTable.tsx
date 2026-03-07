@@ -6,6 +6,30 @@ interface InvestmentTableProps {
 
 const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
+  const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
+
+  // Totals
+  const totalApplied = snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
+  const totalValue = snapshot.total;
+
+  // Overall total return using oldest yearStarted
+  const oldestYear = snapshot.investments
+    .filter(i => i.yearStarted)
+    .map(i => i.yearStarted!)
+    .sort()[0];
+
+  const overallTotalReturn = totalApplied > 0
+    ? ((totalValue - totalApplied) / totalApplied) * 100
+    : undefined;
+
+  let overallAnnualReturn: number | undefined;
+  if (oldestYear && totalApplied > 0 && totalValue > 0) {
+    const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
+    const years = (new Date().getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    if (years > 0) {
+      overallAnnualReturn = (Math.pow(totalValue / totalApplied, 1 / years) - 1) * 100;
+    }
+  }
 
   return (
     <div className="gradient-card rounded-xl border border-border overflow-hidden">
