@@ -98,8 +98,27 @@ const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
               <td className="p-4 text-foreground">Total</td>
               <td className="text-right p-4 text-foreground font-mono">{formatBRL(snapshot.total)}</td>
               <td className="text-right p-4 text-muted-foreground">100%</td>
-              {hasApplied && <td colSpan={2} />}
-              {snapshot.investments.some(i => i.annualReturn !== undefined) && <td />}
+              {hasApplied && (
+                <>
+                  <td className="text-right p-4 text-foreground font-mono">{formatBRL(totalApplied)}</td>
+                  <td className={`text-right p-4 font-mono ${
+                    overallTotalReturn !== undefined
+                      ? overallTotalReturn >= 0 ? "text-positive" : "text-negative"
+                      : "text-muted-foreground"
+                  }`}>
+                    {overallTotalReturn !== undefined ? `${overallTotalReturn >= 0 ? "+" : ""}${overallTotalReturn.toFixed(2)}%` : "—"}
+                  </td>
+                </>
+              )}
+              {hasAnnualReturn && (
+                <td className={`text-right p-4 font-mono ${
+                  overallAnnualReturn !== undefined
+                    ? overallAnnualReturn >= 0 ? "text-positive" : "text-negative"
+                    : "text-muted-foreground"
+                }`}>
+                  {overallAnnualReturn !== undefined ? `${overallAnnualReturn >= 0 ? "+" : ""}${overallAnnualReturn.toFixed(2)}%` : "—"}
+                </td>
+              )}
             </tr>
           </tbody>
         </table>
