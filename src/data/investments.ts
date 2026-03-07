@@ -451,7 +451,7 @@ export const monthlyData: MonthlySnapshot[] = [
   },
   {
     month: "2026-02", label: "Fev 2026", total: 573573.96,
-    change: { value: 16703.67, percentage: 2.91 },
+    change: { value: -4242.67, percentage: -0.73 },
     fixedIncome: 66.67, variableIncome: 33.33,
     brazil: 74.42, exterior: 24.03,
     investments: [

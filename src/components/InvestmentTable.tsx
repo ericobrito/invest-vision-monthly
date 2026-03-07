@@ -6,6 +6,30 @@ interface InvestmentTableProps {
 
 const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
+  const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
+
+  // Totals
+  const totalApplied = snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
+  const totalValue = snapshot.total;
+
+  // Overall total return using oldest yearStarted
+  const oldestYear = snapshot.investments
+    .filter(i => i.yearStarted)
+    .map(i => i.yearStarted!)
+    .sort()[0];
+
+  const overallTotalReturn = totalApplied > 0
+    ? ((totalValue - totalApplied) / totalApplied) * 100
+    : undefined;
+
+  let overallAnnualReturn: number | undefined;
+  if (oldestYear && totalApplied > 0 && totalValue > 0) {
+    const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
+    const years = (new Date().getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    if (years > 0) {
+      overallAnnualReturn = (Math.pow(totalValue / totalApplied, 1 / years) - 1) * 100;
+    }
+  }
 
   return (
     <div className="gradient-card rounded-xl border border-border overflow-hidden">
@@ -25,7 +49,7 @@ const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
                   <th className="text-right p-4 font-medium">Rent. Total</th>
                 </>
               )}
-              {snapshot.investments.some(i => i.annualReturn !== undefined) && (
+              {hasAnnualReturn && (
                 <th className="text-right p-4 font-medium">Rent. Anual</th>
               )}
             </tr>
@@ -58,7 +82,7 @@ const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
                     </td>
                   </>
                 )}
-                {snapshot.investments.some(i => i.annualReturn !== undefined) && (
+              {hasAnnualReturn && (
                   <td className={`text-right p-4 font-mono ${
                     inv.annualReturn !== undefined
                       ? inv.annualReturn >= 0 ? "text-positive" : "text-negative"
@@ -74,8 +98,27 @@ const InvestmentTable = ({ snapshot }: InvestmentTableProps) => {
               <td className="p-4 text-foreground">Total</td>
               <td className="text-right p-4 text-foreground font-mono">{formatBRL(snapshot.total)}</td>
               <td className="text-right p-4 text-muted-foreground">100%</td>
-              {hasApplied && <td colSpan={2} />}
-              {snapshot.investments.some(i => i.annualReturn !== undefined) && <td />}
+              {hasApplied && (
+                <>
+                  <td className="text-right p-4 text-foreground font-mono">{formatBRL(totalApplied)}</td>
+                  <td className={`text-right p-4 font-mono ${
+                    overallTotalReturn !== undefined
+                      ? overallTotalReturn >= 0 ? "text-positive" : "text-negative"
+                      : "text-muted-foreground"
+                  }`}>
+                    {overallTotalReturn !== undefined ? `${overallTotalReturn >= 0 ? "+" : ""}${overallTotalReturn.toFixed(2)}%` : "—"}
+                  </td>
+                </>
+              )}
+              {hasAnnualReturn && (
+                <td className={`text-right p-4 font-mono ${
+                  overallAnnualReturn !== undefined
+                    ? overallAnnualReturn >= 0 ? "text-positive" : "text-negative"
+                    : "text-muted-foreground"
+                }`}>
+                  {overallAnnualReturn !== undefined ? `${overallAnnualReturn >= 0 ? "+" : ""}${overallAnnualReturn.toFixed(2)}%` : "—"}
+                </td>
+              )}
             </tr>
           </tbody>
         </table>
