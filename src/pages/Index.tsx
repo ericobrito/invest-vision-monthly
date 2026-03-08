@@ -190,7 +190,7 @@ const Index = () => {
 
                 {snapshot.growth2025 && (
                   <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2025</p>
+                    <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2024</p>
                     <p className="text-2xl font-bold text-primary">
                       {snapshot.growth2025.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </p>
