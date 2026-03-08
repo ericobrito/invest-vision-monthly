@@ -113,11 +113,11 @@ export function computeDerivedFields(
     changePercentage = prev.total > 0 ? Number(((changeValue / prev.total) * 100).toFixed(2)) : undefined;
   }
 
-  // Growth since Jan 2025
-  const jan2025 = sorted.find(s => s.month === '2025-01');
+  // Growth since Jan 2024
+  const jan2024 = sorted.find(s => s.month === '2024-01');
   let growth2025: number | undefined;
-  if (jan2025 && currentMonth >= '2025-01') {
-    growth2025 = Number((total - jan2025.total).toFixed(2));
+  if (jan2024 && currentMonth >= '2024-01') {
+    growth2025 = Number((total - jan2024.total).toFixed(2));
   }
 
   return { total, changeValue, changePercentage, fixedIncome, variableIncome, brazil, exterior, growth2025 };
