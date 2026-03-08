@@ -12,7 +12,7 @@ function mapRow(row: any, investments: any[]): MonthlySnapshot {
       applied: inv.applied != null ? Number(inv.applied) : undefined,
       totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
       annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
-      yearStarted: inv.year_started ?? undefined,
+      yearStarted: inv.year_started ? (inv.year_started.length === 4 ? `${inv.year_started}-01-01` : inv.year_started) : undefined,
       incomeType: (inv.income_type as IncomeType) || 'fixed',
       region: (inv.region as Region) || 'brazil',
     }));
