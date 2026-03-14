@@ -191,14 +191,38 @@ const Index = () => {
                 {(() => {
                   const jan2024 = monthlyData.find(s => s.month === '2024-01');
                   const growthSince2024 = jan2024 ? snapshot.total - jan2024.total : undefined;
-                  return growthSince2024 != null ? (
-                    <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
-                      <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2024</p>
-                      <p className={`text-2xl font-bold ${growthSince2024 >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                        {growthSince2024.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      </p>
+
+                  const allTotals = monthlyData.map(s => s.total);
+                  const maxTotal = Math.max(...allTotals);
+                  const diffFromMax = snapshot.total - maxTotal;
+                  const diffFromMaxPct = maxTotal > 0 ? (diffFromMax / maxTotal) * 100 : 0;
+                  const isAtPeak = diffFromMax >= 0;
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {growthSince2024 != null && (
+                        <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
+                          <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2024</p>
+                          <p className={`text-2xl font-bold ${growthSince2024 >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                            {growthSince2024.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                        </div>
+                      )}
+                      <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
+                        <p className="text-sm text-muted-foreground mb-1">
+                          {isAtPeak ? "Você está no topo histórico!" : "Distância do topo histórico"}
+                        </p>
+                        <p className={`text-2xl font-bold ${isAtPeak ? 'text-primary' : 'text-destructive'}`}>
+                          {diffFromMax.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </p>
+                        {!isAtPeak && (
+                          <p className="text-sm text-destructive mt-1">
+                            {diffFromMaxPct.toFixed(2)}% em relação ao pico ({maxTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  ) : null;
+                  );
                 })()}
               </>
             )}
