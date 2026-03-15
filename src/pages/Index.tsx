@@ -134,6 +134,11 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link to="/radar">
+              <Button variant="outline" size="sm">
+                <Target className="w-4 h-4 mr-1" /> Radar
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title="Editar mês">
