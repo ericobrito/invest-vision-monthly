@@ -10,8 +10,9 @@ import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
-import { BarChart3, Plus, Pencil, Trash2 } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -133,6 +134,11 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link to="/radar">
+              <Button variant="outline" size="sm">
+                <Target className="w-4 h-4 mr-1" /> Radar
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title="Editar mês">
