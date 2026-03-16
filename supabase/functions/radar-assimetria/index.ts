@@ -150,14 +150,17 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
   const rawProb = volatility > 0 ? (potentialReturn / volatility) * 50 : 0;
   const probability30 = Math.min(100, Math.max(0, rawProb));
 
-  // Score calculation (0-100)
-  // potential_return * 30, momentum * 20, relative_strength * 20, revenue * 15, market_cap * 10, volume * 5
+  // Score calculation (0-100) with soft quality factors
   const potReturnFactor = Math.min(1, potentialReturn / 0.5);
-  const momentumFactor = momentum ? 1 : 0;
-  const rsFactor = Math.min(1, Math.max(0, (relativeStrength - 0.5) / 1.5));
+  const momentumFactor = momentum ? 1 : 0.3; // soft: still gets partial credit
+  const rsFactor = relativeStrength > 1
+    ? Math.min(1, (relativeStrength - 0.5) / 1.5)
+    : Math.max(0, relativeStrength / 2); // soft: below 1 gets partial credit
   const revenueFactor = 0.6; // Default mid-value since data unavailable
   const mcapFactor = 1; // Curated list = all qualify
   const volFactor = avgVolume > 2_000_000 ? 1 : Math.min(1, avgVolume / 2_000_000);
+  // Soft bonus for recent ATH (within 24 months) — already filtered but add score boost
+  const athRecencyBonus = athDate >= twoYearsAgo ? 1 : 0.5;
 
   const score = Math.round(
     potReturnFactor * 30 +
