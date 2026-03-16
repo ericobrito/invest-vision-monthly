@@ -103,8 +103,7 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
   const now = new Date();
   const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000);
 
-  // ATH must be within last 24 months
-  if (athDate < twoYearsAgo) return null;
+  // ATH recency is now a soft factor (affects score, not exclusion)
 
   // Distance from ATH
   const distanceFromAth = (ath - currentPrice) / ath;
