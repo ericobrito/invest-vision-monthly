@@ -70,8 +70,11 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stocks.map((stock) => (
+            {stocks.map((stock, index) => (
               <TableRow key={stock.ticker} className={getRowHighlight(stock.annualizedReturn)}>
+                <TableCell className="text-center font-bold text-lg text-muted-foreground">
+                  {index + 1}
+                </TableCell>
                 <TableCell className="font-bold text-foreground whitespace-nowrap">
                   {stock.ticker}
                   <div className="text-xs text-muted-foreground mt-0.5">
