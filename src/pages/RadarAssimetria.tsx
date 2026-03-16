@@ -158,11 +158,10 @@ const RadarAssimetria = () => {
                 </div>
               </div>
               <div>
-                <span className="font-semibold text-foreground">Filtros de Segurança:</span>
+                <span className="font-semibold text-foreground">Filtros Obrigatórios:</span>
                 <div>Momentum positivo (acima MA200)</div>
-                <div>Potencial ≥ 40%</div>
-                <div>Distância do ATH: 10–40%</div>
-                <div>Força Relativa &gt; 1</div>
+                <div>Potencial ≥ 30%</div>
+                <div>Distância do ATH: 10–45%</div>
               </div>
             </div>
           </CardContent>
