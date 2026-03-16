@@ -162,14 +162,14 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
   // Soft bonus for recent ATH (within 24 months) — already filtered but add score boost
   const athRecencyBonus = athDate >= twoYearsAgo ? 1 : 0.5;
 
-  const score = Math.round(
+  const rawScore =
     potReturnFactor * 30 +
     momentumFactor * 20 +
     rsFactor * 20 +
-    revenueFactor * 15 +
+    revenueFactor * 15 * athRecencyBonus +
     mcapFactor * 10 +
-    volFactor * 5
-  );
+    volFactor * 5;
+  const score = Math.round(Math.min(100, rawScore));
 
   // Sparkline data (sample to ~50 points from last 12 months)
   const last252 = validCloses.slice(-252);
