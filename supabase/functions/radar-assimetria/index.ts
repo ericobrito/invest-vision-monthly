@@ -288,12 +288,12 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      data: filtered,
+      data: finalData,
       allData: allResults,
       sp500Return12m,
       updatedAt: new Date().toISOString(),
       totalAnalyzed: tickers.length,
-      totalPassed: filtered.length,
+      totalPassed: finalData.length,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
