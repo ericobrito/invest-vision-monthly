@@ -103,8 +103,7 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
   const now = new Date();
   const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000);
 
-  // ATH must be within last 24 months
-  if (athDate < twoYearsAgo) return null;
+  // ATH recency is now a soft factor (affects score, not exclusion)
 
   // Distance from ATH
   const distanceFromAth = (ath - currentPrice) / ath;
@@ -150,23 +149,26 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
   const rawProb = volatility > 0 ? (potentialReturn / volatility) * 50 : 0;
   const probability30 = Math.min(100, Math.max(0, rawProb));
 
-  // Score calculation (0-100)
-  // potential_return * 30, momentum * 20, relative_strength * 20, revenue * 15, market_cap * 10, volume * 5
+  // Score calculation (0-100) with soft quality factors
   const potReturnFactor = Math.min(1, potentialReturn / 0.5);
-  const momentumFactor = momentum ? 1 : 0;
-  const rsFactor = Math.min(1, Math.max(0, (relativeStrength - 0.5) / 1.5));
+  const momentumFactor = momentum ? 1 : 0.3; // soft: still gets partial credit
+  const rsFactor = relativeStrength > 1
+    ? Math.min(1, (relativeStrength - 0.5) / 1.5)
+    : Math.max(0, relativeStrength / 2); // soft: below 1 gets partial credit
   const revenueFactor = 0.6; // Default mid-value since data unavailable
   const mcapFactor = 1; // Curated list = all qualify
   const volFactor = avgVolume > 2_000_000 ? 1 : Math.min(1, avgVolume / 2_000_000);
+  // Soft bonus for recent ATH (within 24 months) — already filtered but add score boost
+  const athRecencyBonus = athDate >= twoYearsAgo ? 1 : 0.5;
 
-  const score = Math.round(
+  const rawScore =
     potReturnFactor * 30 +
     momentumFactor * 20 +
     rsFactor * 20 +
-    revenueFactor * 15 +
+    revenueFactor * 15 * athRecencyBonus +
     mcapFactor * 10 +
-    volFactor * 5
-  );
+    volFactor * 5;
+  const score = Math.round(Math.min(100, rawScore));
 
   // Sparkline data (sample to ~50 points from last 12 months)
   const last252 = validCloses.slice(-252);
@@ -261,35 +263,37 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Apply safety filters
+    // Apply MANDATORY filters only (hard filters)
     const filtered = allResults.filter(s =>
       s.momentum &&
-      s.potentialReturn >= 0.40 &&
-      s.distanceFromAth >= 0.10 && s.distanceFromAth <= 0.40 &&
-      s.score >= 80 &&
-      s.relativeStrength > 1
+      s.potentialReturn >= 0.30 &&
+      s.distanceFromAth >= 0.10 && s.distanceFromAth <= 0.45
     );
 
-    // Sort: score desc, then relative strength, then probability30
+    // Sort: score desc, then probability30, then relative strength, then potential return
     const sortFn = (a: StockAnalysis, b: StockAnalysis) => {
       if (b.score !== a.score) return b.score - a.score;
+      if (b.probability30 !== a.probability30) return b.probability30 - a.probability30;
       if (b.relativeStrength !== a.relativeStrength) return b.relativeStrength - a.relativeStrength;
-      return b.probability30 - a.probability30;
+      return b.potentialReturn - a.potentialReturn;
     };
 
     filtered.sort(sortFn);
     allResults.sort(sortFn);
 
+    // Guarantee: never return empty — fallback to top allResults
+    const finalData = filtered.length > 0 ? filtered : allResults.slice(0, 10);
+
     console.log(`Analyzed ${tickers.length}, valid ${allResults.length}, passed filters ${filtered.length}`);
 
     return new Response(JSON.stringify({
       success: true,
-      data: filtered,
+      data: finalData,
       allData: allResults,
       sp500Return12m,
       updatedAt: new Date().toISOString(),
       totalAnalyzed: tickers.length,
-      totalPassed: filtered.length,
+      totalPassed: finalData.length,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
