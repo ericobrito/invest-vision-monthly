@@ -55,6 +55,7 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
+              <TableHead className="whitespace-nowrap font-semibold text-center w-16">Rank</TableHead>
               <TableHead className="whitespace-nowrap font-semibold">Ticker</TableHead>
               <TableHead className="whitespace-nowrap font-semibold text-right">Preço Atual</TableHead>
               <TableHead className="whitespace-nowrap font-semibold text-right">Topo Histórico (ATH)</TableHead>
