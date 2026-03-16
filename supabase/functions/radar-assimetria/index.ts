@@ -261,24 +261,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Apply safety filters
+    // Apply MANDATORY filters only (hard filters)
     const filtered = allResults.filter(s =>
       s.momentum &&
-      s.potentialReturn >= 0.40 &&
-      s.distanceFromAth >= 0.10 && s.distanceFromAth <= 0.40 &&
-      s.score >= 80 &&
-      s.relativeStrength > 1
+      s.potentialReturn >= 0.30 &&
+      s.distanceFromAth >= 0.10 && s.distanceFromAth <= 0.45
     );
 
-    // Sort: score desc, then relative strength, then probability30
+    // Sort: score desc, then probability30, then relative strength, then potential return
     const sortFn = (a: StockAnalysis, b: StockAnalysis) => {
       if (b.score !== a.score) return b.score - a.score;
+      if (b.probability30 !== a.probability30) return b.probability30 - a.probability30;
       if (b.relativeStrength !== a.relativeStrength) return b.relativeStrength - a.relativeStrength;
-      return b.probability30 - a.probability30;
+      return b.potentialReturn - a.potentialReturn;
     };
 
     filtered.sort(sortFn);
     allResults.sort(sortFn);
+
+    // Guarantee: never return empty — fallback to top allResults
+    const finalData = filtered.length > 0 ? filtered : allResults.slice(0, 10);
 
     console.log(`Analyzed ${tickers.length}, valid ${allResults.length}, passed filters ${filtered.length}`);
 
