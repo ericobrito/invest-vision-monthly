@@ -6,11 +6,16 @@ interface AllocationChartProps {
 }
 
 const AllocationChart = ({ snapshot }: AllocationChartProps) => {
-  const data = snapshot.investments.map(inv => ({
-    name: inv.name,
-    value: inv.value,
-    percentage: inv.percentage,
-  }));
+  // Map original index for color consistency, then sort by percentage descending
+  const originalOrder = snapshot.investments.map(i => i.name);
+  const data = [...snapshot.investments]
+    .sort((a, b) => b.percentage - a.percentage)
+    .map(inv => ({
+      name: inv.name,
+      value: inv.value,
+      percentage: inv.percentage,
+      colorIndex: originalOrder.indexOf(inv.name),
+    }));
 
   return (
     <div className="gradient-card rounded-xl border border-border p-5">
@@ -28,8 +33,8 @@ const AllocationChart = ({ snapshot }: AllocationChartProps) => {
               dataKey="value"
               stroke="none"
             >
-              {data.map((_entry, index) => (
-                <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              {data.map((entry, index) => (
+                <Cell key={index} fill={CHART_COLORS[entry.colorIndex % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip
@@ -52,9 +57,9 @@ const AllocationChart = ({ snapshot }: AllocationChartProps) => {
       </div>
       {/* Legend */}
       <div className="grid grid-cols-2 gap-2 mt-4">
-        {data.map((item, i) => (
+        {data.map((item) => (
           <div key={item.name} className="flex items-center gap-2 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[item.colorIndex % CHART_COLORS.length] }} />
             <span className="text-muted-foreground truncate">{item.name}</span>
             <span className="text-foreground font-mono ml-auto">{item.percentage.toFixed(1)}%</span>
           </div>
