@@ -119,7 +119,9 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
             </tr>
           </thead>
           <tbody>
-            {snapshot.investments.map((inv, index) => (
+            {sortedInvestments.map((inv) => {
+              const originalIndex = originalOrder.indexOf(inv.name);
+              return (
               <tr key={inv.name} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                 <td className="p-4">
                   <div className="flex items-center gap-3">
