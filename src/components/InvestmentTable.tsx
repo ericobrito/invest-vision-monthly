@@ -171,7 +171,8 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                   </td>
                 )}
               </tr>
-            ))}
+              );
+            })}
             {/* Total row */}
             <tr className="bg-secondary/20 font-semibold">
               <td className="p-4 text-foreground">Total</td>
