@@ -1,7 +1,10 @@
 import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
-import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Pencil, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+type SortKey = "percentage" | "value" | "name" | "applied" | "totalReturn" | "annualReturn";
+type SortDir = "asc" | "desc";
 
 interface InvestmentTableProps {
   snapshot: MonthlySnapshot;
@@ -11,6 +14,48 @@ interface InvestmentTableProps {
 const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) => {
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
   const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
+  const [sortKey, setSortKey] = useState<SortKey>("percentage");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "desc" ? "asc" : "desc");
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const sortedInvestments = useMemo(() => {
+    const list = [...snapshot.investments];
+    list.sort((a, b) => {
+      let va: number, vb: number;
+      switch (sortKey) {
+        case "name": {
+          const cmp = a.name.localeCompare(b.name);
+          return sortDir === "asc" ? cmp : -cmp;
+        }
+        case "value": va = a.value; vb = b.value; break;
+        case "percentage": va = a.percentage; vb = b.percentage; break;
+        case "applied": va = a.applied ?? 0; vb = b.applied ?? 0; break;
+        case "totalReturn": va = a.totalReturn ?? -Infinity; vb = b.totalReturn ?? -Infinity; break;
+        case "annualReturn": va = a.annualReturn ?? -Infinity; vb = b.annualReturn ?? -Infinity; break;
+        default: va = a.percentage; vb = b.percentage;
+      }
+      return sortDir === "desc" ? vb - va : va - vb;
+    });
+    return list;
+  }, [snapshot.investments, sortKey, sortDir]);
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />;
+    return sortDir === "desc"
+      ? <ArrowDown className="w-3 h-3 ml-1 inline" />
+      : <ArrowUp className="w-3 h-3 ml-1 inline" />;
+  };
+
+  // Map original index for color consistency
+  const originalOrder = snapshot.investments.map(i => i.name);
 
   // Totals
   const totalApplied = snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
