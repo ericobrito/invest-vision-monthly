@@ -109,7 +109,9 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                 </>
               )}
               {hasAnnualReturn && (
-                <th className="text-right p-4 font-medium">Rent. Anual</th>
+                <th className="text-right p-4 font-medium cursor-pointer select-none" onClick={() => handleSort("annualReturn")}>
+                  Rent. Anual <SortIcon col="annualReturn" />
+                </th>
               )}
               {onEditInvestment && (
                 <th className="w-10 p-4"></th>
