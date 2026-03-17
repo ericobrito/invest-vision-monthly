@@ -89,9 +89,15 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
-              <th className="text-left p-4 font-medium">Investimento</th>
-              <th className="text-right p-4 font-medium">Valor</th>
-              <th className="text-right p-4 font-medium">%</th>
+              <th className="text-left p-4 font-medium cursor-pointer select-none" onClick={() => handleSort("name")}>
+                Investimento <SortIcon col="name" />
+              </th>
+              <th className="text-right p-4 font-medium cursor-pointer select-none" onClick={() => handleSort("value")}>
+                Valor <SortIcon col="value" />
+              </th>
+              <th className="text-right p-4 font-medium cursor-pointer select-none" onClick={() => handleSort("percentage")}>
+                % <SortIcon col="percentage" />
+              </th>
               {hasApplied && (
                 <>
                   <th className="text-right p-4 font-medium">Aplicado</th>
