@@ -33,8 +33,8 @@ const AllocationChart = ({ snapshot }: AllocationChartProps) => {
               dataKey="value"
               stroke="none"
             >
-              {data.map((_entry, index) => (
-                <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              {data.map((entry, index) => (
+                <Cell key={index} fill={CHART_COLORS[entry.colorIndex % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip
