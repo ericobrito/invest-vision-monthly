@@ -127,7 +127,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                   <div className="flex items-center gap-3">
                     <div
                       className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                      style={{ backgroundColor: CHART_COLORS[originalIndex % CHART_COLORS.length] }}
                     />
                     <span className="text-foreground font-medium">{inv.name}</span>
                   </div>
