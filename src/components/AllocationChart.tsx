@@ -6,11 +6,16 @@ interface AllocationChartProps {
 }
 
 const AllocationChart = ({ snapshot }: AllocationChartProps) => {
-  const data = snapshot.investments.map(inv => ({
-    name: inv.name,
-    value: inv.value,
-    percentage: inv.percentage,
-  }));
+  // Map original index for color consistency, then sort by percentage descending
+  const originalOrder = snapshot.investments.map(i => i.name);
+  const data = [...snapshot.investments]
+    .sort((a, b) => b.percentage - a.percentage)
+    .map(inv => ({
+      name: inv.name,
+      value: inv.value,
+      percentage: inv.percentage,
+      colorIndex: originalOrder.indexOf(inv.name),
+    }));
 
   return (
     <div className="gradient-card rounded-xl border border-border p-5">
