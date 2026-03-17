@@ -57,9 +57,9 @@ const AllocationChart = ({ snapshot }: AllocationChartProps) => {
       </div>
       {/* Legend */}
       <div className="grid grid-cols-2 gap-2 mt-4">
-        {data.map((item, i) => (
+        {data.map((item) => (
           <div key={item.name} className="flex items-center gap-2 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[item.colorIndex % CHART_COLORS.length] }} />
             <span className="text-muted-foreground truncate">{item.name}</span>
             <span className="text-foreground font-mono ml-auto">{item.percentage.toFixed(1)}%</span>
           </div>
