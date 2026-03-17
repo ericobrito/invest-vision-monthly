@@ -100,8 +100,12 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
               </th>
               {hasApplied && (
                 <>
-                  <th className="text-right p-4 font-medium">Aplicado</th>
-                  <th className="text-right p-4 font-medium">Rent. Total</th>
+                  <th className="text-right p-4 font-medium cursor-pointer select-none" onClick={() => handleSort("applied")}>
+                    Aplicado <SortIcon col="applied" />
+                  </th>
+                  <th className="text-right p-4 font-medium cursor-pointer select-none" onClick={() => handleSort("totalReturn")}>
+                    Rent. Total <SortIcon col="totalReturn" />
+                  </th>
                 </>
               )}
               {hasAnnualReturn && (
