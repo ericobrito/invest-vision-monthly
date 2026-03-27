@@ -139,6 +139,11 @@ const Index = () => {
                 <Target className="w-4 h-4 mr-1" /> Radar
               </Button>
             </Link>
+            <Link to="/radar-tesouro">
+              <Button variant="outline" size="sm">
+                <Landmark className="w-4 h-4 mr-1" /> Tesouro
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title="Editar mês">
