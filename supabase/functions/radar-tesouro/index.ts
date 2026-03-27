@@ -123,7 +123,7 @@ serve(async (req) => {
       return b.buyRate - a.buyRate;
     });
 
-    const parsedLatest = parseDate(latestDate);
+    const parsedLatest = parseDate(latestDateStr);
 
     return new Response(
       JSON.stringify({
