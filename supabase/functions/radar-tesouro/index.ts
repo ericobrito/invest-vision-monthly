@@ -49,12 +49,11 @@ serve(async (req) => {
     const text = await res.text();
     const lines = text.split("\n").filter(l => l.trim());
     
-    // Find latest date by scanning last portion of file (dates aren't strictly sorted)
+    // Find latest "Data Base" across ALL lines
     let latestDateStr = "";
     let latestDateMs = 0;
-    const scanStart = Math.max(1, lines.length - 2000);
     
-    for (let i = scanStart; i < lines.length; i++) {
+    for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(";");
       if (cols.length >= 7) {
         const dataBase = cols[2];
