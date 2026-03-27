@@ -50,27 +50,31 @@ serve(async (req) => {
     const lines = text.split("\n").filter(l => l.trim());
     
     // Header: Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
-    // Find latest date
-    let latestDate = "";
+    // Find latest date by parsing all dates
+    let latestDateStr = "";
+    let latestDateMs = 0;
+
     for (let i = lines.length - 1; i >= 1; i--) {
       const cols = lines[i].split(";");
       if (cols.length >= 7) {
         const dataBase = cols[2];
-        if (!latestDate || dataBase > latestDate) {
-          latestDate = dataBase;
-          break; // CSV is sorted by date, latest at end
+        const parsed = parseDate(dataBase);
+        const ms = parsed.getTime();
+        if (ms > latestDateMs) {
+          latestDateMs = ms;
+          latestDateStr = dataBase;
         }
+        // Once we find the latest, check a few more then break (data is roughly sorted)
+        if (latestDateStr && ms < latestDateMs) break;
       }
     }
 
     // Collect all entries for the latest date
     const latestEntries: string[] = [];
-    for (let i = lines.length - 1; i >= 1; i--) {
+    for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(";");
-      if (cols.length >= 7 && cols[2] === latestDate) {
+      if (cols.length >= 7 && cols[2] === latestDateStr) {
         latestEntries.push(lines[i]);
-      } else if (latestEntries.length > 0) {
-        break; // Passed all latest date entries
       }
     }
 
