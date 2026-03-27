@@ -5,35 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TESOURO_API = "https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybonds.json";
+const CSV_URL = "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv";
 
 const BENCHMARKS: Record<string, number> = {
   IPCA: 5.5,
   PREFIXADO: 10.5,
 };
 
-interface TesouroBond {
-  nm: string;
-  mtrtyDt: string;
-  indxNm: string;
-  anulInvstmtRate: number;
-  anulRedRate: number;
-  untrInvstmtVal: number;
-  isSttmnMsg: boolean;
-}
-
-function classifyType(indexName: string): string | null {
-  if (indexName.includes("IPCA")) return "IPCA";
-  if (indexName.includes("Prefixado") || indexName.includes("PRE")) return "PREFIXADO";
-  if (indexName.includes("Selic") || indexName.includes("SELIC")) return "SELIC";
+function classifyType(name: string): string | null {
+  if (name.startsWith("Tesouro Selic")) return "SELIC";
+  if (name.startsWith("Tesouro IPCA+") || name.startsWith("Tesouro IPCA+ com Juros Semestrais")) return "IPCA";
+  if (name.startsWith("Tesouro Prefixado")) return "PREFIXADO";
+  if (name.startsWith("Tesouro Renda+") || name.startsWith("Tesouro Educa+") || name.startsWith("Tesouro IGPM+")) return null;
   return null;
 }
 
-function classifyTypeFromName(name: string): string | null {
-  if (name.includes("IPCA")) return "IPCA";
-  if (name.includes("Prefixado") || name.includes("Pré")) return "PREFIXADO";
-  if (name.includes("Selic")) return "SELIC";
-  return null;
+function parseDate(ddmmyyyy: string): Date {
+  const [d, m, y] = ddmmyyyy.split("/");
+  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
 }
 
 function getStatus(score: number): { label: string; emoji: string } {
@@ -49,74 +38,94 @@ serve(async (req) => {
   }
 
   try {
-    const res = await fetch(TESOURO_API, {
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.tesourodireto.com.br/titulos/precos-e-taxas.htm",
-        "Origin": "https://www.tesourodireto.com.br",
-      },
+    const res = await fetch(CSV_URL, {
+      headers: { "User-Agent": "Mozilla/5.0" },
     });
 
     if (!res.ok) {
       throw new Error(`Tesouro API returned ${res.status}`);
     }
 
-    const json = await res.json();
-    const bonds: any[] = json?.response?.TrsrBdTradgList ?? [];
+    const text = await res.text();
+    const lines = text.split("\n").filter(l => l.trim());
+    
+    // Header: Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
+    // Find latest date
+    let latestDate = "";
+    for (let i = lines.length - 1; i >= 1; i--) {
+      const cols = lines[i].split(";");
+      if (cols.length >= 7) {
+        const dataBase = cols[2];
+        if (!latestDate || dataBase > latestDate) {
+          latestDate = dataBase;
+          break; // CSV is sorted by date, latest at end
+        }
+      }
+    }
 
-    const results = bonds
-      .map((b: any) => {
-        const bond = b.TrsrBd;
-        if (!bond) return null;
+    // Collect all entries for the latest date
+    const latestEntries: string[] = [];
+    for (let i = lines.length - 1; i >= 1; i--) {
+      const cols = lines[i].split(";");
+      if (cols.length >= 7 && cols[2] === latestDate) {
+        latestEntries.push(lines[i]);
+      } else if (latestEntries.length > 0) {
+        break; // Passed all latest date entries
+      }
+    }
 
-        const name: string = bond.nm ?? "";
-        const maturityDate: string = bond.mtrtyDt ?? "";
-        const indexName: string = bond.indxNm ?? name;
-        const buyRate: number = bond.anulInvstmtRate ?? 0;
-        const sellRate: number = bond.anulRedRate ?? 0;
-        const price: number = bond.untrInvstmtVal ?? 0;
-        const unavailable: boolean = bond.isSttmnMsg ?? false;
+    const results: any[] = [];
 
-        if (unavailable || buyRate === 0) return null;
+    for (const line of latestEntries) {
+      const cols = line.split(";");
+      const name = cols[0];
+      const maturityDateStr = cols[1];
+      const buyRate = parseFloat(cols[3].replace(",", "."));
+      const sellRate = parseFloat(cols[4].replace(",", "."));
+      const priceBuy = parseFloat(cols[5].replace(",", "."));
 
-        let type = classifyType(indexName);
-        if (!type) type = classifyTypeFromName(name);
-        if (!type || type === "SELIC") return null;
+      if (isNaN(buyRate) || buyRate === 0) continue;
 
-        const benchmark = BENCHMARKS[type];
-        const score = parseFloat((buyRate / benchmark).toFixed(4));
-        const status = getStatus(score);
+      const type = classifyType(name);
+      if (!type || type === "SELIC") continue;
 
-        const maturityMs = new Date(maturityDate).getTime();
-        const nowMs = Date.now();
-        const maturityYears = parseFloat(((maturityMs - nowMs) / (365.25 * 24 * 60 * 60 * 1000)).toFixed(2));
+      const benchmark = BENCHMARKS[type];
+      const score = parseFloat((buyRate / benchmark).toFixed(4));
+      const status = getStatus(score);
 
-        return {
-          name,
-          type,
-          maturityDate,
-          maturityYears,
-          buyRate,
-          sellRate,
-          price,
-          score,
-          statusLabel: status.label,
-          statusEmoji: status.emoji,
-        };
-      })
-      .filter(Boolean);
+      const maturityDate = parseDate(maturityDateStr);
+      const now = new Date();
+      const maturityYears = parseFloat(((maturityDate.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000)).toFixed(2));
 
-    results.sort((a: any, b: any) => {
+      const fullName = `${name} ${maturityDateStr.split("/")[2]}`;
+
+      results.push({
+        name: fullName,
+        type,
+        maturityDate: maturityDate.toISOString(),
+        maturityYears,
+        buyRate,
+        sellRate,
+        price: priceBuy,
+        score,
+        statusLabel: status.label,
+        statusEmoji: status.emoji,
+      });
+    }
+
+    // Sort: highest score first, then highest yield
+    results.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return b.buyRate - a.buyRate;
     });
+
+    const parsedLatest = parseDate(latestDate);
 
     return new Response(
       JSON.stringify({
         success: true,
         data: results,
-        updatedAt: new Date().toISOString(),
+        updatedAt: parsedLatest.toISOString(),
         total: results.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
