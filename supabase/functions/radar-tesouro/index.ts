@@ -98,6 +98,9 @@ serve(async (req) => {
       const now = new Date();
       const maturityYears = parseFloat(((maturityDate.getTime() - now.getTime()) / (365.25 * 24 * 60 * 60 * 1000)).toFixed(2));
 
+      // Skip already matured bonds
+      if (maturityYears <= 0) continue;
+
       const fullName = `${name} ${maturityDateStr.split("/")[2]}`;
 
       results.push({
