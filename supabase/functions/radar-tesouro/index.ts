@@ -49,12 +49,12 @@ serve(async (req) => {
     const text = await res.text();
     const lines = text.split("\n").filter(l => l.trim());
     
-    // Header: Tipo Titulo;Data Vencimento;Data Base;Taxa Compra Manha;Taxa Venda Manha;PU Compra Manha;PU Venda Manha;PU Base Manha
-    // Find latest date by parsing all dates
+    // Find latest date by scanning last portion of file (dates aren't strictly sorted)
     let latestDateStr = "";
     let latestDateMs = 0;
-
-    for (let i = lines.length - 1; i >= 1; i--) {
+    const scanStart = Math.max(1, lines.length - 2000);
+    
+    for (let i = scanStart; i < lines.length; i++) {
       const cols = lines[i].split(";");
       if (cols.length >= 7) {
         const dataBase = cols[2];
@@ -64,8 +64,6 @@ serve(async (req) => {
           latestDateMs = ms;
           latestDateStr = dataBase;
         }
-        // Once we find the latest, check a few more then break (data is roughly sorted)
-        if (latestDateStr && ms < latestDateMs) break;
       }
     }
 
