@@ -10,7 +10,7 @@ import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -142,6 +142,11 @@ const Index = () => {
             <Link to="/radar-tesouro">
               <Button variant="outline" size="sm">
                 <Landmark className="w-4 h-4 mr-1" /> Tesouro
+              </Button>
+            </Link>
+            <Link to="/plano-acao">
+              <Button variant="outline" size="sm">
+                <Lightbulb className="w-4 h-4 mr-1" /> Plano
               </Button>
             </Link>
             {snapshot && (
