@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import RadarAssimetria from "./pages/RadarAssimetria";
 import RadarTesouro from "./pages/RadarTesouro";
+import PlanoAcao from "./pages/PlanoAcao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
