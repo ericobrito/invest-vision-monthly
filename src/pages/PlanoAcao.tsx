@@ -109,7 +109,7 @@ function generateScenario(
 
   // Distribute to high performers
   if (highPerf.length > 0 && freedAllocation > 0) {
-    const currentCryptoAlloc = assets.filter(isCrypto).reduce((s, a) => s + a.allocation, 0);
+    const currentCryptoAlloc = assets.filter((a) => isCrypto(a.name)).reduce((s, a) => s + a.allocation, 0);
     const cryptoHighPerf = highPerf.filter((a) => isCrypto(a.name));
     const nonCryptoHighPerf = highPerf.filter((a) => !isCrypto(a.name));
 
