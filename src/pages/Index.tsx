@@ -144,6 +144,11 @@ const Index = () => {
                 <Landmark className="w-4 h-4 mr-1" /> Tesouro
               </Button>
             </Link>
+            <Link to="/plano-acao">
+              <Button variant="outline" size="sm">
+                <Lightbulb className="w-4 h-4 mr-1" /> Plano
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title="Editar mês">

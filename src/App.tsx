@@ -21,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/radar" element={<RadarAssimetria />} />
           <Route path="/radar-tesouro" element={<RadarTesouro />} />
+          <Route path="/plano-acao" element={<PlanoAcao />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
