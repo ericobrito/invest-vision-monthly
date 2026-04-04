@@ -37,6 +37,8 @@ interface Scenario {
   actions: RebalanceAction[];
   expectedReturn: number;
   currentReturn: number;
+  totalReduced: number;
+  totalReallocated: number;
 }
 
 function classifyAssets(investments: Investment[], total: number): ClassifiedAsset[] {
@@ -82,71 +84,105 @@ function generateScenario(
   total: number,
   intensity: "conservative" | "balanced" | "aggressive"
 ): Scenario {
-  const reductionFactor = intensity === "conservative" ? 0.03 : intensity === "balanced" ? 0.06 : 0.10;
+  // FIX 1: distinct capital movement per scenario
+  const budgetPercent = intensity === "conservative" ? 3 : intensity === "balanced" ? 6 : 12;
   const maxCryptoAlloc = 25;
+  const totalBudget = (total * budgetPercent) / 100; // absolute R$ to move
 
-  const lowPerf = assets.filter((a) => a.classification === "low" && a.allocation > 1);
-  const highPerf = assets.filter((a) => a.classification === "high");
+  const lowPerf = assets
+    .filter((a) => a.classification === "low" && a.allocation > 1)
+    .sort((a, b) => a.annualReturn - b.annualReturn); // worst first
+  const highPerf = assets.filter((a) => a.classification === "high" || a.classification === "medium");
+  const recipients = highPerf.length > 0
+    ? highPerf.sort((a, b) => b.annualReturn - a.annualReturn)
+    : assets.filter((a) => a.allocation > 0).sort((a, b) => b.annualReturn - a.annualReturn).slice(0, 3);
 
   const actions: RebalanceAction[] = [];
-  let freedAllocation = 0;
+  let remainingBudget = totalBudget;
 
-  // Reduce low performers
+  // Reduce low performers up to budget
   for (const asset of lowPerf) {
-    const reduction = Math.min(asset.allocation * reductionFactor * 10, asset.allocation * 0.5);
-    if (reduction < 0.5) continue;
-    const roundedReduction = Math.round(reduction * 100) / 100;
+    if (remainingBudget <= 0) break;
+    const maxReducible = asset.value * 0.5; // never remove more than 50% of an asset
+    const reduction = Math.min(remainingBudget, maxReducible);
+    if (reduction < total * 0.002) continue; // skip tiny amounts (<0.2% of portfolio)
+    const reductionPct = (reduction / total) * 100;
     actions.push({
       name: asset.name,
       direction: "reduce",
       currentAllocation: asset.allocation,
-      newAllocation: asset.allocation - roundedReduction,
-      changePercent: -roundedReduction,
-      changeValue: -(total * roundedReduction) / 100,
+      newAllocation: asset.allocation - reductionPct,
+      changePercent: -reductionPct,
+      changeValue: -reduction,
     });
-    freedAllocation += roundedReduction;
+    remainingBudget -= reduction;
   }
 
-  // Distribute to high performers
-  if (highPerf.length > 0 && freedAllocation > 0) {
-    const currentCryptoAlloc = assets.filter((a) => isCrypto(a.name)).reduce((s, a) => s + a.allocation, 0);
-    const cryptoHighPerf = highPerf.filter((a) => isCrypto(a.name));
-    const nonCryptoHighPerf = highPerf.filter((a) => !isCrypto(a.name));
+  // FIX 2: total_reduction is what we actually freed
+  const totalReduction = actions.reduce((s, a) => s + Math.abs(a.changeValue), 0);
+  if (totalReduction <= 0) {
+    const currentReturn = computePortfolioReturn(assets);
+    const labels = {
+      conservative: { name: "Conservador", desc: "Pequenas mudanças, menor risco" },
+      balanced: { name: "Balanceado", desc: "Mudanças moderadas" },
+      aggressive: { name: "Agressivo", desc: "Maximizar retorno rumo a 30%" },
+    };
+    return { name: labels[intensity].name, description: labels[intensity].desc, actions: [], expectedReturn: currentReturn, currentReturn, totalReduced: 0, totalReallocated: 0 };
+  }
 
-    let cryptoShare = cryptoHighPerf.length > 0 ? freedAllocation * 0.4 : 0;
-    const availableCryptoRoom = Math.max(0, maxCryptoAlloc - currentCryptoAlloc);
-    cryptoShare = Math.min(cryptoShare, availableCryptoRoom);
+  // FIX 3: distribute proportionally by score (annualReturn as proxy)
+  const currentCryptoAlloc = assets.filter((a) => isCrypto(a.name)).reduce((s, a) => s + a.allocation, 0);
 
-    const nonCryptoShare = freedAllocation - cryptoShare;
+  // Calculate scores for recipients
+  const scoredRecipients = recipients
+    .filter((r) => !actions.some((a) => a.name === r.name && a.direction === "reduce"))
+    .map((r) => ({ ...r, score: Math.max(r.annualReturn, 1) }));
+  const totalScore = scoredRecipients.reduce((s, r) => s + r.score, 0);
 
-    if (cryptoHighPerf.length > 0 && cryptoShare > 0) {
-      const perAsset = cryptoShare / cryptoHighPerf.length;
-      for (const asset of cryptoHighPerf) {
-        actions.push({
-          name: asset.name,
-          direction: "increase",
-          currentAllocation: asset.allocation,
-          newAllocation: asset.allocation + perAsset,
-          changePercent: perAsset,
-          changeValue: (total * perAsset) / 100,
-        });
-      }
+  let allocatedTotal = 0;
+  const increases: RebalanceAction[] = [];
+
+  for (let i = 0; i < scoredRecipients.length; i++) {
+    const recipient = scoredRecipients[i];
+    let share = totalScore > 0 ? (recipient.score / totalScore) * totalReduction : totalReduction / scoredRecipients.length;
+
+    // Enforce crypto cap
+    if (isCrypto(recipient.name)) {
+      const recipientCurrentPct = recipient.allocation;
+      const maxAddPct = Math.max(0, maxCryptoAlloc - currentCryptoAlloc);
+      const maxAddValue = (maxAddPct / 100) * total;
+      share = Math.min(share, maxAddValue);
     }
 
-    if (nonCryptoHighPerf.length > 0 && nonCryptoShare > 0) {
-      const perAsset = nonCryptoShare / nonCryptoHighPerf.length;
-      for (const asset of nonCryptoHighPerf) {
-        actions.push({
-          name: asset.name,
-          direction: "increase",
-          currentAllocation: asset.allocation,
-          newAllocation: asset.allocation + perAsset,
-          changePercent: perAsset,
-          changeValue: (total * perAsset) / 100,
-        });
-      }
+    // FIX 4: never exceed remaining budget
+    share = Math.min(share, totalReduction - allocatedTotal);
+    if (share < total * 0.002) continue;
+
+    const sharePct = (share / total) * 100;
+    increases.push({
+      name: recipient.name,
+      direction: "increase",
+      currentAllocation: recipient.allocation,
+      newAllocation: recipient.allocation + sharePct,
+      changePercent: sharePct,
+      changeValue: share,
+    });
+    allocatedTotal += share;
+  }
+
+  // FIX 5: normalize if sum doesn't match
+  if (increases.length > 0 && Math.abs(allocatedTotal - totalReduction) > 0.01) {
+    const factor = totalReduction / allocatedTotal;
+    allocatedTotal = 0;
+    for (const inc of increases) {
+      inc.changeValue = inc.changeValue * factor;
+      inc.changePercent = (inc.changeValue / total) * 100;
+      inc.newAllocation = inc.currentAllocation + inc.changePercent;
+      allocatedTotal += inc.changeValue;
     }
   }
+
+  actions.push(...increases);
 
   // Simulate new return
   const assetMap = new Map(assets.map((a) => [a.name, { ...a }]));
@@ -160,17 +196,19 @@ function generateScenario(
   const currentReturn = computePortfolioReturn(assets);
 
   const labels = {
-    conservative: { name: "Conservador", desc: "Pequenas mudanças, menor risco" },
-    balanced: { name: "Balanceado", desc: "Mudanças moderadas" },
-    aggressive: { name: "Agressivo", desc: "Maximizar retorno rumo a 30%" },
+    conservative: { name: "Conservador", desc: `Movimentar ~${budgetPercent}% do portfólio — menor risco` },
+    balanced: { name: "Balanceado", desc: `Movimentar ~${budgetPercent}% do portfólio — mudanças moderadas` },
+    aggressive: { name: "Agressivo", desc: `Movimentar ~${budgetPercent}% do portfólio — maximizar retorno rumo a 30%` },
   };
 
   return {
     name: labels[intensity].name,
     description: labels[intensity].desc,
-    actions: actions.filter((a) => Math.abs(a.changePercent) >= 0.3),
+    actions: actions.filter((a) => Math.abs(a.changePercent) >= 0.2),
     expectedReturn: newReturn,
     currentReturn,
+    totalReduced: totalReduction,
+    totalReallocated: allocatedTotal,
   };
 }
 
@@ -419,6 +457,17 @@ const PlanoAcao = () => {
                                         </span>
                                       </div>
                                     ))}
+                                </div>
+                              )}
+                              {/* FIX 6: Show totals */}
+                              {scenario.totalReduced > 0 && (
+                                <div className="mt-4 pt-3 border-t border-border flex flex-col sm:flex-row justify-between gap-2 text-sm">
+                                  <span className="text-destructive font-medium">
+                                    Total reduzido: {fmt(scenario.totalReduced)}
+                                  </span>
+                                  <span className="text-primary font-medium">
+                                    Total realocado: {fmt(scenario.totalReallocated)}
+                                  </span>
                                 </div>
                               )}
                             </div>
