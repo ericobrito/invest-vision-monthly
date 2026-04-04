@@ -37,6 +37,8 @@ interface Scenario {
   actions: RebalanceAction[];
   expectedReturn: number;
   currentReturn: number;
+  totalReduced: number;
+  totalReallocated: number;
 }
 
 function classifyAssets(investments: Investment[], total: number): ClassifiedAsset[] {
