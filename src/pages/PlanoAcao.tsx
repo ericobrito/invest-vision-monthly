@@ -457,9 +457,19 @@ const PlanoAcao = () => {
                                         </span>
                                       </div>
                                     ))}
+                              {/* FIX 6: Show totals */}
+                              {scenario.totalReduced > 0 && (
+                                <div className="mt-4 pt-3 border-t border-border flex flex-col sm:flex-row justify-between gap-2 text-sm">
+                                  <span className="text-destructive font-medium">
+                                    Total reduzido: {fmt(scenario.totalReduced)}
+                                  </span>
+                                  <span className="text-primary font-medium">
+                                    Total realocado: {fmt(scenario.totalReallocated)}
+                                  </span>
                                 </div>
                               )}
                             </div>
+                          )}
                           )}
                         </div>
                       </TabsContent>
