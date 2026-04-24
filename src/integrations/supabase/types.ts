@@ -118,6 +118,130 @@ export type Database = {
         }
         Relationships: []
       }
+      va_connections: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          last_error: string | null
+          last_sync: string | null
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_sync?: string | null
+          provider: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_sync?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      va_credentials: {
+        Row: {
+          api_key: string
+          api_secret: string
+          connection_id: string
+          created_at: string
+          passphrase: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          api_secret: string
+          connection_id: string
+          created_at?: string
+          passphrase?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          api_secret?: string
+          connection_id?: string
+          created_at?: string
+          passphrase?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "va_credentials_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: true
+            referencedRelation: "va_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      va_positions: {
+        Row: {
+          asset_type: string
+          broker: string
+          connection_id: string | null
+          created_at: string
+          current_value: number
+          external_id: string | null
+          id: string
+          last_sync: string | null
+          provider: string | null
+          quantity: number
+          source: string
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type?: string
+          broker: string
+          connection_id?: string | null
+          created_at?: string
+          current_value?: number
+          external_id?: string | null
+          id?: string
+          last_sync?: string | null
+          provider?: string | null
+          quantity?: number
+          source: string
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          broker?: string
+          connection_id?: string | null
+          created_at?: string
+          current_value?: number
+          external_id?: string | null
+          id?: string
+          last_sync?: string | null
+          provider?: string | null
+          quantity?: number
+          source?: string
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "va_positions_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "va_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
