@@ -150,23 +150,21 @@ async function fetchKraken(key: string, secret: string): Promise<NormalizedBalan
   const postData = `nonce=${nonce}`;
   const sha256Buf = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(nonce + postData),
-  );
-  const message = new Uint8Array(
-    new TextEncoder().encode(path).length + sha256Buf.byteLength,
+    asBuffer(nonce + postData),
   );
   const pathBytes = new TextEncoder().encode(path);
-  message.set(pathBytes, 0);
-  message.set(new Uint8Array(sha256Buf), pathBytes.length);
+  const messageBytes = new Uint8Array(pathBytes.length + sha256Buf.byteLength);
+  messageBytes.set(pathBytes, 0);
+  messageBytes.set(new Uint8Array(sha256Buf), pathBytes.length);
   const secretBytes = fromBase64(secret);
   const k = await crypto.subtle.importKey(
     "raw",
-    secretBytes,
+    asBuffer(secretBytes),
     { name: "HMAC", hash: "SHA-512" },
     false,
     ["sign"],
   );
-  const sigBuf = await crypto.subtle.sign("HMAC", k, message);
+  const sigBuf = await crypto.subtle.sign("HMAC", k, asBuffer(messageBytes));
   const sig = toBase64(sigBuf);
   const res = await fetch(`https://api.kraken.com${path}`, {
     method: "POST",
