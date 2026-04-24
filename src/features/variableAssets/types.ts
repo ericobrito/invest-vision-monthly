@@ -3,12 +3,12 @@
 
 export type AssetType = "crypto" | "equity";
 
-export type Broker =
+export type Provider =
   | "binance"
+  | "bybit"
   | "coinbase"
-  | "xp"
-  | "mercado_bitcoin"
-  | "bybit";
+  | "kraken"
+  | "mercado_bitcoin";
 
 export type PositionSource = "manual" | "aggregator";
 
@@ -18,19 +18,21 @@ export interface Position {
   quantity: number;
   currentValue: number;
   assetType: AssetType;
-  broker: Broker;
+  broker: string;
   source: PositionSource;
-  provider?: "snaptrade";
+  provider?: string;
+  connectionId?: string;
   externalId?: string;
-  lastSync?: number;
+  lastSync?: string | null;
 }
 
 export interface Connection {
   id: string;
-  provider: "snaptrade";
-  status: "active" | "inactive";
-  brokers: Broker[];
-  lastSync: number;
+  provider: Provider;
+  label: string | null;
+  status: "active" | "inactive" | "error";
+  lastSync: string | null;
+  lastError: string | null;
 }
 
 export interface AggregatedPosition {
@@ -38,21 +40,15 @@ export interface AggregatedPosition {
   assetType: AssetType;
   totalValue: number;
   totalQuantity: number;
-  sources: Broker[];
+  sources: string[];
   positionIds: string[];
 }
 
-export type ValidationStatus = "matched" | "warning" | "error";
+export type ValidationStatus = "matched" | "warning" | "error" | "no-reference";
 
 export interface CategoryValidation {
   monthlyTotal: number;
   aggregatedTotal: number;
   delta: number; // percentage
   status: ValidationStatus;
-}
-
-export interface ValidationResult {
-  equities: CategoryValidation;
-  crypto: CategoryValidation;
-  overall: ValidationStatus;
 }
