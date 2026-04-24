@@ -25,6 +25,13 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
 // ---------- Crypto helpers ----------
+function asBuffer(input: string | Uint8Array): ArrayBuffer {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  const ab = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(ab).set(bytes);
+  return ab;
+}
+
 async function hmac(
   algo: "SHA-256" | "SHA-512",
   secret: string | Uint8Array,
@@ -32,12 +39,12 @@ async function hmac(
 ): Promise<ArrayBuffer> {
   const key = await crypto.subtle.importKey(
     "raw",
-    typeof secret === "string" ? new TextEncoder().encode(secret) : secret,
+    asBuffer(secret),
     { name: "HMAC", hash: algo },
     false,
     ["sign"],
   );
-  return await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return await crypto.subtle.sign("HMAC", key, asBuffer(message));
 }
 
 function toHex(buf: ArrayBuffer): string {
