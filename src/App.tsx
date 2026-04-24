@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import RadarAssimetria from "./pages/RadarAssimetria";
 import RadarTesouro from "./pages/RadarTesouro";
 import PlanoAcao from "./pages/PlanoAcao";
+import PosicoesVariaveis from "./pages/PosicoesVariaveis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/radar" element={<RadarAssimetria />} />
           <Route path="/radar-tesouro" element={<RadarTesouro />} />
           <Route path="/plano-acao" element={<PlanoAcao />} />
+          <Route path="/posicoes-variaveis" element={<PosicoesVariaveis />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
