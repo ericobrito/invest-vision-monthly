@@ -146,26 +146,49 @@ function decodePemBody(pem: string): { type: string; bytes: Uint8Array } {
   return { type, bytes };
 }
 
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+function encodeDerLength(length: number): Uint8Array {
+  if (length < 0x80) return Uint8Array.of(length);
+  const bytes: number[] = [];
+  let remaining = length;
+  while (remaining > 0) {
+    bytes.unshift(remaining & 0xff);
+    remaining >>= 8;
+  }
+  return Uint8Array.of(0x80 | bytes.length, ...bytes);
+}
+
+function encodeDer(tag: number, value: Uint8Array): Uint8Array {
+  return concatBytes(Uint8Array.of(tag), encodeDerLength(value.length), value);
+}
+
 // Wrap a SEC1 EC private key (P-256) into a PKCS8 envelope so WebCrypto can import it.
 function sec1ToPkcs8(sec1: Uint8Array): Uint8Array {
-  // PKCS8 PrivateKeyInfo header for ECDSA P-256 + OCTET STRING wrapping the SEC1 key.
-  // SEQUENCE { version 0, AlgorithmIdentifier(ecPublicKey, prime256v1), OCTET STRING { sec1 } }
-  const header = new Uint8Array([
-    0x30, 0x81, 0x00, // SEQUENCE, len placeholder (1-byte long form)
-    0x02, 0x01, 0x00, // INTEGER 0 (version)
-    0x30, 0x13,       // SEQUENCE (AlgorithmIdentifier), len 19
-    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, // OID 1.2.840.10045.2.1 (ecPublicKey)
-    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, // OID 1.2.840.10045.3.1.7 (prime256v1)
-    0x04, 0x81, 0x00, // OCTET STRING, len placeholder
-  ]);
-  const out = new Uint8Array(header.length + sec1.length);
-  out.set(header, 0);
-  out.set(sec1, header.length);
-  // Fill the OCTET STRING length (last header byte was placeholder).
-  out[header.length - 1] = sec1.length;
-  // Fill the outer SEQUENCE length: total - 3 (the SEQUENCE tag + 0x81 + length byte).
-  out[2] = out.length - 3;
-  return out;
+  // PKCS#8 PrivateKeyInfo ::= SEQUENCE {
+  //   version                   INTEGER (0),
+  //   privateKeyAlgorithm       AlgorithmIdentifier,
+  //   privateKey                OCTET STRING
+  // }
+  const version = encodeDer(0x02, Uint8Array.of(0x00));
+  const algorithm = encodeDer(
+    0x30,
+    concatBytes(
+      encodeDer(0x06, Uint8Array.of(0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01)),
+      encodeDer(0x06, Uint8Array.of(0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07)),
+    ),
+  );
+  const privateKey = encodeDer(0x04, sec1);
+  return encodeDer(0x30, concatBytes(version, algorithm, privateKey));
 }
 
 async function importEcPrivateKey(pem: string): Promise<CryptoKey> {
