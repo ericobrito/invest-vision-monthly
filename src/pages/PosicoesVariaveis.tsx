@@ -135,7 +135,6 @@ export default function PosicoesVariaveis() {
   const [provider, setProvider] = useState<Provider>("binance");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [passphrase, setPassphrase] = useState("");
   const [label, setLabel] = useState("");
 
   // Manual dialog
