@@ -317,31 +317,49 @@ export default function PosicoesVariaveis() {
                     <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="conta principal" />
                   </div>
                   <div>
-                    <Label>API Key</Label>
-                    <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" />
-                  </div>
-                  <div>
-                    <Label>API Secret</Label>
+                    <Label>
+                      {provider === "coinbase" ? "Key Name" : "API Key"}
+                    </Label>
                     <Input
-                      type="password"
-                      value={apiSecret}
-                      onChange={(e) => setApiSecret(e.target.value)}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
                       autoComplete="off"
+                      placeholder={
+                        provider === "coinbase"
+                          ? "organizations/{org_id}/apiKeys/{key_id}"
+                          : ""
+                      }
                     />
                   </div>
-                  {provider === "coinbase" && (
-                    <div>
-                      <Label>Passphrase</Label>
+                  <div>
+                    <Label>
+                      {provider === "coinbase"
+                        ? "EC Private Key (PEM)"
+                        : "API Secret"}
+                    </Label>
+                    {provider === "coinbase" ? (
+                      <textarea
+                        value={apiSecret}
+                        onChange={(e) => setApiSecret(e.target.value)}
+                        autoComplete="off"
+                        rows={5}
+                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        placeholder="-----BEGIN EC PRIVATE KEY-----&#10;...&#10;-----END EC PRIVATE KEY-----"
+                      />
+                    ) : (
                       <Input
                         type="password"
-                        value={passphrase}
-                        onChange={(e) => setPassphrase(e.target.value)}
+                        value={apiSecret}
+                        onChange={(e) => setApiSecret(e.target.value)}
                         autoComplete="off"
                       />
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Use apenas chaves <strong>somente leitura</strong>. As credenciais ficam armazenadas no backend.
+                    {provider === "coinbase" && (
+                      <> Coinbase usa autenticação JWT (ES256): cole o Key Name como identificador e a EC Private Key em formato PEM.</>
+                    )}
                   </p>
                 </div>
                 <DialogFooter>
