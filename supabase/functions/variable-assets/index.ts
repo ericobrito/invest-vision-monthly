@@ -430,7 +430,7 @@ async function handle(body: Action) {
         throw new Error("Unsupported provider");
       }
       if (!api_key || !api_secret) throw new Error("Missing credentials");
-      if (provider === "coinbase" && !passphrase) throw new Error("Coinbase requires passphrase");
+      // Coinbase uses ES256 JWT: api_key = key name, api_secret = EC PRIVATE KEY (PEM). No passphrase required.
 
       const { data: conn, error } = await admin
         .from("va_connections")
