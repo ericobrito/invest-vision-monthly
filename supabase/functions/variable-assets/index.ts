@@ -121,24 +121,75 @@ function toBase64Url(buf: ArrayBuffer | Uint8Array): string {
   return toBase64(ab).replace(/=+$/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-function pemToPkcs8(pem: string): Uint8Array {
-  const cleaned = pem
-    .replace(/-----BEGIN [^-]+-----/g, "")
-    .replace(/-----END [^-]+-----/g, "")
-    .replace(/\s+/g, "");
-  return fromBase64(cleaned);
+function normalizePem(pem: string): string {
+  // Forms often submit the PEM with literal "\n" sequences instead of newlines.
+  return pem.replace(/\\n/g, "\n").replace(/\\r/g, "").trim();
 }
 
-// Convert raw ECDSA signature (DER) → r||s 64 bytes (WebCrypto already returns IEEE P1363 64 bytes)
-async function signES256(privateKeyPem: string, message: string): Promise<string> {
-  const pkcs8 = pemToPkcs8(privateKeyPem);
-  const key = await crypto.subtle.importKey(
+function decodePemBody(pem: string): { type: string; bytes: Uint8Array } {
+  const normalized = normalizePem(pem);
+  const match = normalized.match(
+    /-----BEGIN ([^-]+)-----([\s\S]+?)-----END \1-----/,
+  );
+  if (!match) {
+    throw new Error("Invalid PEM: missing BEGIN/END markers");
+  }
+  const type = match[1].trim();
+  const b64 = match[2].replace(/\s+/g, "");
+  if (!b64) throw new Error("Invalid PEM: empty body");
+  let bytes: Uint8Array;
+  try {
+    bytes = fromBase64(b64);
+  } catch {
+    throw new Error("Invalid PEM: base64 decode failed");
+  }
+  return { type, bytes };
+}
+
+// Wrap a SEC1 EC private key (P-256) into a PKCS8 envelope so WebCrypto can import it.
+function sec1ToPkcs8(sec1: Uint8Array): Uint8Array {
+  // PKCS8 PrivateKeyInfo header for ECDSA P-256 + OCTET STRING wrapping the SEC1 key.
+  // SEQUENCE { version 0, AlgorithmIdentifier(ecPublicKey, prime256v1), OCTET STRING { sec1 } }
+  const header = new Uint8Array([
+    0x30, 0x81, 0x00, // SEQUENCE, len placeholder (1-byte long form)
+    0x02, 0x01, 0x00, // INTEGER 0 (version)
+    0x30, 0x13,       // SEQUENCE (AlgorithmIdentifier), len 19
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, // OID 1.2.840.10045.2.1 (ecPublicKey)
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, // OID 1.2.840.10045.3.1.7 (prime256v1)
+    0x04, 0x81, 0x00, // OCTET STRING, len placeholder
+  ]);
+  const out = new Uint8Array(header.length + sec1.length);
+  out.set(header, 0);
+  out.set(sec1, header.length);
+  // Fill the OCTET STRING length (last header byte was placeholder).
+  out[header.length - 1] = sec1.length;
+  // Fill the outer SEQUENCE length: total - 3 (the SEQUENCE tag + 0x81 + length byte).
+  out[2] = out.length - 3;
+  return out;
+}
+
+async function importEcPrivateKey(pem: string): Promise<CryptoKey> {
+  const { type, bytes } = decodePemBody(pem);
+  const upper = type.toUpperCase();
+  let pkcs8: Uint8Array;
+  if (upper.includes("EC PRIVATE KEY")) {
+    pkcs8 = sec1ToPkcs8(bytes); // SEC1 → wrap into PKCS8
+  } else if (upper.includes("PRIVATE KEY")) {
+    pkcs8 = bytes; // Already PKCS8
+  } else {
+    throw new Error(`Unsupported PEM type: ${type}`);
+  }
+  return await crypto.subtle.importKey(
     "pkcs8",
     asBuffer(pkcs8),
     { name: "ECDSA", namedCurve: "P-256" },
     false,
     ["sign"],
   );
+}
+
+async function signES256(privateKeyPem: string, message: string): Promise<string> {
+  const key = await importEcPrivateKey(privateKeyPem);
   const sig = await crypto.subtle.sign(
     { name: "ECDSA", hash: "SHA-256" },
     key,
