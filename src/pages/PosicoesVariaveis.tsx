@@ -154,7 +154,6 @@ export default function PosicoesVariaveis() {
         label: label || undefined,
         api_key: apiKey,
         api_secret: apiSecret,
-        passphrase: passphrase || undefined,
       });
       if (res.sync_error) {
         toast({
