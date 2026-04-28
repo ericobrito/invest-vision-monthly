@@ -165,7 +165,7 @@ export default function PosicoesVariaveis() {
         toast({ title: "Corretora conectada", description: providerLabels[provider] });
       }
       setConnectOpen(false);
-      setApiKey(""); setApiSecret(""); setPassphrase(""); setLabel("");
+      setApiKey(""); setApiSecret(""); setLabel("");
     } catch (e) {
       toast({
         title: "Falha na conexão",
