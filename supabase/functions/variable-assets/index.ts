@@ -115,33 +115,93 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     .filter((b: NormalizedBalance) => b.quantity > 0);
 }
 
+// Base64URL helpers
+function toBase64Url(buf: ArrayBuffer | Uint8Array): string {
+  const ab = buf instanceof Uint8Array ? buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) : buf;
+  return toBase64(ab).replace(/=+$/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function pemToPkcs8(pem: string): Uint8Array {
+  const cleaned = pem
+    .replace(/-----BEGIN [^-]+-----/g, "")
+    .replace(/-----END [^-]+-----/g, "")
+    .replace(/\s+/g, "");
+  return fromBase64(cleaned);
+}
+
+// Convert raw ECDSA signature (DER) → r||s 64 bytes (WebCrypto already returns IEEE P1363 64 bytes)
+async function signES256(privateKeyPem: string, message: string): Promise<string> {
+  const pkcs8 = pemToPkcs8(privateKeyPem);
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    asBuffer(pkcs8),
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    asBuffer(message),
+  );
+  return toBase64Url(sig);
+}
+
+async function buildCoinbaseJwt(
+  keyName: string,
+  privateKeyPem: string,
+  uri: string,
+): Promise<string> {
+  const header = {
+    alg: "ES256",
+    kid: keyName,
+    typ: "JWT",
+    nonce: toHex(crypto.getRandomValues(new Uint8Array(16)).buffer),
+  };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    sub: keyName,
+    iss: "cdp",
+    nbf: now,
+    exp: now + 120,
+    uri,
+  };
+  const encHeader = toBase64Url(new TextEncoder().encode(JSON.stringify(header)));
+  const encPayload = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+  const signingInput = `${encHeader}.${encPayload}`;
+  const sig = await signES256(privateKeyPem, signingInput);
+  return `${signingInput}.${sig}`;
+}
+
 async function fetchCoinbase(
   key: string,
   secret: string,
-  passphrase: string,
+  _passphrase: string,
 ): Promise<NormalizedBalance[]> {
-  const ts = (Date.now() / 1000).toString();
-  const path = "/accounts";
-  const message = ts + "GET" + path;
-  const secretBytes = fromBase64(secret);
-  const sig = toBase64(await hmac("SHA-256", secretBytes, message));
-  const res = await fetch(`https://api.exchange.coinbase.com${path}`, {
+  // key = organization key name (e.g. "organizations/{org_id}/apiKeys/{key_id}")
+  // secret = EC PRIVATE KEY in PEM format
+  const host = "api.coinbase.com";
+  const path = "/api/v3/brokerage/accounts";
+  const uri = `GET ${host}${path}`;
+  const jwt = await buildCoinbaseJwt(key, secret, uri);
+  const res = await fetch(`https://${host}${path}`, {
     headers: {
-      "CB-ACCESS-KEY": key,
-      "CB-ACCESS-SIGN": sig,
-      "CB-ACCESS-TIMESTAMP": ts,
-      "CB-ACCESS-PASSPHRASE": passphrase,
+      Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
     },
   });
   if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  return (data ?? [])
-    .map((a: { currency: string; balance: string }) => ({
-      ticker: a.currency.toUpperCase(),
-      quantity: parseFloat(a.balance),
+  const accounts: Array<{
+    currency: string;
+    available_balance?: { value: string; currency: string };
+  }> = data?.accounts ?? [];
+  return accounts
+    .map((a) => ({
+      ticker: (a.currency ?? "").toUpperCase(),
+      quantity: parseFloat(a.available_balance?.value ?? "0"),
     }))
-    .filter((b: NormalizedBalance) => b.quantity > 0);
+    .filter((b) => b.ticker && b.quantity > 0);
 }
 
 async function fetchKraken(key: string, secret: string): Promise<NormalizedBalance[]> {
