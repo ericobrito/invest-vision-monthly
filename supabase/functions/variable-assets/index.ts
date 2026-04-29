@@ -210,29 +210,39 @@ async function fetchBybitPositions(
 }
 
 async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
-  // Aggregate across all account types: UNIFIED + FUND.
-  // Funding uses a different endpoint; Unified uses wallet-balance.
+  // Aggregate across all account sources: wallet balances + funding + open derivatives positions.
   const aggregated = new Map<string, number>();
 
   const addCoins = (
-    coins: Array<{ coin: string; walletBalance: string; locked?: string }>,
+    coins: BybitCoinBalance[],
   ) => {
     for (const c of coins) {
       const ticker = (c.coin ?? "").toUpperCase();
       if (!ticker) continue;
-      // Bybit's `walletBalance` already includes locked/in-order amounts.
-      // Use it directly to avoid double-counting. Fall back to `locked` only
-      // if walletBalance is missing/zero.
       const wallet = parseFloat(c.walletBalance ?? "0") || 0;
       const locked = parseFloat(c.locked ?? "0") || 0;
-      const qty = wallet > 0 ? wallet : locked;
+      const qty = wallet + locked;
       if (qty <= 0) continue;
-      // Always aggregate (+=), never overwrite.
       aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
     }
   };
 
-  // UNIFIED (spot + derivatives margin)
+  const addPositions = (positions: BybitPosition[]) => {
+    for (const position of positions) {
+      const explicitBase = (position.baseCoin ?? "").toUpperCase();
+      const ticker = explicitBase || inferBybitBaseTicker(position.symbol);
+      if (!ticker) continue;
+
+      const size = Math.abs(parseFloat(position.size ?? "0") || 0);
+      const positionValue = Math.abs(parseFloat(position.positionValue ?? "0") || 0);
+      const markPrice = Math.abs(parseFloat(position.markPrice ?? "0") || 0);
+      const exposure = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
+      if (exposure <= 0) continue;
+
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + exposure);
+    }
+  };
+
   try {
     const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
     addCoins(unified);
@@ -240,20 +250,25 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     console.warn("Bybit UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // CONTRACT (legacy derivatives wallet, best-effort)
   try {
-    const contract = await fetchBybitCoinAccount(key, secret, "CONTRACT");
-    addCoins(contract);
+    const fundWallet = await fetchBybitCoinAccount(key, secret, "FUND");
+    addCoins(fundWallet);
   } catch (e) {
-    console.warn("Bybit CONTRACT fetch failed:", e instanceof Error ? e.message : e);
+    console.warn("Bybit FUND wallet-balance fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // FUND (funding wallet, different endpoint, best-effort)
   try {
     const funding = await fetchBybitFundingBalances(key, secret);
     addCoins(funding);
   } catch (e) {
     console.warn("Bybit FUND fetch failed:", e instanceof Error ? e.message : e);
+  }
+
+  try {
+    const positions = await fetchBybitPositions(key, secret);
+    addPositions(positions);
+  } catch (e) {
+    console.warn("Bybit positions aggregation failed:", e instanceof Error ? e.message : e);
   }
 
   return Array.from(aggregated.entries())
@@ -404,24 +419,45 @@ async function fetchCoinbase(
   const path = "/api/v3/brokerage/accounts";
   const uri = `GET ${host}${path}`;
   const jwt = await buildCoinbaseJwt(key, secret, uri);
-  const res = await fetch(`https://${host}${path}`, {
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-      "Content-Type": "application/json",
-    },
-  });
-  if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  const accounts: Array<{
-    currency: string;
-    available_balance?: { value: string; currency: string };
-  }> = data?.accounts ?? [];
-  return accounts
-    .map((a) => ({
-      ticker: (a.currency ?? "").toUpperCase(),
-      quantity: parseFloat(a.available_balance?.value ?? "0"),
-    }))
-    .filter((b) => b.ticker && b.quantity > 0);
+  const aggregated = new Map<string, number>();
+  let cursor: string | undefined;
+
+  do {
+    const query = new URLSearchParams({ limit: "250" });
+    if (cursor) query.set("cursor", cursor);
+    const requestPath = query.toString() ? `${path}?${query.toString()}` : path;
+    const uri = `GET ${host}${requestPath}`;
+    const jwt = await buildCoinbaseJwt(key, secret, uri);
+    const res = await fetch(`https://${host}${requestPath}`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
+
+    const data = await res.json();
+    const accounts: Array<{
+      currency: string;
+      available_balance?: { value: string; currency: string };
+      hold?: { value: string; currency: string };
+    }> = data?.accounts ?? [];
+
+    for (const account of accounts) {
+      const ticker = (account.currency ?? "").toUpperCase();
+      if (!ticker) continue;
+      const available = parseFloat(account.available_balance?.value ?? "0") || 0;
+      const hold = parseFloat(account.hold?.value ?? "0") || 0;
+      const quantity = available + hold;
+      if (quantity <= 0) continue;
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + quantity);
+    }
+
+    const nextCursor = (data?.has_next && data?.cursor) ? String(data.cursor).trim() : "";
+    cursor = nextCursor || undefined;
+  } while (cursor);
+
+  return Array.from(aggregated.entries()).map(([ticker, quantity]) => ({ ticker, quantity }));
 }
 
 async function fetchKraken(key: string, secret: string): Promise<NormalizedBalance[]> {
