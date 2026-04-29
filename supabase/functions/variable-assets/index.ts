@@ -385,7 +385,9 @@ async function signES256(privateKeyPem: string, message: string): Promise<string
 async function buildCoinbaseJwt(
   keyName: string,
   privateKeyPem: string,
-  uri: string,
+  requestMethod: string,
+  requestHost: string,
+  requestPath: string,
 ): Promise<string> {
   const header = {
     alg: "ES256",
@@ -399,7 +401,7 @@ async function buildCoinbaseJwt(
     iss: "cdp",
     nbf: now,
     exp: now + 120,
-    uri,
+    uri: `${requestMethod.toUpperCase()} ${requestHost}${requestPath}`,
   };
   const encHeader = toBase64Url(new TextEncoder().encode(JSON.stringify(header)));
   const encPayload = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -417,8 +419,6 @@ async function fetchCoinbase(
   // secret = EC PRIVATE KEY in PEM format
   const host = "api.coinbase.com";
   const path = "/api/v3/brokerage/accounts";
-  const uri = `GET ${host}${path}`;
-  const jwt = await buildCoinbaseJwt(key, secret, uri);
   const aggregated = new Map<string, number>();
   let cursor: string | undefined;
 
@@ -426,8 +426,7 @@ async function fetchCoinbase(
     const query = new URLSearchParams({ limit: "250" });
     if (cursor) query.set("cursor", cursor);
     const requestPath = query.toString() ? `${path}?${query.toString()}` : path;
-    const uri = `GET ${host}${requestPath}`;
-    const jwt = await buildCoinbaseJwt(key, secret, uri);
+    const jwt = await buildCoinbaseJwt(key, secret, "GET", host, path);
     const res = await fetch(`https://${host}${requestPath}`, {
       headers: {
         Authorization: `Bearer ${jwt}`,
