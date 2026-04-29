@@ -86,10 +86,13 @@ async function fetchBinance(key: string, secret: string): Promise<NormalizedBala
     .filter((b: NormalizedBalance) => b.quantity > 0);
 }
 
-async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
+async function bybitSignedGet(
+  key: string,
+  secret: string,
+  query: string,
+): Promise<unknown> {
   const ts = Date.now().toString();
   const recv = "10000";
-  const query = "accountType=UNIFIED";
   const payload = ts + key + recv + query;
   const sig = toHex(await hmac("SHA-256", secret, payload));
   const res = await fetch(
@@ -106,13 +109,91 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
   if (!res.ok) throw new Error(`Bybit: ${res.status} ${await res.text()}`);
   const data = await res.json();
   if (data.retCode !== 0) throw new Error(`Bybit: ${data.retMsg}`);
-  const list = data.result?.list?.[0]?.coin ?? [];
-  return list
-    .map((c: { coin: string; walletBalance: string }) => ({
-      ticker: c.coin.toUpperCase(),
-      quantity: parseFloat(c.walletBalance),
-    }))
-    .filter((b: NormalizedBalance) => b.quantity > 0);
+  return data;
+}
+
+async function fetchBybitCoinAccount(
+  key: string,
+  secret: string,
+  accountType: string,
+): Promise<Array<{ coin: string; walletBalance: string; locked?: string }>> {
+  const data = await bybitSignedGet(key, secret, `accountType=${accountType}`) as {
+    result?: { list?: Array<{ coin: Array<{ coin: string; walletBalance: string; locked?: string }> }> };
+  };
+  const list = data.result?.list ?? [];
+  const coins: Array<{ coin: string; walletBalance: string; locked?: string }> = [];
+  for (const entry of list) {
+    for (const c of entry.coin ?? []) coins.push(c);
+  }
+  return coins;
+}
+
+// Funding account uses a different endpoint shape: /v5/asset/transfer/query-account-coins-balance
+async function fetchBybitFundingBalances(
+  key: string,
+  secret: string,
+): Promise<Array<{ coin: string; walletBalance: string; locked?: string }>> {
+  const ts = Date.now().toString();
+  const recv = "10000";
+  const query = "accountType=FUND";
+  const payload = ts + key + recv + query;
+  const sig = toHex(await hmac("SHA-256", secret, payload));
+  const res = await fetch(
+    `https://api.bybit.com/v5/asset/transfer/query-account-coins-balance?${query}`,
+    {
+      headers: {
+        "X-BAPI-API-KEY": key,
+        "X-BAPI-TIMESTAMP": ts,
+        "X-BAPI-RECV-WINDOW": recv,
+        "X-BAPI-SIGN": sig,
+      },
+    },
+  );
+  if (!res.ok) throw new Error(`Bybit FUND: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  if (data.retCode !== 0) throw new Error(`Bybit FUND: ${data.retMsg}`);
+  const balances: Array<{ coin: string; walletBalance: string; transferBalance?: string }> =
+    data.result?.balance ?? [];
+  return balances.map((b) => ({
+    coin: b.coin,
+    walletBalance: b.walletBalance ?? b.transferBalance ?? "0",
+  }));
+}
+
+async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
+  // Aggregate across all account types: UNIFIED + FUND.
+  // Funding uses a different endpoint; Unified uses wallet-balance.
+  const aggregated = new Map<string, number>();
+
+  const addCoins = (
+    coins: Array<{ coin: string; walletBalance: string; locked?: string }>,
+  ) => {
+    for (const c of coins) {
+      const ticker = (c.coin ?? "").toUpperCase();
+      if (!ticker) continue;
+      const wallet = parseFloat(c.walletBalance ?? "0") || 0;
+      const locked = parseFloat(c.locked ?? "0") || 0;
+      const qty = wallet + locked;
+      if (qty <= 0) continue;
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
+    }
+  };
+
+  // UNIFIED (required)
+  const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
+  addCoins(unified);
+
+  // FUND (best-effort: don't fail entire sync if user lacks permissions)
+  try {
+    const funding = await fetchBybitFundingBalances(key, secret);
+    addCoins(funding);
+  } catch (e) {
+    console.warn("Bybit FUND fetch failed:", e instanceof Error ? e.message : e);
+  }
+
+  return Array.from(aggregated.entries())
+    .map(([ticker, quantity]) => ({ ticker, quantity }))
+    .filter((b) => b.quantity > 0);
 }
 
 // Base64URL helpers
