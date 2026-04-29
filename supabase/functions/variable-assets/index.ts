@@ -90,13 +90,14 @@ async function bybitSignedGet(
   key: string,
   secret: string,
   query: string,
+  path = "/v5/account/wallet-balance",
 ): Promise<unknown> {
   const ts = Date.now().toString();
   const recv = "10000";
   const payload = ts + key + recv + query;
   const sig = toHex(await hmac("SHA-256", secret, payload));
   const res = await fetch(
-    `https://api.bybit.com/v5/account/wallet-balance?${query}`,
+    `https://api.bybit.com${path}?${query}`,
     {
       headers: {
         "X-BAPI-API-KEY": key,
@@ -112,16 +113,31 @@ async function bybitSignedGet(
   return data;
 }
 
+type BybitCoinBalance = {
+  coin: string;
+  walletBalance?: string;
+  locked?: string;
+  transferBalance?: string;
+};
+
+type BybitPosition = {
+  symbol?: string;
+  baseCoin?: string;
+  size?: string;
+  positionValue?: string;
+  markPrice?: string;
+};
+
 async function fetchBybitCoinAccount(
   key: string,
   secret: string,
   accountType: string,
-): Promise<Array<{ coin: string; walletBalance: string; locked?: string }>> {
+) : Promise<BybitCoinBalance[]> {
   const data = await bybitSignedGet(key, secret, `accountType=${accountType}`) as {
-    result?: { list?: Array<{ coin: Array<{ coin: string; walletBalance: string; locked?: string }> }> };
+    result?: { list?: Array<{ coin: BybitCoinBalance[] }> };
   };
   const list = data.result?.list ?? [];
-  const coins: Array<{ coin: string; walletBalance: string; locked?: string }> = [];
+  const coins: BybitCoinBalance[] = [];
   for (const entry of list) {
     for (const c of entry.coin ?? []) coins.push(c);
   }
@@ -132,32 +148,65 @@ async function fetchBybitCoinAccount(
 async function fetchBybitFundingBalances(
   key: string,
   secret: string,
-): Promise<Array<{ coin: string; walletBalance: string; locked?: string }>> {
-  const ts = Date.now().toString();
-  const recv = "10000";
-  const query = "accountType=FUND";
-  const payload = ts + key + recv + query;
-  const sig = toHex(await hmac("SHA-256", secret, payload));
-  const res = await fetch(
-    `https://api.bybit.com/v5/asset/transfer/query-account-coins-balance?${query}`,
-    {
-      headers: {
-        "X-BAPI-API-KEY": key,
-        "X-BAPI-TIMESTAMP": ts,
-        "X-BAPI-RECV-WINDOW": recv,
-        "X-BAPI-SIGN": sig,
-      },
-    },
-  );
-  if (!res.ok) throw new Error(`Bybit FUND: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  if (data.retCode !== 0) throw new Error(`Bybit FUND: ${data.retMsg}`);
-  const balances: Array<{ coin: string; walletBalance: string; transferBalance?: string }> =
-    data.result?.balance ?? [];
+): Promise<BybitCoinBalance[]> {
+  const data = await bybitSignedGet(
+    key,
+    secret,
+    "accountType=FUND",
+    "/v5/asset/transfer/query-account-coins-balance",
+  ) as {
+    result?: { balance?: BybitCoinBalance[] };
+  };
+  const balances = data.result?.balance ?? [];
   return balances.map((b) => ({
     coin: b.coin,
     walletBalance: b.walletBalance ?? b.transferBalance ?? "0",
+    locked: b.locked ?? "0",
   }));
+}
+
+function inferBybitBaseTicker(symbol?: string): string {
+  const s = (symbol ?? "").toUpperCase();
+  if (!s) return "";
+  if (s.includes("-")) return s.split("-")[0] ?? "";
+  for (const quote of ["USDT", "USDC", "USD", "BTC", "ETH", "EUR", "BRL"]) {
+    if (s.endsWith(quote) && s.length > quote.length) return s.slice(0, -quote.length);
+  }
+  return s;
+}
+
+async function fetchBybitPositions(
+  key: string,
+  secret: string,
+): Promise<BybitPosition[]> {
+  const out: BybitPosition[] = [];
+
+  for (const category of ["linear", "inverse", "option"]) {
+    let cursor: string | undefined;
+    do {
+      const params = new URLSearchParams({ category, limit: "200" });
+      if (cursor) params.set("cursor", cursor);
+
+      try {
+        const data = await bybitSignedGet(
+          key,
+          secret,
+          params.toString(),
+          "/v5/position/list",
+        ) as {
+          result?: { list?: BybitPosition[]; nextPageCursor?: string };
+        };
+        out.push(...(data.result?.list ?? []));
+        const nextCursor = data.result?.nextPageCursor?.trim();
+        cursor = nextCursor && nextCursor !== cursor ? nextCursor : undefined;
+      } catch (e) {
+        console.warn(`Bybit ${category} positions fetch failed:`, e instanceof Error ? e.message : e);
+        cursor = undefined;
+      }
+    } while (cursor);
+  }
+
+  return out;
 }
 
 async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
