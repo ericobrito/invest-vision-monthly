@@ -171,19 +171,35 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     for (const c of coins) {
       const ticker = (c.coin ?? "").toUpperCase();
       if (!ticker) continue;
+      // Bybit's `walletBalance` already includes locked/in-order amounts.
+      // Use it directly to avoid double-counting. Fall back to `locked` only
+      // if walletBalance is missing/zero.
       const wallet = parseFloat(c.walletBalance ?? "0") || 0;
       const locked = parseFloat(c.locked ?? "0") || 0;
-      const qty = wallet + locked;
+      const qty = wallet > 0 ? wallet : locked;
       if (qty <= 0) continue;
+      // Always aggregate (+=), never overwrite.
       aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
     }
   };
 
-  // UNIFIED (required)
-  const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
-  addCoins(unified);
+  // UNIFIED (spot + derivatives margin)
+  try {
+    const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
+    addCoins(unified);
+  } catch (e) {
+    console.warn("Bybit UNIFIED fetch failed:", e instanceof Error ? e.message : e);
+  }
 
-  // FUND (best-effort: don't fail entire sync if user lacks permissions)
+  // CONTRACT (legacy derivatives wallet, best-effort)
+  try {
+    const contract = await fetchBybitCoinAccount(key, secret, "CONTRACT");
+    addCoins(contract);
+  } catch (e) {
+    console.warn("Bybit CONTRACT fetch failed:", e instanceof Error ? e.message : e);
+  }
+
+  // FUND (funding wallet, different endpoint, best-effort)
   try {
     const funding = await fetchBybitFundingBalances(key, secret);
     addCoins(funding);
