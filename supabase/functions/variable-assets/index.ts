@@ -90,13 +90,14 @@ async function bybitSignedGet(
   key: string,
   secret: string,
   query: string,
+  path = "/v5/account/wallet-balance",
 ): Promise<unknown> {
   const ts = Date.now().toString();
   const recv = "10000";
   const payload = ts + key + recv + query;
   const sig = toHex(await hmac("SHA-256", secret, payload));
   const res = await fetch(
-    `https://api.bybit.com/v5/account/wallet-balance?${query}`,
+    `https://api.bybit.com${path}?${query}`,
     {
       headers: {
         "X-BAPI-API-KEY": key,
@@ -112,16 +113,31 @@ async function bybitSignedGet(
   return data;
 }
 
+type BybitCoinBalance = {
+  coin: string;
+  walletBalance?: string;
+  locked?: string;
+  transferBalance?: string;
+};
+
+type BybitPosition = {
+  symbol?: string;
+  baseCoin?: string;
+  size?: string;
+  positionValue?: string;
+  markPrice?: string;
+};
+
 async function fetchBybitCoinAccount(
   key: string,
   secret: string,
   accountType: string,
-): Promise<Array<{ coin: string; walletBalance: string; locked?: string }>> {
+) : Promise<BybitCoinBalance[]> {
   const data = await bybitSignedGet(key, secret, `accountType=${accountType}`) as {
-    result?: { list?: Array<{ coin: Array<{ coin: string; walletBalance: string; locked?: string }> }> };
+    result?: { list?: Array<{ coin: BybitCoinBalance[] }> };
   };
   const list = data.result?.list ?? [];
-  const coins: Array<{ coin: string; walletBalance: string; locked?: string }> = [];
+  const coins: BybitCoinBalance[] = [];
   for (const entry of list) {
     for (const c of entry.coin ?? []) coins.push(c);
   }
@@ -132,58 +148,101 @@ async function fetchBybitCoinAccount(
 async function fetchBybitFundingBalances(
   key: string,
   secret: string,
-): Promise<Array<{ coin: string; walletBalance: string; locked?: string }>> {
-  const ts = Date.now().toString();
-  const recv = "10000";
-  const query = "accountType=FUND";
-  const payload = ts + key + recv + query;
-  const sig = toHex(await hmac("SHA-256", secret, payload));
-  const res = await fetch(
-    `https://api.bybit.com/v5/asset/transfer/query-account-coins-balance?${query}`,
-    {
-      headers: {
-        "X-BAPI-API-KEY": key,
-        "X-BAPI-TIMESTAMP": ts,
-        "X-BAPI-RECV-WINDOW": recv,
-        "X-BAPI-SIGN": sig,
-      },
-    },
-  );
-  if (!res.ok) throw new Error(`Bybit FUND: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  if (data.retCode !== 0) throw new Error(`Bybit FUND: ${data.retMsg}`);
-  const balances: Array<{ coin: string; walletBalance: string; transferBalance?: string }> =
-    data.result?.balance ?? [];
+): Promise<BybitCoinBalance[]> {
+  const data = await bybitSignedGet(
+    key,
+    secret,
+    "accountType=FUND",
+    "/v5/asset/transfer/query-account-coins-balance",
+  ) as {
+    result?: { balance?: BybitCoinBalance[] };
+  };
+  const balances = data.result?.balance ?? [];
   return balances.map((b) => ({
     coin: b.coin,
     walletBalance: b.walletBalance ?? b.transferBalance ?? "0",
+    locked: b.locked ?? "0",
   }));
 }
 
+function inferBybitBaseTicker(symbol?: string): string {
+  const s = (symbol ?? "").toUpperCase();
+  if (!s) return "";
+  if (s.includes("-")) return s.split("-")[0] ?? "";
+  for (const quote of ["USDT", "USDC", "USD", "BTC", "ETH", "EUR", "BRL"]) {
+    if (s.endsWith(quote) && s.length > quote.length) return s.slice(0, -quote.length);
+  }
+  return s;
+}
+
+async function fetchBybitPositions(
+  key: string,
+  secret: string,
+): Promise<BybitPosition[]> {
+  const out: BybitPosition[] = [];
+
+  for (const category of ["linear", "inverse", "option"]) {
+    let cursor: string | undefined;
+    do {
+      const params = new URLSearchParams({ category, limit: "200" });
+      if (cursor) params.set("cursor", cursor);
+
+      try {
+        const data = await bybitSignedGet(
+          key,
+          secret,
+          params.toString(),
+          "/v5/position/list",
+        ) as {
+          result?: { list?: BybitPosition[]; nextPageCursor?: string };
+        };
+        out.push(...(data.result?.list ?? []));
+        const nextCursor = data.result?.nextPageCursor?.trim();
+        cursor = nextCursor && nextCursor !== cursor ? nextCursor : undefined;
+      } catch (e) {
+        console.warn(`Bybit ${category} positions fetch failed:`, e instanceof Error ? e.message : e);
+        cursor = undefined;
+      }
+    } while (cursor);
+  }
+
+  return out;
+}
+
 async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
-  // Aggregate across all account types: UNIFIED + FUND.
-  // Funding uses a different endpoint; Unified uses wallet-balance.
+  // Aggregate across all account sources: wallet balances + funding + open derivatives positions.
   const aggregated = new Map<string, number>();
 
   const addCoins = (
-    coins: Array<{ coin: string; walletBalance: string; locked?: string }>,
+    coins: BybitCoinBalance[],
   ) => {
     for (const c of coins) {
       const ticker = (c.coin ?? "").toUpperCase();
       if (!ticker) continue;
-      // Bybit's `walletBalance` already includes locked/in-order amounts.
-      // Use it directly to avoid double-counting. Fall back to `locked` only
-      // if walletBalance is missing/zero.
       const wallet = parseFloat(c.walletBalance ?? "0") || 0;
       const locked = parseFloat(c.locked ?? "0") || 0;
-      const qty = wallet > 0 ? wallet : locked;
+      const qty = wallet + locked;
       if (qty <= 0) continue;
-      // Always aggregate (+=), never overwrite.
       aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
     }
   };
 
-  // UNIFIED (spot + derivatives margin)
+  const addPositions = (positions: BybitPosition[]) => {
+    for (const position of positions) {
+      const explicitBase = (position.baseCoin ?? "").toUpperCase();
+      const ticker = explicitBase || inferBybitBaseTicker(position.symbol);
+      if (!ticker) continue;
+
+      const size = Math.abs(parseFloat(position.size ?? "0") || 0);
+      const positionValue = Math.abs(parseFloat(position.positionValue ?? "0") || 0);
+      const markPrice = Math.abs(parseFloat(position.markPrice ?? "0") || 0);
+      const exposure = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
+      if (exposure <= 0) continue;
+
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + exposure);
+    }
+  };
+
   try {
     const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
     addCoins(unified);
@@ -191,20 +250,25 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     console.warn("Bybit UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // CONTRACT (legacy derivatives wallet, best-effort)
   try {
-    const contract = await fetchBybitCoinAccount(key, secret, "CONTRACT");
-    addCoins(contract);
+    const fundWallet = await fetchBybitCoinAccount(key, secret, "FUND");
+    addCoins(fundWallet);
   } catch (e) {
-    console.warn("Bybit CONTRACT fetch failed:", e instanceof Error ? e.message : e);
+    console.warn("Bybit FUND wallet-balance fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // FUND (funding wallet, different endpoint, best-effort)
   try {
     const funding = await fetchBybitFundingBalances(key, secret);
     addCoins(funding);
   } catch (e) {
     console.warn("Bybit FUND fetch failed:", e instanceof Error ? e.message : e);
+  }
+
+  try {
+    const positions = await fetchBybitPositions(key, secret);
+    addPositions(positions);
+  } catch (e) {
+    console.warn("Bybit positions aggregation failed:", e instanceof Error ? e.message : e);
   }
 
   return Array.from(aggregated.entries())
@@ -321,7 +385,9 @@ async function signES256(privateKeyPem: string, message: string): Promise<string
 async function buildCoinbaseJwt(
   keyName: string,
   privateKeyPem: string,
-  uri: string,
+  requestMethod: string,
+  requestHost: string,
+  requestPath: string,
 ): Promise<string> {
   const header = {
     alg: "ES256",
@@ -335,7 +401,7 @@ async function buildCoinbaseJwt(
     iss: "cdp",
     nbf: now,
     exp: now + 120,
-    uri,
+    uri: `${requestMethod.toUpperCase()} ${requestHost}${requestPath}`,
   };
   const encHeader = toBase64Url(new TextEncoder().encode(JSON.stringify(header)));
   const encPayload = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -353,26 +419,44 @@ async function fetchCoinbase(
   // secret = EC PRIVATE KEY in PEM format
   const host = "api.coinbase.com";
   const path = "/api/v3/brokerage/accounts";
-  const uri = `GET ${host}${path}`;
-  const jwt = await buildCoinbaseJwt(key, secret, uri);
-  const res = await fetch(`https://${host}${path}`, {
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-      "Content-Type": "application/json",
-    },
-  });
-  if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  const accounts: Array<{
-    currency: string;
-    available_balance?: { value: string; currency: string };
-  }> = data?.accounts ?? [];
-  return accounts
-    .map((a) => ({
-      ticker: (a.currency ?? "").toUpperCase(),
-      quantity: parseFloat(a.available_balance?.value ?? "0"),
-    }))
-    .filter((b) => b.ticker && b.quantity > 0);
+  const aggregated = new Map<string, number>();
+  let cursor: string | undefined;
+
+  do {
+    const query = new URLSearchParams({ limit: "250" });
+    if (cursor) query.set("cursor", cursor);
+    const requestPath = query.toString() ? `${path}?${query.toString()}` : path;
+    const jwt = await buildCoinbaseJwt(key, secret, "GET", host, path);
+    const res = await fetch(`https://${host}${requestPath}`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
+
+    const data = await res.json();
+    const accounts: Array<{
+      currency: string;
+      available_balance?: { value: string; currency: string };
+      hold?: { value: string; currency: string };
+    }> = data?.accounts ?? [];
+
+    for (const account of accounts) {
+      const ticker = (account.currency ?? "").toUpperCase();
+      if (!ticker) continue;
+      const available = parseFloat(account.available_balance?.value ?? "0") || 0;
+      const hold = parseFloat(account.hold?.value ?? "0") || 0;
+      const quantity = available + hold;
+      if (quantity <= 0) continue;
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + quantity);
+    }
+
+    const nextCursor = (data?.has_next && data?.cursor) ? String(data.cursor).trim() : "";
+    cursor = nextCursor || undefined;
+  } while (cursor);
+
+  return Array.from(aggregated.entries()).map(([ticker, quantity]) => ({ ticker, quantity }));
 }
 
 async function fetchKraken(key: string, secret: string): Promise<NormalizedBalance[]> {
