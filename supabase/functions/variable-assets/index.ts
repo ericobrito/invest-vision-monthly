@@ -249,16 +249,7 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     console.error("[Bybit] UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // CONTRACT account (derivatives wallet) — some accounts use this instead of UNIFIED
-  try {
-    const contract = await fetchBybitCoinAccount(key, secret, "CONTRACT");
-    console.log(`[Bybit] CONTRACT returned ${contract.length} coins`);
-    addCoins(contract);
-  } catch (e) {
-    console.error("[Bybit] CONTRACT fetch failed:", e instanceof Error ? e.message : e);
-  }
-
-  // SPOT account
+  // SPOT account (fallback for non-UNIFIED accounts)
   try {
     const spot = await fetchBybitCoinAccount(key, secret, "SPOT");
     console.log(`[Bybit] SPOT returned ${spot.length} coins`);
@@ -267,23 +258,16 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     console.error("[Bybit] SPOT fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // FUND account via wallet-balance endpoint
+  // FUND account via wallet-balance endpoint (separate from UNIFIED/SPOT)
   try {
     const fundWallet = await fetchBybitCoinAccount(key, secret, "FUND");
-    console.log(`[Bybit] FUND wallet-balance returned ${fundWallet.length} coins`);
+    console.log(`[Bybit] FUND returned ${fundWallet.length} coins`);
     addCoins(fundWallet);
   } catch (e) {
-    console.error("[Bybit] FUND wallet-balance fetch failed:", e instanceof Error ? e.message : e);
+    console.error("[Bybit] FUND fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // FUND account via dedicated funding endpoint (different response shape)
-  try {
-    const funding = await fetchBybitFundingBalances(key, secret);
-    console.log(`[Bybit] FUND funding-balance returned ${funding.length} coins`);
-    addCoins(funding);
-  } catch (e) {
-    console.error("[Bybit] FUND funding-balance fetch failed:", e instanceof Error ? e.message : e);
-  }
+  // Transfer endpoint removed — it returns transferable funds, not real balances
 
   try {
     const positions = await fetchBybitPositions(key, secret);
