@@ -175,9 +175,25 @@ function extractBybitQuantity(balance: BybitCoinBalance): number {
   const free = parseFloat(balance.free ?? "0") || 0;
   const equity = parseFloat(balance.equity ?? "0") || 0;
 
-  const walletPlusLocked = wallet + locked;
-  const freePlusLocked = free + locked;
-  return Math.max(walletPlusLocked, transfer + locked, freePlusLocked, equity, 0);
+  let quantity = 0;
+
+  if (wallet > 0 || locked > 0) {
+    quantity += wallet + locked;
+  }
+
+  if (transfer > 0) {
+    quantity += transfer;
+  }
+
+  if (free > 0 && free !== wallet) {
+    quantity += free;
+  }
+
+  if (equity > 0 && quantity === 0) {
+    quantity = equity;
+  }
+
+  return quantity;
 }
 
 function inferBybitBaseTicker(symbol?: string): string {
