@@ -245,31 +245,57 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
 
   try {
     const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
+    console.log(`[Bybit] UNIFIED returned ${unified.length} coins`);
     addCoins(unified);
   } catch (e) {
-    console.warn("Bybit UNIFIED fetch failed:", e instanceof Error ? e.message : e);
+    console.error("[Bybit] UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
+  // CONTRACT account (derivatives wallet) — some accounts use this instead of UNIFIED
+  try {
+    const contract = await fetchBybitCoinAccount(key, secret, "CONTRACT");
+    console.log(`[Bybit] CONTRACT returned ${contract.length} coins`);
+    addCoins(contract);
+  } catch (e) {
+    console.error("[Bybit] CONTRACT fetch failed:", e instanceof Error ? e.message : e);
+  }
+
+  // SPOT account
+  try {
+    const spot = await fetchBybitCoinAccount(key, secret, "SPOT");
+    console.log(`[Bybit] SPOT returned ${spot.length} coins`);
+    addCoins(spot);
+  } catch (e) {
+    console.error("[Bybit] SPOT fetch failed:", e instanceof Error ? e.message : e);
+  }
+
+  // FUND account via wallet-balance endpoint
   try {
     const fundWallet = await fetchBybitCoinAccount(key, secret, "FUND");
+    console.log(`[Bybit] FUND wallet-balance returned ${fundWallet.length} coins`);
     addCoins(fundWallet);
   } catch (e) {
-    console.warn("Bybit FUND wallet-balance fetch failed:", e instanceof Error ? e.message : e);
+    console.error("[Bybit] FUND wallet-balance fetch failed:", e instanceof Error ? e.message : e);
   }
 
+  // FUND account via dedicated funding endpoint (different response shape)
   try {
     const funding = await fetchBybitFundingBalances(key, secret);
+    console.log(`[Bybit] FUND funding-balance returned ${funding.length} coins`);
     addCoins(funding);
   } catch (e) {
-    console.warn("Bybit FUND fetch failed:", e instanceof Error ? e.message : e);
+    console.error("[Bybit] FUND funding-balance fetch failed:", e instanceof Error ? e.message : e);
   }
 
   try {
     const positions = await fetchBybitPositions(key, secret);
+    console.log(`[Bybit] Derivative positions returned ${positions.length} entries`);
     addPositions(positions);
   } catch (e) {
-    console.warn("Bybit positions aggregation failed:", e instanceof Error ? e.message : e);
+    console.error("[Bybit] positions aggregation failed:", e instanceof Error ? e.message : e);
   }
+
+  console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
 
   return Array.from(aggregated.entries())
     .map(([ticker, quantity]) => ({ ticker, quantity }))
