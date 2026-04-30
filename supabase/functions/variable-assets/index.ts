@@ -119,7 +119,6 @@ type BybitCoinBalance = {
   locked?: string;
   transferBalance?: string;
   free?: string;
-  equity?: string;
 };
 
 type BybitPosition = {
@@ -146,54 +145,22 @@ async function fetchBybitCoinAccount(
   return coins;
 }
 
-// Funding account uses a different endpoint shape: /v5/asset/transfer/query-account-coins-balance
-async function fetchBybitFundingBalances(
-  key: string,
-  secret: string,
-): Promise<BybitCoinBalance[]> {
-  const data = await bybitSignedGet(
-    key,
-    secret,
-    "accountType=FUND",
-    "/v5/asset/transfer/query-account-coins-balance",
-  ) as {
-    result?: { balance?: BybitCoinBalance[] };
-  };
-  const balances = data.result?.balance ?? [];
-  return balances.map((b) => ({
-    coin: b.coin,
-    walletBalance: b.walletBalance,
-    locked: b.locked ?? "0",
-    transferBalance: b.transferBalance ?? "0",
-  }));
-}
+// fetchBybitFundingBalances removed — transfer endpoint returns transferable funds, not real balances
 
 function extractBybitQuantity(balance: BybitCoinBalance): number {
   const wallet = parseFloat(balance.walletBalance ?? "0") || 0;
   const locked = parseFloat(balance.locked ?? "0") || 0;
   const transfer = parseFloat(balance.transferBalance ?? "0") || 0;
   const free = parseFloat(balance.free ?? "0") || 0;
-  const equity = parseFloat(balance.equity ?? "0") || 0;
-
-  let quantity = 0;
 
   if (wallet > 0 || locked > 0) {
-    quantity += wallet + locked;
+    return wallet + locked;
+  } else if (transfer > 0) {
+    return transfer;
+  } else if (free > 0) {
+    return free;
   }
-
-  if (transfer > 0) {
-    quantity += transfer;
-  }
-
-  if (free > 0 && free !== wallet) {
-    quantity += free;
-  }
-
-  if (equity > 0 && quantity === 0) {
-    quantity = equity;
-  }
-
-  return quantity;
+  return 0;
 }
 
 function inferBybitBaseTicker(symbol?: string): string {
