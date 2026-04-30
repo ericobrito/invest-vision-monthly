@@ -118,6 +118,8 @@ type BybitCoinBalance = {
   walletBalance?: string;
   locked?: string;
   transferBalance?: string;
+  free?: string;
+  equity?: string;
 };
 
 type BybitPosition = {
@@ -160,9 +162,22 @@ async function fetchBybitFundingBalances(
   const balances = data.result?.balance ?? [];
   return balances.map((b) => ({
     coin: b.coin,
-    walletBalance: b.walletBalance ?? b.transferBalance ?? "0",
+    walletBalance: b.walletBalance,
     locked: b.locked ?? "0",
+    transferBalance: b.transferBalance ?? "0",
   }));
+}
+
+function extractBybitQuantity(balance: BybitCoinBalance): number {
+  const wallet = parseFloat(balance.walletBalance ?? "0") || 0;
+  const locked = parseFloat(balance.locked ?? "0") || 0;
+  const transfer = parseFloat(balance.transferBalance ?? "0") || 0;
+  const free = parseFloat(balance.free ?? "0") || 0;
+  const equity = parseFloat(balance.equity ?? "0") || 0;
+
+  const walletPlusLocked = wallet + locked;
+  const freePlusLocked = free + locked;
+  return Math.max(walletPlusLocked, transfer + locked, freePlusLocked, equity, 0);
 }
 
 function inferBybitBaseTicker(symbol?: string): string {
@@ -181,10 +196,12 @@ async function fetchBybitPositions(
 ): Promise<BybitPosition[]> {
   const out: BybitPosition[] = [];
 
-  for (const category of ["linear", "inverse", "option"]) {
+  for (const category of ["linear", "inverse", "option"] as const) {
     let cursor: string | undefined;
     do {
       const params = new URLSearchParams({ category, limit: "200" });
+      if (category === "linear") params.set("settleCoin", "USDT");
+      if (category === "inverse") params.set("settleCoin", "BTC");
       if (cursor) params.set("cursor", cursor);
 
       try {
@@ -219,9 +236,7 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     for (const c of coins) {
       const ticker = (c.coin ?? "").toUpperCase();
       if (!ticker) continue;
-      const wallet = parseFloat(c.walletBalance ?? "0") || 0;
-      const locked = parseFloat(c.locked ?? "0") || 0;
-      const qty = wallet + locked;
+      const qty = extractBybitQuantity(c);
       if (qty <= 0) continue;
       aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
     }
@@ -466,14 +481,17 @@ async function fetchCoinbase(
       currency: string;
       available_balance?: { value: string; currency: string };
       hold?: { value: string; currency: string };
+      balance?: { value: string; currency: string };
+      ready?: boolean;
     }> = data?.accounts ?? [];
 
     for (const account of accounts) {
-      const ticker = (account.currency ?? "").toUpperCase();
+      const ticker = (account.currency ?? account.available_balance?.currency ?? account.balance?.currency ?? "").toUpperCase();
       if (!ticker) continue;
       const available = parseFloat(account.available_balance?.value ?? "0") || 0;
       const hold = parseFloat(account.hold?.value ?? "0") || 0;
-      const quantity = available + hold;
+      const balance = parseFloat(account.balance?.value ?? "0") || 0;
+      const quantity = Math.max(available + hold, balance, 0);
       if (quantity <= 0) continue;
       aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + quantity);
     }
