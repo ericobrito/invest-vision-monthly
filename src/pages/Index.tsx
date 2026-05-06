@@ -12,7 +12,8 @@ import EvolutionChart from "@/components/EvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import LanguageToggle from "@/components/LanguageToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -126,17 +127,19 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-        <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
+        <div className="container max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-primary/20 flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-primary" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{t("app.title")}</h1>
-              <p className="text-xs text-muted-foreground">{t("app.subtitle")}</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-bold text-foreground truncate">{t("app.title")}</h1>
+              <p className="text-xs text-muted-foreground truncate hidden sm:block">{t("app.subtitle")}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Desktop nav */}
+          <div className="hidden lg:flex items-center gap-2">
             <Link to="/radar">
               <Button variant="outline" size="sm">
                 <Target className="w-4 h-4 mr-1" /> {t("nav.radar")}
@@ -176,6 +179,64 @@ const Index = () => {
               <Plus className="w-4 h-4 mr-1" /> {t("nav.newMonth")}
             </Button>
             <LanguageToggle />
+          </div>
+
+          {/* Mobile actions */}
+          <div className="flex lg:hidden items-center gap-1">
+            <Button onClick={openAdd} size="icon" title={t("nav.newMonth")}>
+              <Plus className="w-4 h-4" />
+            </Button>
+            <LanguageToggle />
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Menu">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72 p-0">
+                <SheetHeader className="p-4 border-b border-border">
+                  <SheetTitle>{t("app.title")}</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col p-2">
+                  <SheetClose asChild>
+                    <Link to="/radar" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <Target className="w-4 h-4" /> {t("nav.radar")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/radar-tesouro" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <Landmark className="w-4 h-4" /> {t("nav.tesouro")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/plano-acao" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <Lightbulb className="w-4 h-4" /> {t("nav.plan")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/posicoes-variaveis" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <Coins className="w-4 h-4" /> {t("nav.variable")}
+                    </Link>
+                  </SheetClose>
+
+                  {snapshot && (
+                    <>
+                      <div className="h-px bg-border my-2" />
+                      <SheetClose asChild>
+                        <button onClick={openEdit} className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground text-left">
+                          <Pencil className="w-4 h-4" /> {t("nav.editMonth")}
+                        </button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <button onClick={() => setDeleteMonth(snapshot.month)} className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-destructive text-left">
+                          <Trash2 className="w-4 h-4" /> {t("nav.deleteMonth")}
+                        </button>
+                      </SheetClose>
+                    </>
+                  )}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
