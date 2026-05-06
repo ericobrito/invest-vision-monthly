@@ -1,0 +1,53 @@
+{
+  "app": {
+    "title": "Meu Patrimônio",
+    "subtitle": "Acompanhamento mensal de investimentos",
+    "loading": "Carregando dados..."
+  },
+  "nav": {
+    "radar": "Radar",
+    "tesouro": "Tesouro",
+    "plan": "Plano",
+    "variable": "Posições Variáveis",
+    "newMonth": "Novo Mês",
+    "editMonth": "Editar mês",
+    "deleteMonth": "Excluir mês"
+  },
+  "summary": {
+    "totalWealth": "Patrimônio Total",
+    "monthlyChange": "Variação Mensal",
+    "fixedVsVariable": "Renda Fixa / Variável",
+    "fixed": "Fixa",
+    "variable": "Variável",
+    "brazilVsExterior": "Brasil / Exterior",
+    "brazil": "Brasil",
+    "exterior": "Exterior"
+  },
+  "index": {
+    "empty": "Nenhum dado encontrado.",
+    "addFirst": "Adicionar Primeiro Mês",
+    "growthSince": "Crescimento acumulado desde Jan 2024",
+    "atPeak": "Você está no topo histórico!",
+    "distanceFromPeak": "Distância do topo histórico",
+    "vsPeak": "{{pct}}% em relação ao pico ({{peak}})"
+  },
+  "delete": {
+    "title": "Excluir mês?",
+    "description": "Esta ação não pode ser desfeita. Todos os investimentos deste mês serão removidos.",
+    "cancel": "Cancelar",
+    "confirm": "Excluir"
+  },
+  "toast": {
+    "monthUpdated": "Mês atualizado!",
+    "monthCreated": "Novo mês criado!",
+    "monthDeleted": "Mês excluído!",
+    "investmentUpdated": "Investimento atualizado!",
+    "saveError": "Erro ao salvar",
+    "deleteError": "Erro ao excluir"
+  },
+  "language": {
+    "label": "Idioma",
+    "pt": "Português",
+    "en": "English"
+  }
+}
