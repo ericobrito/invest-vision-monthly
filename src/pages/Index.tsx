@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSnapshots, useSaveSnapshot, useDeleteSnapshot } from "@/hooks/useSnapshots";
 import { useUpdateInvestment } from "@/hooks/useUpdateInvestment";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
@@ -10,6 +11,7 @@ import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
+import LanguageToggle from "@/components/LanguageToggle";
 import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const Index = () => {
+  const { t } = useTranslation();
   const { data: monthlyData = [], isLoading } = useSnapshots();
   const saveSnapshot = useSaveSnapshot();
   const deleteSnapshot = useDeleteSnapshot();
