@@ -1,0 +1,53 @@
+{
+  "app": {
+    "title": "My Wealth",
+    "subtitle": "Monthly investment tracking",
+    "loading": "Loading data..."
+  },
+  "nav": {
+    "radar": "Radar",
+    "tesouro": "Treasury",
+    "plan": "Plan",
+    "variable": "Variable Positions",
+    "newMonth": "New Month",
+    "editMonth": "Edit month",
+    "deleteMonth": "Delete month"
+  },
+  "summary": {
+    "totalWealth": "Total Wealth",
+    "monthlyChange": "Monthly Change",
+    "fixedVsVariable": "Fixed / Variable Income",
+    "fixed": "Fixed",
+    "variable": "Variable",
+    "brazilVsExterior": "Brazil / International",
+    "brazil": "Brazil",
+    "exterior": "International"
+  },
+  "index": {
+    "empty": "No data found.",
+    "addFirst": "Add First Month",
+    "growthSince": "Cumulative growth since Jan 2024",
+    "atPeak": "You're at an all-time high!",
+    "distanceFromPeak": "Distance from all-time high",
+    "vsPeak": "{{pct}}% vs peak ({{peak}})"
+  },
+  "delete": {
+    "title": "Delete month?",
+    "description": "This action cannot be undone. All investments for this month will be removed.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toast": {
+    "monthUpdated": "Month updated!",
+    "monthCreated": "New month created!",
+    "monthDeleted": "Month deleted!",
+    "investmentUpdated": "Investment updated!",
+    "saveError": "Failed to save",
+    "deleteError": "Failed to delete"
+  },
+  "language": {
+    "label": "Language",
+    "pt": "Português",
+    "en": "English"
+  }
+}
