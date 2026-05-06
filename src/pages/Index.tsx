@@ -49,12 +49,12 @@ const Index = () => {
       { data, existingMonth },
       {
         onSuccess: () => {
-          toast({ title: existingMonth ? "Mês atualizado!" : "Novo mês criado!" });
+          toast({ title: existingMonth ? t("toast.monthUpdated") : t("toast.monthCreated") });
           setDialogOpen(false);
           setEditingSnapshot(undefined);
         },
         onError: (err) => {
-          toast({ title: "Erro ao salvar", description: String(err), variant: "destructive" });
+          toast({ title: t("toast.saveError"), description: String(err), variant: "destructive" });
         },
       }
     );
@@ -64,14 +64,14 @@ const Index = () => {
     if (!deleteMonth) return;
     deleteSnapshot.mutate(deleteMonth, {
       onSuccess: () => {
-        toast({ title: "Mês excluído!" });
+        toast({ title: t("toast.monthDeleted") });
         setDeleteMonth(null);
         if (effectiveIndex >= monthlyData.length - 1) {
           setCurrentIndex(Math.max(0, monthlyData.length - 2));
         }
       },
       onError: (err) => {
-        toast({ title: "Erro ao excluir", description: String(err), variant: "destructive" });
+        toast({ title: t("toast.deleteError"), description: String(err), variant: "destructive" });
       },
     });
   };
@@ -92,12 +92,12 @@ const Index = () => {
       },
       {
         onSuccess: () => {
-          toast({ title: "Investimento atualizado!" });
+          toast({ title: t("toast.investmentUpdated") });
           setInvestmentDialogOpen(false);
           setEditingInvestment(null);
         },
         onError: (err) => {
-          toast({ title: "Erro ao salvar", description: String(err), variant: "destructive" });
+          toast({ title: t("toast.saveError"), description: String(err), variant: "destructive" });
         },
       }
     );
@@ -118,7 +118,7 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground animate-pulse">Carregando dados...</div>
+        <div className="text-muted-foreground animate-pulse">{t("app.loading")}</div>
       </div>
     );
   }
@@ -132,49 +132,50 @@ const Index = () => {
               <BarChart3 className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Meu Patrimônio</h1>
-              <p className="text-xs text-muted-foreground">Acompanhamento mensal de investimentos</p>
+              <h1 className="text-xl font-bold text-foreground">{t("app.title")}</h1>
+              <p className="text-xs text-muted-foreground">{t("app.subtitle")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/radar">
               <Button variant="outline" size="sm">
-                <Target className="w-4 h-4 mr-1" /> Radar
+                <Target className="w-4 h-4 mr-1" /> {t("nav.radar")}
               </Button>
             </Link>
             <Link to="/radar-tesouro">
               <Button variant="outline" size="sm">
-                <Landmark className="w-4 h-4 mr-1" /> Tesouro
+                <Landmark className="w-4 h-4 mr-1" /> {t("nav.tesouro")}
               </Button>
             </Link>
             <Link to="/plano-acao">
               <Button variant="outline" size="sm">
-                <Lightbulb className="w-4 h-4 mr-1" /> Plano
+                <Lightbulb className="w-4 h-4 mr-1" /> {t("nav.plan")}
               </Button>
             </Link>
             <Link to="/posicoes-variaveis">
               <Button variant="outline" size="sm">
-                <Coins className="w-4 h-4 mr-1" /> Posições Variáveis
+                <Coins className="w-4 h-4 mr-1" /> {t("nav.variable")}
               </Button>
             </Link>
             {snapshot && (
               <>
-                <Button variant="ghost" size="icon" onClick={openEdit} title="Editar mês">
+                <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")}>
                   <Pencil className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setDeleteMonth(snapshot.month)}
-                  title="Excluir mês"
+                  title={t("nav.deleteMonth")}
                 >
                   <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
               </>
             )}
             <Button onClick={openAdd} size="sm">
-              <Plus className="w-4 h-4 mr-1" /> Novo Mês
+              <Plus className="w-4 h-4 mr-1" /> {t("nav.newMonth")}
             </Button>
+            <LanguageToggle />
           </div>
         </div>
       </header>
@@ -182,9 +183,9 @@ const Index = () => {
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
         {monthlyData.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-muted-foreground mb-4">Nenhum dado encontrado.</p>
+            <p className="text-muted-foreground mb-4">{t("index.empty")}</p>
             <Button onClick={openAdd}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar Primeiro Mês
+              <Plus className="w-4 h-4 mr-1" /> {t("index.addFirst")}
             </Button>
           </div>
         ) : (
@@ -226,7 +227,7 @@ const Index = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {growthSince2024 != null && (
                         <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
-                          <p className="text-sm text-muted-foreground mb-1">Crescimento acumulado desde Jan 2024</p>
+                          <p className="text-sm text-muted-foreground mb-1">{t("index.growthSince")}</p>
                           <p className={`text-2xl font-bold ${growthSince2024 >= 0 ? 'text-primary' : 'text-destructive'}`}>
                             {growthSince2024.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           </p>
@@ -234,14 +235,14 @@ const Index = () => {
                       )}
                       <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
                         <p className="text-sm text-muted-foreground mb-1">
-                          {isAtPeak ? "Você está no topo histórico!" : "Distância do topo histórico"}
+                          {isAtPeak ? t("index.atPeak") : t("index.distanceFromPeak")}
                         </p>
                         <p className={`text-2xl font-bold ${isAtPeak ? 'text-primary' : 'text-destructive'}`}>
                           {diffFromMax.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                         </p>
                         {!isAtPeak && (
                           <p className="text-sm text-destructive mt-1">
-                            {diffFromMaxPct.toFixed(2)}% em relação ao pico ({maxTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})
+                            {t("index.vsPeak", { pct: diffFromMaxPct.toFixed(2), peak: maxTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) })}
                           </p>
                         )}
                       </div>
