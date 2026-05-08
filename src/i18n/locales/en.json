@@ -45,6 +45,21 @@
     "saveError": "Failed to save",
     "deleteError": "Failed to delete"
   },
+  "assetEvo": {
+    "title": "Per-Asset Evolution",
+    "last3": "Last 3 months",
+    "last6": "Last 6 months",
+    "last12": "Last 12 months",
+    "allPeriod": "All time",
+    "allClasses": "All classes",
+    "showAll": "Show all",
+    "hideAll": "Hide all",
+    "noAssets": "No assets in filter",
+    "mom": "Monthly change",
+    "acc": "Accumulated",
+    "invested": "Invested",
+    "share": "Allocation"
+  },
   "language": {
     "label": "Language",
     "pt": "Português",
