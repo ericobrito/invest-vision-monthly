@@ -36,6 +36,7 @@ const colorFor = (name: string, i: number) => PALETTE[i % PALETTE.length];
 
 type PeriodKey = "3" | "6" | "12" | "all";
 type ClassKey = "all" | "fixed" | "variable" | "brazil" | "exterior";
+type ModeKey = "absolute" | "normalized";
 
 // Approx CDI ~ 1% per month (compounded), normalized to first visible total
 const CDI_MONTHLY = 0.01;
@@ -44,6 +45,7 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<PeriodKey>("12");
   const [klass, setKlass] = useState<ClassKey>("all");
+  const [mode, setMode] = useState<ModeKey>("absolute");
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
