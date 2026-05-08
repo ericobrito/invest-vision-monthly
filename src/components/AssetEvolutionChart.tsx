@@ -148,6 +148,9 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
               const acc = firstVal && firstVal > 0 ? ((value - firstVal) / firstVal) * 100 : null;
               const pct = chartData[monthIndex]?.[`__pct_${name}`] as number | undefined;
               const applied = chartData[monthIndex]?.[`__applied_${name}`] as number | null | undefined;
+              const cdiVal = chartData[monthIndex]?.__cdi as number | undefined;
+              const relVsCdi = mode === "normalized" && cdiVal ? value - cdiVal : null;
+              const absVal = chartData[monthIndex]?.[`__abs_${name}`] as number | undefined;
               return (
                 <div key={name} className="border-b border-border/50 last:border-0 pb-1.5 last:pb-0">
                   <div className="flex items-center gap-2">
@@ -155,7 +158,14 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
                     <span className="text-foreground text-xs font-medium truncate">{name}</span>
                   </div>
                   <div className="pl-4 text-[11px] text-muted-foreground leading-tight">
-                    <div className="font-mono text-foreground">{formatBRL(value)}</div>
+                    {mode === "normalized" ? (
+                      <div className="font-mono text-foreground">
+                        {t("assetEvo.indexedValue")}: {value.toFixed(1)}
+                        {absVal != null && <span className="text-muted-foreground"> · {formatBRL(absVal)}</span>}
+                      </div>
+                    ) : (
+                      <div className="font-mono text-foreground">{formatBRL(value)}</div>
+                    )}
                     {mom != null && (
                       <div className={mom >= 0 ? "text-primary" : "text-destructive"}>
                         {t("assetEvo.mom")}: {mom >= 0 ? "+" : ""}{mom.toFixed(2)}%
@@ -166,6 +176,11 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
                         {t("assetEvo.acc")}: {acc >= 0 ? "+" : ""}{acc.toFixed(2)}%
                       </div>
                     )}
+                    {relVsCdi != null && (
+                      <div className={relVsCdi >= 0 ? "text-primary" : "text-destructive"}>
+                        {t("assetEvo.relativeTrajectory")}: {relVsCdi >= 0 ? "+" : ""}{relVsCdi.toFixed(1)}
+                      </div>
+                    )}
                     {applied != null && <div>{t("assetEvo.invested")}: {formatBRL(applied)}</div>}
                     {pct != null && <div>{t("assetEvo.share")}: {pct.toFixed(2)}%</div>}
                   </div>
@@ -174,7 +189,11 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
             })}
           {showBenchmark && payload.find((p: any) => p.dataKey === "__cdi") && (
             <div className="text-[11px] text-muted-foreground border-t border-border/50 pt-1.5">
-              CDI ~: <span className="font-mono text-foreground">{formatBRL(payload.find((p: any) => p.dataKey === "__cdi").value)}</span>
+              CDI ~: <span className="font-mono text-foreground">
+                {mode === "normalized"
+                  ? payload.find((p: any) => p.dataKey === "__cdi").value.toFixed(1)
+                  : formatBRL(payload.find((p: any) => p.dataKey === "__cdi").value)}
+              </span>
             </div>
           )}
         </div>
