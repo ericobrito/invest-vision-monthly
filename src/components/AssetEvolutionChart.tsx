@@ -36,6 +36,7 @@ const colorFor = (name: string, i: number) => PALETTE[i % PALETTE.length];
 
 type PeriodKey = "3" | "6" | "12" | "all";
 type ClassKey = "all" | "fixed" | "variable" | "brazil" | "exterior";
+type ModeKey = "absolute" | "normalized";
 
 // Approx CDI ~ 1% per month (compounded), normalized to first visible total
 const CDI_MONTHLY = 0.01;
@@ -44,6 +45,7 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<PeriodKey>("12");
   const [klass, setKlass] = useState<ClassKey>("all");
+  const [mode, setMode] = useState<ModeKey>("absolute");
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
@@ -74,23 +76,43 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
   }, [visibleSnapshots, klass]);
 
   const chartData = useMemo(() => {
-    const firstTotal = visibleSnapshots[0]?.total ?? 0;
+    // Find each asset's first non-null absolute value within visible window
+    const baselines = new Map<string, number>();
+    for (const a of assets) {
+      for (const s of visibleSnapshots) {
+        const inv = s.investments.find(i => i.name === a.name);
+        if (inv && inv.value > 0) { baselines.set(a.name, inv.value); break; }
+      }
+    }
+
     return visibleSnapshots.map((s, idx) => {
       const row: Record<string, any> = { month: s.label, __month: s.month, __total: s.total };
       for (const a of assets) {
         const inv = s.investments.find(i => i.name === a.name);
-        row[a.name] = inv ? inv.value : null;
+        const absVal = inv ? inv.value : null;
+        if (mode === "normalized") {
+          const base = baselines.get(a.name);
+          row[a.name] = absVal != null && base ? (absVal / base) * 100 : null;
+        } else {
+          row[a.name] = absVal;
+        }
         if (inv) {
+          row[`__abs_${a.name}`] = inv.value;
           row[`__pct_${a.name}`] = s.total > 0 ? (inv.value / s.total) * 100 : 0;
           row[`__applied_${a.name}`] = inv.applied ?? null;
         }
       }
-      if (showBenchmark && firstTotal > 0) {
-        row.__cdi = firstTotal * Math.pow(1 + CDI_MONTHLY, idx);
+      if (showBenchmark) {
+        if (mode === "normalized") {
+          row.__cdi = 100 * Math.pow(1 + CDI_MONTHLY, idx);
+        } else {
+          const firstTotal = visibleSnapshots[0]?.total ?? 0;
+          if (firstTotal > 0) row.__cdi = firstTotal * Math.pow(1 + CDI_MONTHLY, idx);
+        }
       }
       return row;
     });
-  }, [visibleSnapshots, assets, showBenchmark]);
+  }, [visibleSnapshots, assets, showBenchmark, mode]);
 
   const toggle = (name: string) => {
     setHidden(prev => {
@@ -126,6 +148,9 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
               const acc = firstVal && firstVal > 0 ? ((value - firstVal) / firstVal) * 100 : null;
               const pct = chartData[monthIndex]?.[`__pct_${name}`] as number | undefined;
               const applied = chartData[monthIndex]?.[`__applied_${name}`] as number | null | undefined;
+              const cdiVal = chartData[monthIndex]?.__cdi as number | undefined;
+              const relVsCdi = mode === "normalized" && cdiVal ? value - cdiVal : null;
+              const absVal = chartData[monthIndex]?.[`__abs_${name}`] as number | undefined;
               return (
                 <div key={name} className="border-b border-border/50 last:border-0 pb-1.5 last:pb-0">
                   <div className="flex items-center gap-2">
@@ -133,7 +158,14 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
                     <span className="text-foreground text-xs font-medium truncate">{name}</span>
                   </div>
                   <div className="pl-4 text-[11px] text-muted-foreground leading-tight">
-                    <div className="font-mono text-foreground">{formatBRL(value)}</div>
+                    {mode === "normalized" ? (
+                      <div className="font-mono text-foreground">
+                        {t("assetEvo.indexedValue")}: {value.toFixed(1)}
+                        {absVal != null && <span className="text-muted-foreground"> · {formatBRL(absVal)}</span>}
+                      </div>
+                    ) : (
+                      <div className="font-mono text-foreground">{formatBRL(value)}</div>
+                    )}
                     {mom != null && (
                       <div className={mom >= 0 ? "text-primary" : "text-destructive"}>
                         {t("assetEvo.mom")}: {mom >= 0 ? "+" : ""}{mom.toFixed(2)}%
@@ -144,6 +176,11 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
                         {t("assetEvo.acc")}: {acc >= 0 ? "+" : ""}{acc.toFixed(2)}%
                       </div>
                     )}
+                    {relVsCdi != null && (
+                      <div className={relVsCdi >= 0 ? "text-primary" : "text-destructive"}>
+                        {t("assetEvo.relativeTrajectory")}: {relVsCdi >= 0 ? "+" : ""}{relVsCdi.toFixed(1)}
+                      </div>
+                    )}
                     {applied != null && <div>{t("assetEvo.invested")}: {formatBRL(applied)}</div>}
                     {pct != null && <div>{t("assetEvo.share")}: {pct.toFixed(2)}%</div>}
                   </div>
@@ -152,7 +189,11 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
             })}
           {showBenchmark && payload.find((p: any) => p.dataKey === "__cdi") && (
             <div className="text-[11px] text-muted-foreground border-t border-border/50 pt-1.5">
-              CDI ~: <span className="font-mono text-foreground">{formatBRL(payload.find((p: any) => p.dataKey === "__cdi").value)}</span>
+              CDI ~: <span className="font-mono text-foreground">
+                {mode === "normalized"
+                  ? payload.find((p: any) => p.dataKey === "__cdi").value.toFixed(1)
+                  : formatBRL(payload.find((p: any) => p.dataKey === "__cdi").value)}
+              </span>
             </div>
           )}
         </div>
@@ -194,6 +235,16 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
               <SelectItem value="variable">{t("summary.variable")}</SelectItem>
               <SelectItem value="brazil">{t("summary.brazil")}</SelectItem>
               <SelectItem value="exterior">{t("summary.exterior")}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={mode} onValueChange={(v) => setMode(v as ModeKey)}>
+            <SelectTrigger className="w-[170px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="absolute">{t("assetEvo.modeAbsolute")}</SelectItem>
+              <SelectItem value="normalized">{t("assetEvo.modeNormalized")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -249,7 +300,10 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
               tick={{ fill: "hsl(215, 12%, 55%)", fontSize: 11 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`}
+              domain={mode === "normalized" ? ["auto", "auto"] : undefined}
+              tickFormatter={(v) =>
+                mode === "normalized" ? v.toFixed(0) : `R$ ${(v / 1000).toFixed(0)}k`
+              }
               width={70}
             />
             <Tooltip content={renderTooltip} />

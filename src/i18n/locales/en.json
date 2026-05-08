@@ -58,7 +58,12 @@
     "mom": "Monthly change",
     "acc": "Accumulated",
     "invested": "Invested",
-    "share": "Allocation"
+    "share": "Allocation",
+    "modeAbsolute": "Absolute value",
+    "modeNormalized": "Indexed evolution",
+    "indexedValue": "Index",
+    "relativeTrajectory": "Relative trajectory vs CDI",
+    "baseline": "Base 100"
   },
   "language": {
     "label": "Language",
