@@ -9,6 +9,7 @@ import SummaryCards from "@/components/SummaryCards";
 import InvestmentTable from "@/components/InvestmentTable";
 import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
+import AssetEvolutionChart from "@/components/AssetEvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -271,6 +272,8 @@ const Index = () => {
                     <AllocationChart snapshot={snapshot} />
                   </div>
                 </div>
+
+                <AssetEvolutionChart snapshots={monthlyData} />
 
                 <InvestmentTable snapshot={snapshot} onEditInvestment={handleEditInvestment} />
 

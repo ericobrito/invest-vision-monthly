@@ -45,6 +45,21 @@
     "saveError": "Erro ao salvar",
     "deleteError": "Erro ao excluir"
   },
+  "assetEvo": {
+    "title": "Evolução por Ativo",
+    "last3": "Últimos 3 meses",
+    "last6": "Últimos 6 meses",
+    "last12": "Últimos 12 meses",
+    "allPeriod": "Todo o período",
+    "allClasses": "Todas as classes",
+    "showAll": "Mostrar todos",
+    "hideAll": "Ocultar todos",
+    "noAssets": "Sem ativos no filtro",
+    "mom": "Variação mensal",
+    "acc": "Acumulado",
+    "invested": "Aportado",
+    "share": "Participação"
+  },
   "language": {
     "label": "Idioma",
     "pt": "Português",
