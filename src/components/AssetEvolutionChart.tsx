@@ -238,6 +238,16 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
             </SelectContent>
           </Select>
 
+          <Select value={mode} onValueChange={(v) => setMode(v as ModeKey)}>
+            <SelectTrigger className="w-[170px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="absolute">{t("assetEvo.modeAbsolute")}</SelectItem>
+              <SelectItem value="normalized">{t("assetEvo.modeNormalized")}</SelectItem>
+            </SelectContent>
+          </Select>
+
           <div className="flex items-center gap-1 ml-auto">
             <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={showAll}>
               {t("assetEvo.showAll")}
