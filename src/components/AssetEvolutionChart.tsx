@@ -300,7 +300,10 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
               tick={{ fill: "hsl(215, 12%, 55%)", fontSize: 11 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`}
+              domain={mode === "normalized" ? ["auto", "auto"] : undefined}
+              tickFormatter={(v) =>
+                mode === "normalized" ? v.toFixed(0) : `R$ ${(v / 1000).toFixed(0)}k`
+              }
               width={70}
             />
             <Tooltip content={renderTooltip} />
