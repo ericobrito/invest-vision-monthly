@@ -76,23 +76,43 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
   }, [visibleSnapshots, klass]);
 
   const chartData = useMemo(() => {
-    const firstTotal = visibleSnapshots[0]?.total ?? 0;
+    // Find each asset's first non-null absolute value within visible window
+    const baselines = new Map<string, number>();
+    for (const a of assets) {
+      for (const s of visibleSnapshots) {
+        const inv = s.investments.find(i => i.name === a.name);
+        if (inv && inv.value > 0) { baselines.set(a.name, inv.value); break; }
+      }
+    }
+
     return visibleSnapshots.map((s, idx) => {
       const row: Record<string, any> = { month: s.label, __month: s.month, __total: s.total };
       for (const a of assets) {
         const inv = s.investments.find(i => i.name === a.name);
-        row[a.name] = inv ? inv.value : null;
+        const absVal = inv ? inv.value : null;
+        if (mode === "normalized") {
+          const base = baselines.get(a.name);
+          row[a.name] = absVal != null && base ? (absVal / base) * 100 : null;
+        } else {
+          row[a.name] = absVal;
+        }
         if (inv) {
+          row[`__abs_${a.name}`] = inv.value;
           row[`__pct_${a.name}`] = s.total > 0 ? (inv.value / s.total) * 100 : 0;
           row[`__applied_${a.name}`] = inv.applied ?? null;
         }
       }
-      if (showBenchmark && firstTotal > 0) {
-        row.__cdi = firstTotal * Math.pow(1 + CDI_MONTHLY, idx);
+      if (showBenchmark) {
+        if (mode === "normalized") {
+          row.__cdi = 100 * Math.pow(1 + CDI_MONTHLY, idx);
+        } else {
+          const firstTotal = visibleSnapshots[0]?.total ?? 0;
+          if (firstTotal > 0) row.__cdi = firstTotal * Math.pow(1 + CDI_MONTHLY, idx);
+        }
       }
       return row;
     });
-  }, [visibleSnapshots, assets, showBenchmark]);
+  }, [visibleSnapshots, assets, showBenchmark, mode]);
 
   const toggle = (name: string) => {
     setHidden(prev => {
