@@ -58,7 +58,12 @@
     "mom": "Variação mensal",
     "acc": "Acumulado",
     "invested": "Aportado",
-    "share": "Participação"
+    "share": "Participação",
+    "modeAbsolute": "Valor absoluto",
+    "modeNormalized": "Evolução indexada",
+    "indexedValue": "Índice",
+    "relativeTrajectory": "Trajetória relativa vs CDI",
+    "baseline": "Base 100"
   },
   "language": {
     "label": "Idioma",
