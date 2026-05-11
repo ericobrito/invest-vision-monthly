@@ -765,17 +765,30 @@ async function syncConnection(connectionId: string) {
 
   await admin.from("va_positions").delete().eq("connection_id", connectionId);
   if (balances.length > 0) {
-    const rows = balances.map((b) => ({
-      ticker: b.ticker,
-      quantity: b.quantity,
-      current_value: b.quantity * (prices.get(b.ticker) ?? 0),
-      asset_type: "crypto",
-      broker: conn.provider,
-      source: "aggregator",
-      provider: conn.provider,
-      connection_id: connectionId,
-      last_sync: now,
-    }));
+    const rows = balances.map((b) => {
+      const price = prices.get(b.ticker) ?? 0;
+      const brlValue = b.quantity * price;
+      console.log(JSON.stringify({
+        exchange: conn.provider,
+        asset: b.ticker,
+        quantity: b.quantity,
+        priceBRL: price,
+        brlValue,
+      }));
+      return {
+        ticker: b.ticker,
+        quantity: b.quantity,
+        current_value: brlValue,
+        asset_type: "crypto",
+        broker: conn.provider,
+        source: "aggregator",
+        provider: conn.provider,
+        connection_id: connectionId,
+        last_sync: now,
+      };
+    });
+    const totalBRL = rows.reduce((s, r) => s + r.current_value, 0);
+    console.log(`[${conn.provider}] Total BRL: ${totalBRL.toFixed(2)}`);
     await admin.from("va_positions").insert(rows);
   }
 
