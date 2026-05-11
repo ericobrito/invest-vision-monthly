@@ -20,6 +20,7 @@ export type Database = {
           applied: number | null
           created_at: string
           id: string
+          include_in_variable_positions: boolean
           income_type: string
           name: string
           percentage: number
@@ -35,6 +36,7 @@ export type Database = {
           applied?: number | null
           created_at?: string
           id?: string
+          include_in_variable_positions?: boolean
           income_type?: string
           name: string
           percentage?: number
@@ -50,6 +52,7 @@ export type Database = {
           applied?: number | null
           created_at?: string
           id?: string
+          include_in_variable_positions?: boolean
           income_type?: string
           name?: string
           percentage?: number
