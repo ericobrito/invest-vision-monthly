@@ -173,6 +173,39 @@ function inferBybitBaseTicker(symbol?: string): string {
   return s;
 }
 
+type BybitEarnPosition = {
+  coin?: string;
+  amount?: string;
+  totalAmount?: string;
+  principalAmount?: string;
+};
+
+async function fetchBybitEarn(
+  key: string,
+  secret: string,
+): Promise<BybitEarnPosition[]> {
+  const out: BybitEarnPosition[] = [];
+  for (const category of ["FlexibleSaving", "OnChain"] as const) {
+    try {
+      const data = await bybitSignedGet(
+        key,
+        secret,
+        `category=${category}`,
+        "/v5/earn/position",
+      ) as { result?: { list?: BybitEarnPosition[] } };
+      const list = data.result?.list ?? [];
+      console.log(`[Bybit] Earn ${category} returned ${list.length} entries`);
+      out.push(...list);
+    } catch (e) {
+      console.warn(
+        `[Bybit] Earn ${category} fetch failed:`,
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+  return out;
+}
+
 async function fetchBybitPositions(
   key: string,
   secret: string,
