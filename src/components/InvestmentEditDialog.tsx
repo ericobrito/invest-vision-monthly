@@ -143,6 +143,17 @@ const InvestmentEditDialog = ({
             </div>
           </div>
 
+          <div className="flex items-center gap-2 pt-1">
+            <Checkbox
+              id="include-variable"
+              checked={includeInVariable}
+              onCheckedChange={(c) => setIncludeInVariable(c === true)}
+            />
+            <Label htmlFor="include-variable" className="cursor-pointer">
+              Contabilizar em Posições Variáveis
+            </Label>
+          </div>
+
           {/* Auto-calculated preview */}
           <div className="bg-muted/50 rounded-lg p-3 space-y-1">
             <p className="text-xs font-semibold text-muted-foreground mb-2">Calculado automaticamente</p>
