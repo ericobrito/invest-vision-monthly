@@ -81,25 +81,22 @@ function StatusBadge({ status }: { status: ValidationStatus }) {
   );
 }
 
-/** Heuristic: extract crypto total from latest monthly snapshot. */
+/** Explicit inclusion: only investments flagged by the user. */
 function deriveMonthlyCrypto(
-  snapshot: { investments: { name: string; value: number }[] } | undefined,
+  snapshot:
+    | {
+        investments: {
+          name: string;
+          value: number;
+          flags?: { includeInVariablePositions?: boolean };
+        }[];
+      }
+    | undefined,
 ): number {
   if (!snapshot) return 0;
-  let crypto = 0;
-  for (const inv of snapshot.investments) {
-    const n = inv.name.toLowerCase();
-    if (
-      n.includes("bitcoin") ||
-      n.includes("crypto") ||
-      n.includes("cripto") ||
-      n.includes("btc") ||
-      n.includes("eth")
-    ) {
-      crypto += inv.value;
-    }
-  }
-  return crypto;
+  return snapshot.investments
+    .filter((inv) => inv.flags?.includeInVariablePositions === true)
+    .reduce((sum, inv) => sum + inv.value, 0);
 }
 
 export default function PosicoesVariaveis() {
