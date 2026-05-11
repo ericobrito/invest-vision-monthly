@@ -15,6 +15,9 @@ function mapRow(row: any, investments: any[]): MonthlySnapshot {
       yearStarted: inv.year_started ? (inv.year_started.length === 4 ? `${inv.year_started}-01-01` : inv.year_started) : undefined,
       incomeType: (inv.income_type as IncomeType) || 'fixed',
       region: (inv.region as Region) || 'brazil',
+      flags: {
+        includeInVariablePositions: inv.include_in_variable_positions === true,
+      },
     }));
 
   return {
@@ -79,6 +82,7 @@ export interface SnapshotFormData {
     yearStarted?: string;
     incomeType: IncomeType;
     region: Region;
+    flags?: { includeInVariablePositions?: boolean };
   }[];
 }
 
