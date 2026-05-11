@@ -310,6 +310,24 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     console.error("[Bybit] positions aggregation failed:", e instanceof Error ? e.message : e);
   }
 
+  // Earn / staking (FlexibleSaving + OnChain) — real principal balances
+  try {
+    const earn = await fetchBybitEarn(key, secret);
+    for (const e of earn) {
+      const ticker = (e.coin ?? "").toUpperCase();
+      if (!ticker) continue;
+      const qty =
+        parseFloat(e.amount ?? "0") ||
+        parseFloat(e.totalAmount ?? "0") ||
+        parseFloat(e.principalAmount ?? "0") ||
+        0;
+      if (qty <= 0) continue;
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
+    }
+  } catch (e) {
+    console.error("[Bybit] earn aggregation failed:", e instanceof Error ? e.message : e);
+  }
+
   console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
 
   return Array.from(aggregated.entries())
