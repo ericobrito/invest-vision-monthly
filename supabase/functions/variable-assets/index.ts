@@ -173,6 +173,39 @@ function inferBybitBaseTicker(symbol?: string): string {
   return s;
 }
 
+type BybitEarnPosition = {
+  coin?: string;
+  amount?: string;
+  totalAmount?: string;
+  principalAmount?: string;
+};
+
+async function fetchBybitEarn(
+  key: string,
+  secret: string,
+): Promise<BybitEarnPosition[]> {
+  const out: BybitEarnPosition[] = [];
+  for (const category of ["FlexibleSaving", "OnChain"] as const) {
+    try {
+      const data = await bybitSignedGet(
+        key,
+        secret,
+        `category=${category}`,
+        "/v5/earn/position",
+      ) as { result?: { list?: BybitEarnPosition[] } };
+      const list = data.result?.list ?? [];
+      console.log(`[Bybit] Earn ${category} returned ${list.length} entries`);
+      out.push(...list);
+    } catch (e) {
+      console.warn(
+        `[Bybit] Earn ${category} fetch failed:`,
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+  return out;
+}
+
 async function fetchBybitPositions(
   key: string,
   secret: string,
@@ -275,6 +308,24 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     addPositions(positions);
   } catch (e) {
     console.error("[Bybit] positions aggregation failed:", e instanceof Error ? e.message : e);
+  }
+
+  // Earn / staking (FlexibleSaving + OnChain) — real principal balances
+  try {
+    const earn = await fetchBybitEarn(key, secret);
+    for (const e of earn) {
+      const ticker = (e.coin ?? "").toUpperCase();
+      if (!ticker) continue;
+      const qty =
+        parseFloat(e.amount ?? "0") ||
+        parseFloat(e.totalAmount ?? "0") ||
+        parseFloat(e.principalAmount ?? "0") ||
+        0;
+      if (qty <= 0) continue;
+      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
+    }
+  } catch (e) {
+    console.error("[Bybit] earn aggregation failed:", e instanceof Error ? e.message : e);
   }
 
   console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
@@ -418,40 +469,50 @@ async function buildCoinbaseJwt(
   return `${signingInput}.${sig}`;
 }
 
-async function fetchCoinbase(
+async function coinbaseGet(
   key: string,
   secret: string,
-  _passphrase: string,
-): Promise<NormalizedBalance[]> {
-  // key = organization key name (e.g. "organizations/{org_id}/apiKeys/{key_id}")
-  // secret = EC PRIVATE KEY in PEM format
-  const host = "api.coinbase.com";
-  const path = "/api/v3/brokerage/accounts";
-  const aggregated = new Map<string, number>();
-  let cursor: string | undefined;
+  host: string,
+  path: string,
+  query: URLSearchParams,
+): Promise<unknown> {
+  const requestPath = query.toString() ? `${path}?${query.toString()}` : path;
+  const jwt = await buildCoinbaseJwt(key, secret, "GET", host, path);
+  const res = await fetch(`https://${host}${requestPath}`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
+  return await res.json();
+}
 
+async function fetchCoinbaseAccountsForPortfolio(
+  key: string,
+  secret: string,
+  host: string,
+  portfolioId: string | null,
+  aggregated: Map<string, number>,
+): Promise<number> {
+  const path = "/api/v3/brokerage/accounts";
+  let cursor: string | undefined;
+  let count = 0;
   do {
     const query = new URLSearchParams({ limit: "250" });
     if (cursor) query.set("cursor", cursor);
-    const requestPath = query.toString() ? `${path}?${query.toString()}` : path;
-    const jwt = await buildCoinbaseJwt(key, secret, "GET", host, path);
-    const res = await fetch(`https://${host}${requestPath}`, {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        "Content-Type": "application/json",
-      },
-    });
-    if (!res.ok) throw new Error(`Coinbase: ${res.status} ${await res.text()}`);
-
-    const data = await res.json();
-    const accounts: Array<{
-      currency: string;
-      available_balance?: { value: string; currency: string };
-      hold?: { value: string; currency: string };
-      balance?: { value: string; currency: string };
-      ready?: boolean;
-    }> = data?.accounts ?? [];
-
+    if (portfolioId) query.set("retail_portfolio_id", portfolioId);
+    const data = await coinbaseGet(key, secret, host, path, query) as {
+      accounts?: Array<{
+        currency: string;
+        available_balance?: { value: string; currency: string };
+        hold?: { value: string; currency: string };
+        balance?: { value: string; currency: string };
+      }>;
+      has_next?: boolean;
+      cursor?: string;
+    };
+    const accounts = data?.accounts ?? [];
     for (const account of accounts) {
       const ticker = (account.currency ?? account.available_balance?.currency ?? account.balance?.currency ?? "").toUpperCase();
       if (!ticker) continue;
@@ -461,12 +522,58 @@ async function fetchCoinbase(
       const quantity = Math.max(available + hold, balance, 0);
       if (quantity <= 0) continue;
       aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + quantity);
+      count++;
     }
-
     const nextCursor = (data?.has_next && data?.cursor) ? String(data.cursor).trim() : "";
     cursor = nextCursor || undefined;
   } while (cursor);
+  return count;
+}
 
+async function fetchCoinbase(
+  key: string,
+  secret: string,
+  _passphrase: string,
+): Promise<NormalizedBalance[]> {
+  // key = organization key name (e.g. "organizations/{org_id}/apiKeys/{key_id}")
+  // secret = EC PRIVATE KEY in PEM format
+  const host = "api.coinbase.com";
+  const aggregated = new Map<string, number>();
+
+  // 1. Discover all retail portfolios; aggregate balances across each.
+  let portfolioIds: string[] = [];
+  try {
+    const data = await coinbaseGet(
+      key,
+      secret,
+      host,
+      "/api/v3/brokerage/portfolios",
+      new URLSearchParams(),
+    ) as { portfolios?: Array<{ uuid?: string; deleted?: boolean }> };
+    portfolioIds = (data.portfolios ?? [])
+      .filter((p) => p.uuid && !p.deleted)
+      .map((p) => p.uuid as string);
+    console.log(`[Coinbase] Found ${portfolioIds.length} portfolios`);
+  } catch (e) {
+    console.warn("[Coinbase] portfolios list failed, falling back to default:", e instanceof Error ? e.message : e);
+  }
+
+  if (portfolioIds.length === 0) {
+    // Fallback: scope to default portfolio that the key can see
+    const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, null, aggregated);
+    console.log(`[Coinbase] default portfolio: ${n} non-zero accounts`);
+  } else {
+    for (const pid of portfolioIds) {
+      try {
+        const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, pid, aggregated);
+        console.log(`[Coinbase] portfolio ${pid}: ${n} non-zero accounts`);
+      } catch (e) {
+        console.error(`[Coinbase] portfolio ${pid} fetch failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  }
+
+  console.log(`[Coinbase] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
   return Array.from(aggregated.entries()).map(([ticker, quantity]) => ({ ticker, quantity }));
 }
 
@@ -658,17 +765,30 @@ async function syncConnection(connectionId: string) {
 
   await admin.from("va_positions").delete().eq("connection_id", connectionId);
   if (balances.length > 0) {
-    const rows = balances.map((b) => ({
-      ticker: b.ticker,
-      quantity: b.quantity,
-      current_value: b.quantity * (prices.get(b.ticker) ?? 0),
-      asset_type: "crypto",
-      broker: conn.provider,
-      source: "aggregator",
-      provider: conn.provider,
-      connection_id: connectionId,
-      last_sync: now,
-    }));
+    const rows = balances.map((b) => {
+      const price = prices.get(b.ticker) ?? 0;
+      const brlValue = b.quantity * price;
+      console.log(JSON.stringify({
+        exchange: conn.provider,
+        asset: b.ticker,
+        quantity: b.quantity,
+        priceBRL: price,
+        brlValue,
+      }));
+      return {
+        ticker: b.ticker,
+        quantity: b.quantity,
+        current_value: brlValue,
+        asset_type: "crypto",
+        broker: conn.provider,
+        source: "aggregator",
+        provider: conn.provider,
+        connection_id: connectionId,
+        last_sync: now,
+      };
+    });
+    const totalBRL = rows.reduce((s, r) => s + r.current_value, 0);
+    console.log(`[${conn.provider}] Total BRL: ${totalBRL.toFixed(2)}`);
     await admin.from("va_positions").insert(rows);
   }
 
