@@ -174,6 +174,7 @@ export function useSaveSnapshot() {
                 year_started: inv.yearStarted ?? null,
                 income_type: inv.incomeType,
                 region: inv.region,
+                include_in_variable_positions: inv.flags?.includeInVariablePositions === true,
                 sort_order: i,
               }))
             )
@@ -213,6 +214,7 @@ export function useSaveSnapshot() {
                 year_started: inv.yearStarted ?? null,
                 income_type: inv.incomeType,
                 region: inv.region,
+                include_in_variable_positions: inv.flags?.includeInVariablePositions === true,
                 sort_order: i,
               }))
             )
