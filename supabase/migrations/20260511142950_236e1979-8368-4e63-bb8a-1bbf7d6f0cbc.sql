@@ -1,0 +1,1 @@
+ALTER TABLE public.investments ADD COLUMN IF NOT EXISTS include_in_variable_positions boolean NOT NULL DEFAULT false;

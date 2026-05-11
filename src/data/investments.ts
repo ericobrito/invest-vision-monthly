@@ -11,6 +11,9 @@ export interface Investment {
   annualReturn?: number;
   incomeType?: IncomeType;
   region?: Region;
+  flags?: {
+    includeInVariablePositions?: boolean;
+  };
 }
 
 export interface MonthlySnapshot {

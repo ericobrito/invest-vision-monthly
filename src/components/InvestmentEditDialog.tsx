@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Investment, IncomeType, Region } from "@/data/investments";
 
 interface InvestmentEditDialogProps {
@@ -38,6 +39,7 @@ const InvestmentEditDialog = ({
   const [yearStarted, setYearStarted] = useState("");
   const [incomeType, setIncomeType] = useState<IncomeType>("fixed");
   const [region, setRegion] = useState<Region>("brazil");
+  const [includeInVariable, setIncludeInVariable] = useState(false);
 
   useEffect(() => {
     if (investment) {
@@ -47,6 +49,7 @@ const InvestmentEditDialog = ({
       setYearStarted(investment.yearStarted ?? "");
       setIncomeType(investment.incomeType || "fixed");
       setRegion(investment.region || "brazil");
+      setIncludeInVariable(investment.flags?.includeInVariablePositions === true);
     }
   }, [investment, open]);
 
@@ -77,6 +80,10 @@ const InvestmentEditDialog = ({
       annualReturn: computed.annualReturn != null ? Number(computed.annualReturn.toFixed(2)) : undefined,
       incomeType,
       region,
+      flags: {
+        ...(investment.flags || {}),
+        includeInVariablePositions: includeInVariable,
+      },
     });
   };
 
@@ -134,6 +141,17 @@ const InvestmentEditDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <Checkbox
+              id="include-variable"
+              checked={includeInVariable}
+              onCheckedChange={(c) => setIncludeInVariable(c === true)}
+            />
+            <Label htmlFor="include-variable" className="cursor-pointer">
+              Contabilizar em Posições Variáveis
+            </Label>
           </div>
 
           {/* Auto-calculated preview */}

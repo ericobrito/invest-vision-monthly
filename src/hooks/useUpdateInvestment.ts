@@ -46,6 +46,7 @@ export function useUpdateInvestment() {
           annual_return: updated.annualReturn ?? null,
           income_type: updated.incomeType || "fixed",
           region: updated.region || "brazil",
+          include_in_variable_positions: updated.flags?.includeInVariablePositions === true,
         })
         .eq("id", invRow.id)
         .throwOnError();
