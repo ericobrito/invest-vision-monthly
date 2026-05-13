@@ -18,11 +18,27 @@ type Provider =
 interface NormalizedBalance {
   ticker: string;
   quantity: number;
+  usdValue?: number;
+  brlValue?: number;
+  walletType?: string;
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+function safeNumber(value: unknown): number {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? "0"));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function logRawResponse(label: string, data: unknown) {
+  try {
+    console.log(label, JSON.stringify(data));
+  } catch {
+    console.log(label, data);
+  }
+}
 
 // ---------- Crypto helpers ----------
 function asBuffer(input: string | Uint8Array): ArrayBuffer {
@@ -115,6 +131,8 @@ async function bybitSignedGet(
 
 type BybitCoinBalance = {
   coin: string;
+  equity?: string;
+  usdValue?: string;
   walletBalance?: string;
   locked?: string;
   transferBalance?: string;
@@ -129,37 +147,51 @@ type BybitPosition = {
   markPrice?: string;
 };
 
-async function fetchBybitCoinAccount(
+type BybitWalletAccount = {
+  accountType?: string;
+  totalEquity?: string;
+  totalWalletBalance?: string;
+  coin?: BybitCoinBalance[];
+};
+
+async function fetchBybitWalletAccounts(
   key: string,
   secret: string,
-  accountType: string,
-) : Promise<BybitCoinBalance[]> {
-  const data = await bybitSignedGet(key, secret, `accountType=${accountType}`) as {
-    result?: { list?: Array<{ coin: BybitCoinBalance[] }> };
+): Promise<BybitWalletAccount[]> {
+  const data = await bybitSignedGet(key, secret, "accountType=UNIFIED") as {
+    result?: { list?: BybitWalletAccount[] };
   };
-  const list = data.result?.list ?? [];
-  const coins: BybitCoinBalance[] = [];
-  for (const entry of list) {
-    for (const c of entry.coin ?? []) coins.push(c);
-  }
-  return coins;
+  logRawResponse("BYBIT RAW RESPONSE", data);
+  return data.result?.list ?? [];
 }
 
-// fetchBybitFundingBalances removed — transfer endpoint returns transferable funds, not real balances
+async function fetchBybitTransferBalances(
+  key: string,
+  secret: string,
+  accountType: "FUND" | "SPOT",
+): Promise<BybitCoinBalance[]> {
+  const data = await bybitSignedGet(
+    key,
+    secret,
+    `accountType=${accountType}`,
+    "/v5/asset/transfer/query-account-coins-balance",
+  ) as {
+    result?: { balance?: BybitCoinBalance[] };
+  };
+  logRawResponse("BYBIT RAW RESPONSE", data);
+  return data.result?.balance ?? [];
+}
 
 function extractBybitQuantity(balance: BybitCoinBalance): number {
-  const wallet = parseFloat(balance.walletBalance ?? "0") || 0;
-  const locked = parseFloat(balance.locked ?? "0") || 0;
-  const transfer = parseFloat(balance.transferBalance ?? "0") || 0;
-  const free = parseFloat(balance.free ?? "0") || 0;
-
-  if (wallet > 0 || locked > 0) {
-    return wallet + locked;
-  } else if (transfer > 0) {
-    return transfer;
-  } else if (free > 0) {
-    return free;
-  }
+  const equity = safeNumber(balance.equity);
+  const wallet = safeNumber(balance.walletBalance);
+  const locked = safeNumber(balance.locked);
+  const transfer = safeNumber(balance.transferBalance);
+  const free = safeNumber(balance.free);
+  if (equity > 0) return equity;
+  if (wallet > 0 || locked > 0) return wallet + locked;
+  if (transfer > 0) return transfer;
+  if (free > 0) return free;
   return 0;
 }
 
@@ -243,96 +275,82 @@ async function fetchBybitPositions(
 }
 
 async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
-  // Aggregate across all account sources: wallet balances + funding + open derivatives positions.
-  const aggregated = new Map<string, number>();
+  const aggregated = new Map<string, NormalizedBalance>();
 
-  const addCoins = (
-    coins: BybitCoinBalance[],
-  ) => {
-    for (const c of coins) {
-      const ticker = (c.coin ?? "").toUpperCase();
-      if (!ticker) continue;
-      const qty = extractBybitQuantity(c);
-      if (qty <= 0) continue;
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
-    }
-  };
-
-  const addPositions = (positions: BybitPosition[]) => {
-    for (const position of positions) {
-      const explicitBase = (position.baseCoin ?? "").toUpperCase();
-      const ticker = explicitBase || inferBybitBaseTicker(position.symbol);
-      if (!ticker) continue;
-
-      const size = Math.abs(parseFloat(position.size ?? "0") || 0);
-      const positionValue = Math.abs(parseFloat(position.positionValue ?? "0") || 0);
-      const markPrice = Math.abs(parseFloat(position.markPrice ?? "0") || 0);
-      const exposure = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
-      if (exposure <= 0) continue;
-
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + exposure);
-    }
+  const upsert = (entry: NormalizedBalance) => {
+    if (!entry.ticker) return;
+    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    current.quantity += safeNumber(entry.quantity);
+    current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
+    aggregated.set(entry.ticker, current);
   };
 
   try {
-    const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
-    console.log(`[Bybit] UNIFIED returned ${unified.length} coins`);
-    addCoins(unified);
+    const unifiedAccounts = await fetchBybitWalletAccounts(key, secret);
+    for (const account of unifiedAccounts) {
+      for (const coin of account.coin ?? []) {
+        upsert({
+          ticker: (coin.coin ?? "").toUpperCase(),
+          quantity: extractBybitQuantity(coin),
+          usdValue: safeNumber(coin.usdValue),
+          walletType: "UNIFIED",
+        });
+      }
+      console.log(JSON.stringify({ bybitUnifiedAccountTotalUsd: safeNumber(account.totalEquity || account.totalWalletBalance) }));
+    }
   } catch (e) {
     console.error("[Bybit] UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // SPOT account (fallback for non-UNIFIED accounts)
-  try {
-    const spot = await fetchBybitCoinAccount(key, secret, "SPOT");
-    console.log(`[Bybit] SPOT returned ${spot.length} coins`);
-    addCoins(spot);
-  } catch (e) {
-    console.error("[Bybit] SPOT fetch failed:", e instanceof Error ? e.message : e);
+  for (const accountType of ["FUND", "SPOT"] as const) {
+    try {
+      const balances = await fetchBybitTransferBalances(key, secret, accountType);
+      for (const coin of balances) {
+        upsert({
+          ticker: (coin.coin ?? "").toUpperCase(),
+          quantity: extractBybitQuantity(coin),
+          walletType: accountType,
+        });
+      }
+    } catch (e) {
+      console.error(`[Bybit] ${accountType} fetch failed:`, e instanceof Error ? e.message : e);
+    }
   }
-
-  // FUND account via wallet-balance endpoint (separate from UNIFIED/SPOT)
-  try {
-    const fundWallet = await fetchBybitCoinAccount(key, secret, "FUND");
-    console.log(`[Bybit] FUND returned ${fundWallet.length} coins`);
-    addCoins(fundWallet);
-  } catch (e) {
-    console.error("[Bybit] FUND fetch failed:", e instanceof Error ? e.message : e);
-  }
-
-  // Transfer endpoint removed — it returns transferable funds, not real balances
 
   try {
     const positions = await fetchBybitPositions(key, secret);
-    console.log(`[Bybit] Derivative positions returned ${positions.length} entries`);
-    addPositions(positions);
+    logRawResponse("BYBIT RAW RESPONSE", positions);
+    for (const position of positions) {
+      const ticker = ((position.baseCoin ?? "").toUpperCase() || inferBybitBaseTicker(position.symbol));
+      if (!ticker) continue;
+      const size = Math.abs(safeNumber(position.size));
+      const positionValue = Math.abs(safeNumber(position.positionValue));
+      const markPrice = Math.abs(safeNumber(position.markPrice));
+      const quantity = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
+      upsert({ ticker, quantity, usdValue: positionValue, walletType: "CONTRACT" });
+    }
   } catch (e) {
     console.error("[Bybit] positions aggregation failed:", e instanceof Error ? e.message : e);
   }
 
-  // Earn / staking (FlexibleSaving + OnChain) — real principal balances
   try {
     const earn = await fetchBybitEarn(key, secret);
-    for (const e of earn) {
-      const ticker = (e.coin ?? "").toUpperCase();
-      if (!ticker) continue;
-      const qty =
-        parseFloat(e.amount ?? "0") ||
-        parseFloat(e.totalAmount ?? "0") ||
-        parseFloat(e.principalAmount ?? "0") ||
-        0;
-      if (qty <= 0) continue;
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
+    for (const entry of earn) {
+      upsert({
+        ticker: (entry.coin ?? "").toUpperCase(),
+        quantity: safeNumber(entry.amount) || safeNumber(entry.totalAmount) || safeNumber(entry.principalAmount),
+        walletType: "EARN",
+      });
     }
   } catch (e) {
     console.error("[Bybit] earn aggregation failed:", e instanceof Error ? e.message : e);
   }
 
-  console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
-
-  return Array.from(aggregated.entries())
-    .map(([ticker, quantity]) => ({ ticker, quantity }))
-    .filter((b) => b.quantity > 0);
+  const result = Array.from(aggregated.values()).filter((b) => b.quantity > 0 || safeNumber(b.usdValue) > 0);
+  console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(result)}`);
+  console.log(JSON.stringify({ bybitTotal: result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
+  return result;
 }
 
 // Base64URL helpers
