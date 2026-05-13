@@ -18,11 +18,27 @@ type Provider =
 interface NormalizedBalance {
   ticker: string;
   quantity: number;
+  usdValue?: number;
+  brlValue?: number;
+  walletType?: string;
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+function safeNumber(value: unknown): number {
+  const n = typeof value === "number" ? value : parseFloat(String(value ?? "0"));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function logRawResponse(label: string, data: unknown) {
+  try {
+    console.log(label, JSON.stringify(data));
+  } catch {
+    console.log(label, data);
+  }
+}
 
 // ---------- Crypto helpers ----------
 function asBuffer(input: string | Uint8Array): ArrayBuffer {
@@ -115,6 +131,8 @@ async function bybitSignedGet(
 
 type BybitCoinBalance = {
   coin: string;
+  equity?: string;
+  usdValue?: string;
   walletBalance?: string;
   locked?: string;
   transferBalance?: string;
@@ -129,37 +147,51 @@ type BybitPosition = {
   markPrice?: string;
 };
 
-async function fetchBybitCoinAccount(
+type BybitWalletAccount = {
+  accountType?: string;
+  totalEquity?: string;
+  totalWalletBalance?: string;
+  coin?: BybitCoinBalance[];
+};
+
+async function fetchBybitWalletAccounts(
   key: string,
   secret: string,
-  accountType: string,
-) : Promise<BybitCoinBalance[]> {
-  const data = await bybitSignedGet(key, secret, `accountType=${accountType}`) as {
-    result?: { list?: Array<{ coin: BybitCoinBalance[] }> };
+): Promise<BybitWalletAccount[]> {
+  const data = await bybitSignedGet(key, secret, "accountType=UNIFIED") as {
+    result?: { list?: BybitWalletAccount[] };
   };
-  const list = data.result?.list ?? [];
-  const coins: BybitCoinBalance[] = [];
-  for (const entry of list) {
-    for (const c of entry.coin ?? []) coins.push(c);
-  }
-  return coins;
+  logRawResponse("BYBIT RAW RESPONSE", data);
+  return data.result?.list ?? [];
 }
 
-// fetchBybitFundingBalances removed — transfer endpoint returns transferable funds, not real balances
+async function fetchBybitTransferBalances(
+  key: string,
+  secret: string,
+  accountType: "FUND" | "SPOT",
+): Promise<BybitCoinBalance[]> {
+  const data = await bybitSignedGet(
+    key,
+    secret,
+    `accountType=${accountType}`,
+    "/v5/asset/transfer/query-account-coins-balance",
+  ) as {
+    result?: { balance?: BybitCoinBalance[] };
+  };
+  logRawResponse("BYBIT RAW RESPONSE", data);
+  return data.result?.balance ?? [];
+}
 
 function extractBybitQuantity(balance: BybitCoinBalance): number {
-  const wallet = parseFloat(balance.walletBalance ?? "0") || 0;
-  const locked = parseFloat(balance.locked ?? "0") || 0;
-  const transfer = parseFloat(balance.transferBalance ?? "0") || 0;
-  const free = parseFloat(balance.free ?? "0") || 0;
-
-  if (wallet > 0 || locked > 0) {
-    return wallet + locked;
-  } else if (transfer > 0) {
-    return transfer;
-  } else if (free > 0) {
-    return free;
-  }
+  const equity = safeNumber(balance.equity);
+  const wallet = safeNumber(balance.walletBalance);
+  const locked = safeNumber(balance.locked);
+  const transfer = safeNumber(balance.transferBalance);
+  const free = safeNumber(balance.free);
+  if (equity > 0) return equity;
+  if (wallet > 0 || locked > 0) return wallet + locked;
+  if (transfer > 0) return transfer;
+  if (free > 0) return free;
   return 0;
 }
 
@@ -243,96 +275,82 @@ async function fetchBybitPositions(
 }
 
 async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
-  // Aggregate across all account sources: wallet balances + funding + open derivatives positions.
-  const aggregated = new Map<string, number>();
+  const aggregated = new Map<string, NormalizedBalance>();
 
-  const addCoins = (
-    coins: BybitCoinBalance[],
-  ) => {
-    for (const c of coins) {
-      const ticker = (c.coin ?? "").toUpperCase();
-      if (!ticker) continue;
-      const qty = extractBybitQuantity(c);
-      if (qty <= 0) continue;
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
-    }
-  };
-
-  const addPositions = (positions: BybitPosition[]) => {
-    for (const position of positions) {
-      const explicitBase = (position.baseCoin ?? "").toUpperCase();
-      const ticker = explicitBase || inferBybitBaseTicker(position.symbol);
-      if (!ticker) continue;
-
-      const size = Math.abs(parseFloat(position.size ?? "0") || 0);
-      const positionValue = Math.abs(parseFloat(position.positionValue ?? "0") || 0);
-      const markPrice = Math.abs(parseFloat(position.markPrice ?? "0") || 0);
-      const exposure = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
-      if (exposure <= 0) continue;
-
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + exposure);
-    }
+  const upsert = (entry: NormalizedBalance) => {
+    if (!entry.ticker) return;
+    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    current.quantity += safeNumber(entry.quantity);
+    current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
+    aggregated.set(entry.ticker, current);
   };
 
   try {
-    const unified = await fetchBybitCoinAccount(key, secret, "UNIFIED");
-    console.log(`[Bybit] UNIFIED returned ${unified.length} coins`);
-    addCoins(unified);
+    const unifiedAccounts = await fetchBybitWalletAccounts(key, secret);
+    for (const account of unifiedAccounts) {
+      for (const coin of account.coin ?? []) {
+        upsert({
+          ticker: (coin.coin ?? "").toUpperCase(),
+          quantity: extractBybitQuantity(coin),
+          usdValue: safeNumber(coin.usdValue),
+          walletType: "UNIFIED",
+        });
+      }
+      console.log(JSON.stringify({ bybitUnifiedAccountTotalUsd: safeNumber(account.totalEquity || account.totalWalletBalance) }));
+    }
   } catch (e) {
     console.error("[Bybit] UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
-  // SPOT account (fallback for non-UNIFIED accounts)
-  try {
-    const spot = await fetchBybitCoinAccount(key, secret, "SPOT");
-    console.log(`[Bybit] SPOT returned ${spot.length} coins`);
-    addCoins(spot);
-  } catch (e) {
-    console.error("[Bybit] SPOT fetch failed:", e instanceof Error ? e.message : e);
+  for (const accountType of ["FUND", "SPOT"] as const) {
+    try {
+      const balances = await fetchBybitTransferBalances(key, secret, accountType);
+      for (const coin of balances) {
+        upsert({
+          ticker: (coin.coin ?? "").toUpperCase(),
+          quantity: extractBybitQuantity(coin),
+          walletType: accountType,
+        });
+      }
+    } catch (e) {
+      console.error(`[Bybit] ${accountType} fetch failed:`, e instanceof Error ? e.message : e);
+    }
   }
-
-  // FUND account via wallet-balance endpoint (separate from UNIFIED/SPOT)
-  try {
-    const fundWallet = await fetchBybitCoinAccount(key, secret, "FUND");
-    console.log(`[Bybit] FUND returned ${fundWallet.length} coins`);
-    addCoins(fundWallet);
-  } catch (e) {
-    console.error("[Bybit] FUND fetch failed:", e instanceof Error ? e.message : e);
-  }
-
-  // Transfer endpoint removed — it returns transferable funds, not real balances
 
   try {
     const positions = await fetchBybitPositions(key, secret);
-    console.log(`[Bybit] Derivative positions returned ${positions.length} entries`);
-    addPositions(positions);
+    logRawResponse("BYBIT RAW RESPONSE", positions);
+    for (const position of positions) {
+      const ticker = ((position.baseCoin ?? "").toUpperCase() || inferBybitBaseTicker(position.symbol));
+      if (!ticker) continue;
+      const size = Math.abs(safeNumber(position.size));
+      const positionValue = Math.abs(safeNumber(position.positionValue));
+      const markPrice = Math.abs(safeNumber(position.markPrice));
+      const quantity = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
+      upsert({ ticker, quantity, usdValue: positionValue, walletType: "CONTRACT" });
+    }
   } catch (e) {
     console.error("[Bybit] positions aggregation failed:", e instanceof Error ? e.message : e);
   }
 
-  // Earn / staking (FlexibleSaving + OnChain) — real principal balances
   try {
     const earn = await fetchBybitEarn(key, secret);
-    for (const e of earn) {
-      const ticker = (e.coin ?? "").toUpperCase();
-      if (!ticker) continue;
-      const qty =
-        parseFloat(e.amount ?? "0") ||
-        parseFloat(e.totalAmount ?? "0") ||
-        parseFloat(e.principalAmount ?? "0") ||
-        0;
-      if (qty <= 0) continue;
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + qty);
+    for (const entry of earn) {
+      upsert({
+        ticker: (entry.coin ?? "").toUpperCase(),
+        quantity: safeNumber(entry.amount) || safeNumber(entry.totalAmount) || safeNumber(entry.principalAmount),
+        walletType: "EARN",
+      });
     }
   } catch (e) {
     console.error("[Bybit] earn aggregation failed:", e instanceof Error ? e.message : e);
   }
 
-  console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
-
-  return Array.from(aggregated.entries())
-    .map(([ticker, quantity]) => ({ ticker, quantity }))
-    .filter((b) => b.quantity > 0);
+  const result = Array.from(aggregated.values()).filter((b) => b.quantity > 0 || safeNumber(b.usdValue) > 0);
+  console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(result)}`);
+  console.log(JSON.stringify({ bybitTotal: result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
+  return result;
 }
 
 // Base64URL helpers
@@ -493,11 +511,19 @@ async function fetchCoinbaseAccountsForPortfolio(
   secret: string,
   host: string,
   portfolioId: string | null,
-  aggregated: Map<string, number>,
+  aggregated: Map<string, NormalizedBalance>,
 ): Promise<number> {
   const path = "/api/v3/brokerage/accounts";
   let cursor: string | undefined;
   let count = 0;
+  const upsert = (entry: NormalizedBalance) => {
+    if (!entry.ticker) return;
+    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    current.quantity += safeNumber(entry.quantity);
+    current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
+    aggregated.set(entry.ticker, current);
+  };
   do {
     const query = new URLSearchParams({ limit: "250" });
     if (cursor) query.set("cursor", cursor);
@@ -505,6 +531,10 @@ async function fetchCoinbaseAccountsForPortfolio(
     const data = await coinbaseGet(key, secret, host, path, query) as {
       accounts?: Array<{
         currency: string;
+        active?: boolean;
+        ready?: boolean;
+        type?: string;
+        native_balance?: { value: string; currency: string };
         available_balance?: { value: string; currency: string };
         hold?: { value: string; currency: string };
         balance?: { value: string; currency: string };
@@ -512,16 +542,23 @@ async function fetchCoinbaseAccountsForPortfolio(
       has_next?: boolean;
       cursor?: string;
     };
+    logRawResponse("COINBASE RAW RESPONSE", data);
     const accounts = data?.accounts ?? [];
     for (const account of accounts) {
       const ticker = (account.currency ?? account.available_balance?.currency ?? account.balance?.currency ?? "").toUpperCase();
       if (!ticker) continue;
-      const available = parseFloat(account.available_balance?.value ?? "0") || 0;
-      const hold = parseFloat(account.hold?.value ?? "0") || 0;
-      const balance = parseFloat(account.balance?.value ?? "0") || 0;
+      const available = safeNumber(account.available_balance?.value);
+      const hold = safeNumber(account.hold?.value);
+      const balance = safeNumber(account.balance?.value);
+      const nativeBalance = safeNumber(account.native_balance?.value);
       const quantity = Math.max(available + hold, balance, 0);
-      if (quantity <= 0) continue;
-      aggregated.set(ticker, (aggregated.get(ticker) ?? 0) + quantity);
+      if (quantity <= 0 && nativeBalance <= 0) continue;
+      upsert({
+        ticker,
+        quantity,
+        usdValue: account.native_balance?.currency?.toUpperCase() === "USD" ? nativeBalance : undefined,
+        walletType: `SPOT${account.type ? `:${account.type}` : ""}`,
+      });
       count++;
     }
     const nextCursor = (data?.has_next && data?.cursor) ? String(data.cursor).trim() : "";
@@ -538,7 +575,82 @@ async function fetchCoinbase(
   // key = organization key name (e.g. "organizations/{org_id}/apiKeys/{key_id}")
   // secret = EC PRIVATE KEY in PEM format
   const host = "api.coinbase.com";
-  const aggregated = new Map<string, number>();
+  const aggregated = new Map<string, NormalizedBalance>();
+
+  const upsert = (entry: NormalizedBalance) => {
+    if (!entry.ticker) return;
+    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    current.quantity += safeNumber(entry.quantity);
+    current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
+    aggregated.set(entry.ticker, current);
+  };
+
+  const fetchPortfolioBreakdown = async (portfolioId: string) => {
+    const data = await coinbaseGet(
+      key,
+      secret,
+      host,
+      `/api/v3/brokerage/portfolios/${portfolioId}`,
+      new URLSearchParams(),
+    ) as {
+      breakdown?: { spot_positions?: Array<{ asset?: string; total_balance_crypto?: number; total_balance_fiat?: number }> };
+      spot_positions?: Array<{ asset?: string; total_balance_crypto?: number; total_balance_fiat?: number }>;
+    };
+    logRawResponse("COINBASE RAW RESPONSE", data);
+    const positions = data.breakdown?.spot_positions ?? data.spot_positions ?? [];
+    for (const position of positions) {
+      upsert({
+        ticker: String(position.asset ?? "").toUpperCase(),
+        quantity: safeNumber(position.total_balance_crypto),
+        usdValue: safeNumber(position.total_balance_fiat),
+        walletType: "PORTFOLIO",
+      });
+    }
+    return positions.length;
+  };
+
+  const fetchIntxPortfolioBalances = async (portfolioId: string) => {
+    const data = await coinbaseGet(
+      key,
+      secret,
+      host,
+      `/api/v3/brokerage/intx/balances/${portfolioId}`,
+      new URLSearchParams(),
+    ) as {
+      balances?: Array<{ asset?: string; total_balance?: { value?: string; currency?: string }; available_balance?: { value?: string; currency?: string }; hold?: { value?: string; currency?: string } }>;
+    };
+    logRawResponse("COINBASE RAW RESPONSE", data);
+    for (const balance of data.balances ?? []) {
+      const ticker = String(balance.asset ?? balance.total_balance?.currency ?? balance.available_balance?.currency ?? "").toUpperCase();
+      const quantity = Math.max(
+        safeNumber(balance.total_balance?.value),
+        safeNumber(balance.available_balance?.value) + safeNumber(balance.hold?.value),
+      );
+      upsert({ ticker, quantity, walletType: "INTX" });
+    }
+    return (data.balances ?? []).length;
+  };
+
+  const fetchCfmBalanceSummary = async () => {
+    try {
+      const data = await coinbaseGet(
+        key,
+        secret,
+        host,
+        "/api/v3/brokerage/cfm/balance_summary",
+        new URLSearchParams(),
+      ) as { available_margin?: { value?: string; currency?: string }; cfm_usd_balance?: { value?: string; currency?: string } | string };
+      logRawResponse("COINBASE RAW RESPONSE", data);
+      const usdValue = Math.max(
+        safeNumber(typeof data.cfm_usd_balance === "string" ? data.cfm_usd_balance : data.cfm_usd_balance?.value),
+        safeNumber(data.available_margin?.value),
+      );
+      if (usdValue > 0) upsert({ ticker: "USD", quantity: usdValue, usdValue, walletType: "CFM" });
+    } catch (e) {
+      console.warn("[Coinbase] cfm balance summary unavailable:", e instanceof Error ? e.message : e);
+    }
+  };
 
   // 1. Discover all retail portfolios; aggregate balances across each.
   let portfolioIds: string[] = [];
@@ -550,6 +662,7 @@ async function fetchCoinbase(
       "/api/v3/brokerage/portfolios",
       new URLSearchParams(),
     ) as { portfolios?: Array<{ uuid?: string; deleted?: boolean }> };
+    logRawResponse("COINBASE RAW RESPONSE", data);
     portfolioIds = (data.portfolios ?? [])
       .filter((p) => p.uuid && !p.deleted)
       .map((p) => p.uuid as string);
@@ -559,22 +672,26 @@ async function fetchCoinbase(
   }
 
   if (portfolioIds.length === 0) {
-    // Fallback: scope to default portfolio that the key can see
     const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, null, aggregated);
     console.log(`[Coinbase] default portfolio: ${n} non-zero accounts`);
   } else {
     for (const pid of portfolioIds) {
       try {
+        const breakdownCount = await fetchPortfolioBreakdown(pid);
         const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, pid, aggregated);
-        console.log(`[Coinbase] portfolio ${pid}: ${n} non-zero accounts`);
+        const intxCount = await fetchIntxPortfolioBalances(pid).catch(() => 0);
+        console.log(`[Coinbase] portfolio ${pid}: breakdown=${breakdownCount}, accounts=${n}, intx=${intxCount}`);
       } catch (e) {
         console.error(`[Coinbase] portfolio ${pid} fetch failed:`, e instanceof Error ? e.message : e);
       }
     }
   }
 
-  console.log(`[Coinbase] Final aggregated tickers: ${JSON.stringify(Object.fromEntries(aggregated))}`);
-  return Array.from(aggregated.entries()).map(([ticker, quantity]) => ({ ticker, quantity }));
+  await fetchCfmBalanceSummary();
+  const result = Array.from(aggregated.values()).filter((b) => b.quantity > 0 || safeNumber(b.usdValue) > 0);
+  console.log(`[Coinbase] Final aggregated tickers: ${JSON.stringify(result)}`);
+  console.log(JSON.stringify({ coinbaseTotal: result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
+  return result;
 }
 
 async function fetchKraken(key: string, secret: string): Promise<NormalizedBalance[]> {
