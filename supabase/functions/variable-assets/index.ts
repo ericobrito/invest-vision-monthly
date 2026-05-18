@@ -1015,12 +1015,19 @@ async function syncConnection(connectionId: string) {
     });
     const totalBRL = rows.reduce((s, r) => s + r.current_value, 0);
     const totalUsd = balances.reduce((sum, item) => sum + safeNumber(item.usdValue), 0);
-    console.log(JSON.stringify({
-      bybitTotal: conn.provider === "bybit" ? totalBRL : 0,
-      coinbaseTotal: conn.provider === "coinbase" ? totalBRL : 0,
-      finalIntegratedTotal: totalBRL,
-      totalUsd,
-    }));
+    const { data: consolidatedRows } = await admin
+      .from("va_positions")
+      .select("provider, current_value")
+      .eq("source", "aggregator");
+    const bybitTotal = (consolidatedRows ?? [])
+      .filter((row) => row.provider === "bybit")
+      .reduce((sum, row) => sum + safeNumber(row.current_value), 0);
+    const coinbaseTotal = (consolidatedRows ?? [])
+      .filter((row) => row.provider === "coinbase")
+      .reduce((sum, row) => sum + safeNumber(row.current_value), 0);
+    const finalIntegratedTotal = (consolidatedRows ?? [])
+      .reduce((sum, row) => sum + safeNumber(row.current_value), 0);
+    console.log(JSON.stringify({ bybitTotal, coinbaseTotal, finalIntegratedTotal, totalUsd }));
     console.log(`[${conn.provider}] Total BRL: ${totalBRL.toFixed(2)}`);
     await admin.from("va_positions").insert(rows);
   }
