@@ -1013,6 +1013,7 @@ async function syncConnection(connectionId: string) {
         last_sync: now,
       };
     });
+    await admin.from("va_positions").insert(rows);
     const totalBRL = rows.reduce((s, r) => s + r.current_value, 0);
     const totalUsd = balances.reduce((sum, item) => sum + safeNumber(item.usdValue), 0);
     const { data: consolidatedRows } = await admin
@@ -1029,7 +1030,6 @@ async function syncConnection(connectionId: string) {
       .reduce((sum, row) => sum + safeNumber(row.current_value), 0);
     console.log(JSON.stringify({ bybitTotal, coinbaseTotal, finalIntegratedTotal, totalUsd }));
     console.log(`[${conn.provider}] Total BRL: ${totalBRL.toFixed(2)}`);
-    await admin.from("va_positions").insert(rows);
   }
 
   await admin.from("va_connections").update({
