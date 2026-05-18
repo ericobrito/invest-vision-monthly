@@ -277,51 +277,88 @@ async function fetchBybitPositions(
 
 async function fetchBybit(key: string, secret: string): Promise<NormalizedBalance[]> {
   const aggregated = new Map<string, NormalizedBalance>();
+  let bybitTotalUsd = 0;
 
   const upsert = (entry: NormalizedBalance) => {
     if (!entry.ticker) return;
-    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    const current = aggregated.get(entry.ticker) ?? {
+      ticker: entry.ticker,
+      quantity: 0,
+      usdValue: 0,
+      brlValue: 0,
+      walletType: entry.walletType,
+    };
     current.quantity += safeNumber(entry.quantity);
     current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.brlValue = safeNumber(current.brlValue) + safeNumber(entry.brlValue);
     current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
     aggregated.set(entry.ticker, current);
   };
 
-  try {
-    const unifiedAccounts = await fetchBybitWalletAccounts(key, secret);
-    for (const account of unifiedAccounts) {
-      for (const coin of account.coin ?? []) {
-        upsert({
-          ticker: (coin.coin ?? "").toUpperCase(),
-          quantity: extractBybitQuantity(coin),
-          usdValue: safeNumber(coin.usdValue),
-          walletType: "UNIFIED",
-        });
+  const walletCoinCount: Partial<Record<"UNIFIED" | "FUND" | "SPOT" | "CONTRACT", number>> = {};
+
+  for (const accountType of ["UNIFIED", "FUND", "SPOT", "CONTRACT"] as const) {
+    try {
+      const accounts = await fetchBybitWalletAccounts(key, secret, accountType);
+      let localCoinCount = 0;
+      for (const account of accounts) {
+        bybitTotalUsd += safeNumber(account.totalEquity || account.totalWalletBalance);
+        for (const coin of account.coin ?? []) {
+          localCoinCount += 1;
+          const quantity = extractBybitQuantity(coin);
+          const usdValue = safeNumber(coin.usdValue);
+          console.log(JSON.stringify({
+            exchange: "bybit",
+            walletType: accountType,
+            asset: (coin.coin ?? "").toUpperCase(),
+            quantity,
+            usdValue,
+            brlValue: 0,
+          }));
+          upsert({
+            ticker: (coin.coin ?? "").toUpperCase(),
+            quantity,
+            usdValue,
+            walletType: accountType,
+          });
+        }
       }
-      console.log(JSON.stringify({ bybitUnifiedAccountTotalUsd: safeNumber(account.totalEquity || account.totalWalletBalance) }));
+      walletCoinCount[accountType] = localCoinCount;
+    } catch (e) {
+      console.warn(`[Bybit] ${accountType} wallet-balance fetch failed:`, e instanceof Error ? e.message : e);
     }
-  } catch (e) {
-    console.error("[Bybit] UNIFIED fetch failed:", e instanceof Error ? e.message : e);
   }
 
   for (const accountType of ["FUND", "SPOT"] as const) {
+    if ((walletCoinCount[accountType] ?? 0) > 0) continue;
     try {
       const balances = await fetchBybitTransferBalances(key, secret, accountType);
       for (const coin of balances) {
+        const quantity = extractBybitQuantity(coin);
+        const usdValue = safeNumber(coin.usdValue);
+        console.log(JSON.stringify({
+          exchange: "bybit",
+          walletType: `${accountType}_TRANSFER`,
+          asset: (coin.coin ?? "").toUpperCase(),
+          quantity,
+          usdValue,
+          brlValue: 0,
+        }));
         upsert({
           ticker: (coin.coin ?? "").toUpperCase(),
-          quantity: extractBybitQuantity(coin),
+          quantity,
+          usdValue,
           walletType: accountType,
         });
       }
     } catch (e) {
-      console.error(`[Bybit] ${accountType} fetch failed:`, e instanceof Error ? e.message : e);
+      console.error(`[Bybit] ${accountType} transfer fetch failed:`, e instanceof Error ? e.message : e);
     }
   }
 
   try {
     const positions = await fetchBybitPositions(key, secret);
-    logRawResponse("BYBIT RAW RESPONSE", positions);
+    logRawResponse("BYBIT RAW RESPONSE POSITIONS", positions);
     for (const position of positions) {
       const ticker = ((position.baseCoin ?? "").toUpperCase() || inferBybitBaseTicker(position.symbol));
       if (!ticker) continue;
@@ -329,6 +366,14 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
       const positionValue = Math.abs(safeNumber(position.positionValue));
       const markPrice = Math.abs(safeNumber(position.markPrice));
       const quantity = size > 0 ? size : (positionValue > 0 && markPrice > 0 ? positionValue / markPrice : 0);
+      console.log(JSON.stringify({
+        exchange: "bybit",
+        walletType: "CONTRACT_POSITION",
+        asset: ticker,
+        quantity,
+        usdValue: positionValue,
+        brlValue: 0,
+      }));
       upsert({ ticker, quantity, usdValue: positionValue, walletType: "CONTRACT" });
     }
   } catch (e) {
@@ -337,10 +382,20 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
 
   try {
     const earn = await fetchBybitEarn(key, secret);
+    logRawResponse("BYBIT RAW RESPONSE EARN", earn);
     for (const entry of earn) {
+      const quantity = safeNumber(entry.amount) || safeNumber(entry.totalAmount) || safeNumber(entry.principalAmount);
+      console.log(JSON.stringify({
+        exchange: "bybit",
+        walletType: "EARN",
+        asset: (entry.coin ?? "").toUpperCase(),
+        quantity,
+        usdValue: 0,
+        brlValue: 0,
+      }));
       upsert({
         ticker: (entry.coin ?? "").toUpperCase(),
-        quantity: safeNumber(entry.amount) || safeNumber(entry.totalAmount) || safeNumber(entry.principalAmount),
+        quantity,
         walletType: "EARN",
       });
     }
@@ -348,9 +403,11 @@ async function fetchBybit(key: string, secret: string): Promise<NormalizedBalanc
     console.error("[Bybit] earn aggregation failed:", e instanceof Error ? e.message : e);
   }
 
-  const result = Array.from(aggregated.values()).filter((b) => b.quantity > 0 || safeNumber(b.usdValue) > 0);
+  const result = Array.from(aggregated.values()).filter(
+    (b) => b.quantity > 0 || safeNumber(b.usdValue) > 0 || safeNumber(b.brlValue) > 0,
+  );
   console.log(`[Bybit] Final aggregated tickers: ${JSON.stringify(result)}`);
-  console.log(JSON.stringify({ bybitTotal: result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
+  console.log(JSON.stringify({ bybitTotal: bybitTotalUsd || result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
   return result;
 }
 
