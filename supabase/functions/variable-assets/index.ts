@@ -34,7 +34,7 @@ function safeNumber(value: unknown): number {
 
 function logRawResponse(label: string, data: unknown) {
   try {
-    console.log(label, JSON.stringify(data));
+    console.log(label, JSON.stringify(data, null, 2));
   } catch {
     console.log(label, data);
   }
@@ -157,11 +157,12 @@ type BybitWalletAccount = {
 async function fetchBybitWalletAccounts(
   key: string,
   secret: string,
+  accountType: "UNIFIED" | "FUND" | "SPOT" | "CONTRACT",
 ): Promise<BybitWalletAccount[]> {
-  const data = await bybitSignedGet(key, secret, "accountType=UNIFIED") as {
+  const data = await bybitSignedGet(key, secret, `accountType=${accountType}`) as {
     result?: { list?: BybitWalletAccount[] };
   };
-  logRawResponse("BYBIT RAW RESPONSE", data);
+  logRawResponse(`BYBIT RAW RESPONSE ${accountType}`, data);
   return data.result?.list ?? [];
 }
 
@@ -178,7 +179,7 @@ async function fetchBybitTransferBalances(
   ) as {
     result?: { balance?: BybitCoinBalance[] };
   };
-  logRawResponse("BYBIT RAW RESPONSE", data);
+  logRawResponse(`BYBIT RAW RESPONSE ${accountType}`, data);
   return data.result?.balance ?? [];
 }
 
