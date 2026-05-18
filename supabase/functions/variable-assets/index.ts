@@ -686,17 +686,6 @@ async function fetchCoinbase(
     };
     logRawResponse("COINBASE RAW RESPONSE", data);
     const positions = data.breakdown?.spot_positions ?? data.spot_positions ?? [];
-    for (const position of positions) {
-      const normalized = {
-        ticker: String(position.asset ?? "").toUpperCase(),
-        quantity: safeNumber(position.total_balance_crypto),
-        usdValue: safeNumber(position.total_balance_fiat),
-        walletType: "PORTFOLIO",
-      } satisfies NormalizedBalance;
-      coinbaseTotalUsd += safeNumber(normalized.usdValue);
-      logNormalized("coinbase", normalized);
-      upsert(normalized);
-    }
     return positions.length;
   };
 
