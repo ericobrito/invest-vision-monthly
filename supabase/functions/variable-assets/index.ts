@@ -991,17 +991,24 @@ async function syncConnection(connectionId: string) {
   }
 
   const prices = await resolvePrices(balances.map((b) => b.ticker));
+  const usdtBrl = prices.get("USDT") ?? 0;
   const now = new Date().toISOString();
 
   await admin.from("va_positions").delete().eq("connection_id", connectionId);
   if (balances.length > 0) {
     const rows = balances.map((b) => {
       const price = prices.get(b.ticker) ?? 0;
-      const brlValue = b.quantity * price;
+      const brlValue = safeNumber(b.brlValue) > 0
+        ? safeNumber(b.brlValue)
+        : safeNumber(b.usdValue) > 0 && usdtBrl > 0
+          ? safeNumber(b.usdValue) * usdtBrl
+          : b.quantity * price;
       console.log(JSON.stringify({
         exchange: conn.provider,
+        walletType: b.walletType ?? null,
         asset: b.ticker,
         quantity: b.quantity,
+        usdValue: safeNumber(b.usdValue),
         priceBRL: price,
         brlValue,
       }));
@@ -1018,6 +1025,13 @@ async function syncConnection(connectionId: string) {
       };
     });
     const totalBRL = rows.reduce((s, r) => s + r.current_value, 0);
+    const totalUsd = balances.reduce((sum, item) => sum + safeNumber(item.usdValue), 0);
+    console.log(JSON.stringify({
+      bybitTotal: conn.provider === "bybit" ? totalBRL : 0,
+      coinbaseTotal: conn.provider === "coinbase" ? totalBRL : 0,
+      finalIntegratedTotal: totalBRL,
+      totalUsd,
+    }));
     console.log(`[${conn.provider}] Total BRL: ${totalBRL.toFixed(2)}`);
     await admin.from("va_positions").insert(rows);
   }
