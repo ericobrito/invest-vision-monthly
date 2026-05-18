@@ -570,15 +570,23 @@ async function fetchCoinbaseAccountsForPortfolio(
   host: string,
   portfolioId: string | null,
   aggregated: Map<string, NormalizedBalance>,
+  onNormalized?: (entry: NormalizedBalance) => void,
 ): Promise<number> {
   const path = "/api/v3/brokerage/accounts";
   let cursor: string | undefined;
   let count = 0;
   const upsert = (entry: NormalizedBalance) => {
     if (!entry.ticker) return;
-    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    const current = aggregated.get(entry.ticker) ?? {
+      ticker: entry.ticker,
+      quantity: 0,
+      usdValue: 0,
+      brlValue: 0,
+      walletType: entry.walletType,
+    };
     current.quantity += safeNumber(entry.quantity);
     current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.brlValue = safeNumber(current.brlValue) + safeNumber(entry.brlValue);
     current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
     aggregated.set(entry.ticker, current);
   };
@@ -611,12 +619,14 @@ async function fetchCoinbaseAccountsForPortfolio(
       const nativeBalance = safeNumber(account.native_balance?.value);
       const quantity = Math.max(available + hold, balance, 0);
       if (quantity <= 0 && nativeBalance <= 0) continue;
-      upsert({
+      const normalized = {
         ticker,
         quantity,
         usdValue: account.native_balance?.currency?.toUpperCase() === "USD" ? nativeBalance : undefined,
         walletType: `SPOT${account.type ? `:${account.type}` : ""}`,
-      });
+      } satisfies NormalizedBalance;
+      onNormalized?.(normalized);
+      upsert(normalized);
       count++;
     }
     const nextCursor = (data?.has_next && data?.cursor) ? String(data.cursor).trim() : "";
@@ -634,14 +644,33 @@ async function fetchCoinbase(
   // secret = EC PRIVATE KEY in PEM format
   const host = "api.coinbase.com";
   const aggregated = new Map<string, NormalizedBalance>();
+  let coinbaseTotalUsd = 0;
 
   const upsert = (entry: NormalizedBalance) => {
     if (!entry.ticker) return;
-    const current = aggregated.get(entry.ticker) ?? { ticker: entry.ticker, quantity: 0, usdValue: 0, walletType: entry.walletType };
+    const current = aggregated.get(entry.ticker) ?? {
+      ticker: entry.ticker,
+      quantity: 0,
+      usdValue: 0,
+      brlValue: 0,
+      walletType: entry.walletType,
+    };
     current.quantity += safeNumber(entry.quantity);
     current.usdValue = safeNumber(current.usdValue) + safeNumber(entry.usdValue);
+    current.brlValue = safeNumber(current.brlValue) + safeNumber(entry.brlValue);
     current.walletType = [current.walletType, entry.walletType].filter(Boolean).join(",");
     aggregated.set(entry.ticker, current);
+  };
+
+  const logNormalized = (exchange: string, entry: NormalizedBalance) => {
+    console.log(JSON.stringify({
+      exchange,
+      walletType: entry.walletType ?? null,
+      asset: entry.ticker,
+      quantity: safeNumber(entry.quantity),
+      usdValue: safeNumber(entry.usdValue),
+      brlValue: safeNumber(entry.brlValue),
+    }));
   };
 
   const fetchPortfolioBreakdown = async (portfolioId: string) => {
@@ -658,12 +687,15 @@ async function fetchCoinbase(
     logRawResponse("COINBASE RAW RESPONSE", data);
     const positions = data.breakdown?.spot_positions ?? data.spot_positions ?? [];
     for (const position of positions) {
-      upsert({
+      const normalized = {
         ticker: String(position.asset ?? "").toUpperCase(),
         quantity: safeNumber(position.total_balance_crypto),
         usdValue: safeNumber(position.total_balance_fiat),
         walletType: "PORTFOLIO",
-      });
+      } satisfies NormalizedBalance;
+      coinbaseTotalUsd += safeNumber(normalized.usdValue);
+      logNormalized("coinbase", normalized);
+      upsert(normalized);
     }
     return positions.length;
   };
@@ -685,7 +717,17 @@ async function fetchCoinbase(
         safeNumber(balance.total_balance?.value),
         safeNumber(balance.available_balance?.value) + safeNumber(balance.hold?.value),
       );
-      upsert({ ticker, quantity, walletType: "INTX" });
+      const normalized = {
+        ticker,
+        quantity,
+        usdValue: balance.total_balance?.currency?.toUpperCase() === "USD"
+          ? safeNumber(balance.total_balance?.value)
+          : undefined,
+        walletType: "INTX",
+      } satisfies NormalizedBalance;
+      coinbaseTotalUsd += safeNumber(normalized.usdValue);
+      logNormalized("coinbase", normalized);
+      upsert(normalized);
     }
     return (data.balances ?? []).length;
   };
@@ -704,7 +746,12 @@ async function fetchCoinbase(
         safeNumber(typeof data.cfm_usd_balance === "string" ? data.cfm_usd_balance : data.cfm_usd_balance?.value),
         safeNumber(data.available_margin?.value),
       );
-      if (usdValue > 0) upsert({ ticker: "USD", quantity: usdValue, usdValue, walletType: "CFM" });
+      if (usdValue > 0) {
+        const normalized = { ticker: "USD", quantity: usdValue, usdValue, walletType: "CFM" } satisfies NormalizedBalance;
+        coinbaseTotalUsd += usdValue;
+        logNormalized("coinbase", normalized);
+        upsert(normalized);
+      }
     } catch (e) {
       console.warn("[Coinbase] cfm balance summary unavailable:", e instanceof Error ? e.message : e);
     }
@@ -730,13 +777,19 @@ async function fetchCoinbase(
   }
 
   if (portfolioIds.length === 0) {
-    const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, null, aggregated);
+    const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, null, aggregated, (entry) => {
+      coinbaseTotalUsd += safeNumber(entry.usdValue);
+      logNormalized("coinbase", entry);
+    });
     console.log(`[Coinbase] default portfolio: ${n} non-zero accounts`);
   } else {
     for (const pid of portfolioIds) {
       try {
         const breakdownCount = await fetchPortfolioBreakdown(pid);
-        const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, pid, aggregated);
+        const n = await fetchCoinbaseAccountsForPortfolio(key, secret, host, pid, aggregated, (entry) => {
+          coinbaseTotalUsd += safeNumber(entry.usdValue);
+          logNormalized("coinbase", entry);
+        });
         const intxCount = await fetchIntxPortfolioBalances(pid).catch(() => 0);
         console.log(`[Coinbase] portfolio ${pid}: breakdown=${breakdownCount}, accounts=${n}, intx=${intxCount}`);
       } catch (e) {
@@ -746,9 +799,11 @@ async function fetchCoinbase(
   }
 
   await fetchCfmBalanceSummary();
-  const result = Array.from(aggregated.values()).filter((b) => b.quantity > 0 || safeNumber(b.usdValue) > 0);
+  const result = Array.from(aggregated.values()).filter(
+    (b) => b.quantity > 0 || safeNumber(b.usdValue) > 0 || safeNumber(b.brlValue) > 0,
+  );
   console.log(`[Coinbase] Final aggregated tickers: ${JSON.stringify(result)}`);
-  console.log(JSON.stringify({ coinbaseTotal: result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
+  console.log(JSON.stringify({ coinbaseTotal: coinbaseTotalUsd || result.reduce((sum, item) => sum + safeNumber(item.usdValue), 0) }));
   return result;
 }
 
