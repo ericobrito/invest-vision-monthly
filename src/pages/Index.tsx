@@ -161,6 +161,11 @@ const Index = () => {
                 <Coins className="w-4 h-4 mr-1" /> {t("nav.variable")}
               </Button>
             </Link>
+            <Link to="/admin/audit">
+              <Button variant="outline" size="sm">
+                <ShieldCheck className="w-4 h-4 mr-1" /> Audit
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")}>
