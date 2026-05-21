@@ -13,7 +13,7 @@ import AssetEvolutionChart from "@/components/AssetEvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import LanguageToggle from "@/components/LanguageToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -161,6 +161,11 @@ const Index = () => {
                 <Coins className="w-4 h-4 mr-1" /> {t("nav.variable")}
               </Button>
             </Link>
+            <Link to="/admin/audit">
+              <Button variant="outline" size="sm">
+                <ShieldCheck className="w-4 h-4 mr-1" /> Audit
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")}>
@@ -217,6 +222,11 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/posicoes-variaveis" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Coins className="w-4 h-4" /> {t("nav.variable")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/admin/audit" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <ShieldCheck className="w-4 h-4" /> Integration Audit Center
                     </Link>
                   </SheetClose>
 

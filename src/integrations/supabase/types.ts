@@ -14,6 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          data: Json | null
+          exchange: string | null
+          id: string
+          run_id: string
+          stage: string
+          timestamp: string
+        }
+        Insert: {
+          data?: Json | null
+          exchange?: string | null
+          id?: string
+          run_id: string
+          stage: string
+          timestamp?: string
+        }
+        Update: {
+          data?: Json | null
+          exchange?: string | null
+          id?: string
+          run_id?: string
+          stage?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_sync_runs: {
+        Row: {
+          anomalies_count: number
+          bybit_total_brl: number | null
+          coinbase_total_brl: number | null
+          completed_at: string | null
+          connection_id: string | null
+          created_at: string
+          critical_stage: string | null
+          difference_brl: number | null
+          duration_ms: number | null
+          expected_total_brl: number | null
+          id: string
+          integrated_total_brl: number | null
+          provider: string | null
+          started_at: string
+          status: string
+          summary: Json | null
+          triggered_by: string | null
+        }
+        Insert: {
+          anomalies_count?: number
+          bybit_total_brl?: number | null
+          coinbase_total_brl?: number | null
+          completed_at?: string | null
+          connection_id?: string | null
+          created_at?: string
+          critical_stage?: string | null
+          difference_brl?: number | null
+          duration_ms?: number | null
+          expected_total_brl?: number | null
+          id?: string
+          integrated_total_brl?: number | null
+          provider?: string | null
+          started_at?: string
+          status?: string
+          summary?: Json | null
+          triggered_by?: string | null
+        }
+        Update: {
+          anomalies_count?: number
+          bybit_total_brl?: number | null
+          coinbase_total_brl?: number | null
+          completed_at?: string | null
+          connection_id?: string | null
+          created_at?: string
+          critical_stage?: string | null
+          difference_brl?: number | null
+          duration_ms?: number | null
+          expected_total_brl?: number | null
+          id?: string
+          integrated_total_brl?: number | null
+          provider?: string | null
+          started_at?: string
+          status?: string
+          summary?: Json | null
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       investments: {
         Row: {
           annual_return: number | null
@@ -120,6 +215,62 @@ export type Database = {
           variable_income?: number | null
         }
         Relationships: []
+      }
+      normalized_assets: {
+        Row: {
+          asset: string
+          brl_value: number | null
+          created_at: string
+          exchange: string
+          id: string
+          quantity: number | null
+          raw: Json | null
+          run_id: string
+          source_field: string | null
+          usd_to_brl: number | null
+          usd_value: number | null
+          wallet_type: string | null
+          wallets: Json | null
+        }
+        Insert: {
+          asset: string
+          brl_value?: number | null
+          created_at?: string
+          exchange: string
+          id?: string
+          quantity?: number | null
+          raw?: Json | null
+          run_id: string
+          source_field?: string | null
+          usd_to_brl?: number | null
+          usd_value?: number | null
+          wallet_type?: string | null
+          wallets?: Json | null
+        }
+        Update: {
+          asset?: string
+          brl_value?: number | null
+          created_at?: string
+          exchange?: string
+          id?: string
+          quantity?: number | null
+          raw?: Json | null
+          run_id?: string
+          source_field?: string | null
+          usd_to_brl?: number | null
+          usd_value?: number | null
+          wallet_type?: string | null
+          wallets?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "normalized_assets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       va_connections: {
         Row: {
