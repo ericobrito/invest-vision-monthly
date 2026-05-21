@@ -936,15 +936,102 @@ async function resolvePrices(
   return out;
 }
 
+// ---------- Audit Service ----------
+const AUDIT_DIFF_THRESHOLD_BRL = 10;
+
+class AuditService {
+  runId: string | null = null;
+  startedAt = 0;
+  exchange = "";
+  connectionId = "";
+
+  async start(connectionId: string, provider: string, triggeredBy = "sync") {
+    this.startedAt = Date.now();
+    this.exchange = provider;
+    this.connectionId = connectionId;
+    const { data, error } = await admin
+      .from("exchange_sync_runs")
+      .insert({
+        status: "running",
+        connection_id: connectionId,
+        provider,
+        triggered_by: triggeredBy,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      console.warn("[audit] start failed", error.message);
+      this.runId = null;
+      return null;
+    }
+    this.runId = data.id;
+    return this.runId;
+  }
+
+  async log(stage: string, data: unknown, exchange?: string) {
+    if (!this.runId) return;
+    try {
+      await admin.from("audit_logs").insert({
+        run_id: this.runId,
+        exchange: exchange ?? this.exchange,
+        stage,
+        data: data as Record<string, unknown>,
+      });
+    } catch (e) {
+      console.warn("[audit] log failed", e instanceof Error ? e.message : e);
+    }
+  }
+
+  async saveNormalized(rows: Array<Record<string, unknown>>) {
+    if (!this.runId || rows.length === 0) return;
+    try {
+      await admin.from("normalized_assets").insert(
+        rows.map((r) => ({ ...r, run_id: this.runId })),
+      );
+    } catch (e) {
+      console.warn("[audit] saveNormalized failed", e instanceof Error ? e.message : e);
+    }
+  }
+
+  async finish(
+    status: "completed" | "failed",
+    summary: Record<string, unknown>,
+  ) {
+    if (!this.runId) return;
+    try {
+      await admin
+        .from("exchange_sync_runs")
+        .update({
+          status,
+          completed_at: new Date().toISOString(),
+          duration_ms: Date.now() - this.startedAt,
+          bybit_total_brl: (summary.bybitTotal as number) ?? null,
+          coinbase_total_brl: (summary.coinbaseTotal as number) ?? null,
+          integrated_total_brl: (summary.integratedTotal as number) ?? null,
+          expected_total_brl: (summary.expectedTotal as number) ?? null,
+          difference_brl: (summary.difference as number) ?? null,
+          anomalies_count: (summary.anomaliesCount as number) ?? 0,
+          critical_stage: (summary.criticalStage as string) ?? null,
+          summary,
+        })
+        .eq("id", this.runId);
+    } catch (e) {
+      console.warn("[audit] finish failed", e instanceof Error ? e.message : e);
+    }
+  }
+}
+
 // ---------- Actions ----------
 type Action =
   | { action: "list" }
   | { action: "connect"; provider: Provider; label?: string; api_key: string; api_secret: string; passphrase?: string }
-  | { action: "sync"; connection_id: string }
+  | { action: "sync"; connection_id: string; expected_total?: number }
   | { action: "sync_all" }
   | { action: "disconnect"; connection_id: string }
   | { action: "add_manual"; ticker: string; quantity: number; broker?: string }
-  | { action: "remove_position"; id: string };
+  | { action: "remove_position"; id: string }
+  | { action: "get_audit_runs"; limit?: number }
+  | { action: "get_audit_run"; run_id: string };
 
 async function syncConnection(connectionId: string) {
   const { data: conn, error: cErr } = await admin
