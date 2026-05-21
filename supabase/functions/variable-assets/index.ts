@@ -1033,7 +1033,7 @@ type Action =
   | { action: "get_audit_runs"; limit?: number }
   | { action: "get_audit_run"; run_id: string };
 
-async function syncConnection(connectionId: string) {
+async function syncConnection(connectionId: string, expectedTotal?: number) {
   const { data: conn, error: cErr } = await admin
     .from("va_connections")
     .select("id, provider")
@@ -1041,68 +1041,130 @@ async function syncConnection(connectionId: string) {
     .maybeSingle();
   if (cErr || !conn) throw new Error("Connection not found");
 
-  const { data: cred, error: credErr } = await admin
-    .from("va_credentials")
-    .select("api_key, api_secret, passphrase")
-    .eq("connection_id", connectionId)
-    .maybeSingle();
-  if (credErr || !cred) throw new Error("Credentials not found");
+  const audit = new AuditService();
+  await audit.start(connectionId, conn.provider as string);
 
-  const adapter = getAdapter(conn.provider as Provider);
-  let balances: NormalizedBalance[];
   try {
-    if (conn.provider === "coinbase") {
-      balances = await (adapter as typeof fetchCoinbase)(
-        cred.api_key, cred.api_secret, cred.passphrase ?? "",
-      );
-    } else {
-      balances = await (adapter as typeof fetchBinance)(cred.api_key, cred.api_secret);
+    const { data: cred, error: credErr } = await admin
+      .from("va_credentials")
+      .select("api_key, api_secret, passphrase")
+      .eq("connection_id", connectionId)
+      .maybeSingle();
+    if (credErr || !cred) throw new Error("Credentials not found");
+
+    const adapter = getAdapter(conn.provider as Provider);
+    let balances: NormalizedBalance[];
+    try {
+      if (conn.provider === "coinbase") {
+        balances = await (adapter as typeof fetchCoinbase)(
+          cred.api_key, cred.api_secret, cred.passphrase ?? "",
+        );
+      } else {
+        balances = await (adapter as typeof fetchBinance)(cred.api_key, cred.api_secret);
+      }
+      await audit.log(`${String(conn.provider).toUpperCase()}_RAW`, { balances });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await audit.log("ERROR", { stage: "adapter_fetch", message: msg });
+      await admin.from("va_connections").update({
+        status: "error", last_error: msg, last_sync: new Date().toISOString(),
+      }).eq("id", connectionId);
+      throw e;
     }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    await admin.from("va_connections").update({
-      status: "error", last_error: msg, last_sync: new Date().toISOString(),
-    }).eq("id", connectionId);
-    throw e;
-  }
 
-  const prices = await resolvePrices(balances.map((b) => b.ticker));
-  const usdtBrl = prices.get("USDT") ?? 0;
-  const now = new Date().toISOString();
+    // Wallet discovery
+    const walletsDiscovered = Array.from(
+      new Set(balances.map((b) => b.walletType ?? "DEFAULT").filter(Boolean)),
+    );
+    await audit.log("WALLET_DISCOVERY", {
+      exchange: conn.provider,
+      wallets: walletsDiscovered,
+      assetCount: balances.length,
+    });
 
-  await admin.from("va_positions").delete().eq("connection_id", connectionId);
-  if (balances.length > 0) {
-    const rows = balances.map((b) => {
-      const price = prices.get(b.ticker) ?? 0;
-      const brlValue = safeNumber(b.brlValue) > 0
-        ? safeNumber(b.brlValue)
-        : safeNumber(b.usdValue) > 0 && usdtBrl > 0
-          ? safeNumber(b.usdValue) * usdtBrl
-          : b.quantity * price;
-      console.log(JSON.stringify({
-        exchange: conn.provider,
-        walletType: b.walletType ?? null,
-        asset: b.ticker,
-        quantity: b.quantity,
-        usdValue: safeNumber(b.usdValue),
-        priceBRL: price,
-        brlValue,
-      }));
-      return {
+    // Asset extraction
+    await audit.log("ASSET_EXTRACTED", {
+      assets: balances.map((b) => ({
         ticker: b.ticker,
         quantity: b.quantity,
-        current_value: brlValue,
-        asset_type: "crypto",
-        broker: conn.provider,
-        source: "aggregator",
-        provider: conn.provider,
-        connection_id: connectionId,
-        last_sync: now,
-      };
+        usdValue: b.usdValue ?? null,
+        walletType: b.walletType ?? null,
+      })),
     });
-    await admin.from("va_positions").insert(rows);
-    const totalBRL = rows.reduce((s, r) => s + r.current_value, 0);
-    const totalUsd = balances.reduce((sum, item) => sum + safeNumber(item.usdValue), 0);
+
+    const prices = await resolvePrices(balances.map((b) => b.ticker));
+    const usdtBrl = prices.get("USDT") ?? 0;
+    const now = new Date().toISOString();
+
+    await admin.from("va_positions").delete().eq("connection_id", connectionId);
+
+    const normalizedRows: Array<Record<string, unknown>> = [];
+    const anomalies: Array<Record<string, unknown>> = [];
+
+    if (balances.length > 0) {
+      const rows = balances.map((b) => {
+        const price = prices.get(b.ticker) ?? 0;
+        let sourceField: string;
+        let brlValue: number;
+        if (safeNumber(b.brlValue) > 0) {
+          brlValue = safeNumber(b.brlValue);
+          sourceField = "brlValue";
+        } else if (safeNumber(b.usdValue) > 0 && usdtBrl > 0) {
+          brlValue = safeNumber(b.usdValue) * usdtBrl;
+          sourceField = "usdValue*usdtBrl";
+        } else {
+          brlValue = b.quantity * price;
+          sourceField = "quantity*priceBRL";
+        }
+
+        if (b.quantity < 0) anomalies.push({ type: "negative_balance", ticker: b.ticker, quantity: b.quantity });
+        if (!price && !safeNumber(b.usdValue) && !safeNumber(b.brlValue)) {
+          anomalies.push({ type: "missing_price", ticker: b.ticker });
+        }
+
+        normalizedRows.push({
+          exchange: conn.provider,
+          wallet_type: b.walletType ?? null,
+          asset: b.ticker,
+          quantity: b.quantity,
+          usd_value: safeNumber(b.usdValue),
+          brl_value: brlValue,
+          usd_to_brl: usdtBrl || null,
+          source_field: sourceField,
+          wallets: { walletType: b.walletType ?? null },
+          raw: b as unknown as Record<string, unknown>,
+        });
+
+        return {
+          ticker: b.ticker,
+          quantity: b.quantity,
+          current_value: brlValue,
+          asset_type: "crypto",
+          broker: conn.provider,
+          source: "aggregator",
+          provider: conn.provider,
+          connection_id: connectionId,
+          last_sync: now,
+        };
+      });
+      await admin.from("va_positions").insert(rows);
+      await audit.saveNormalized(normalizedRows);
+      await audit.log("NORMALIZED_ASSET", { count: normalizedRows.length });
+
+      // Reconciliation: detect duplicates within same wallet_type
+      const dupeKey = new Map<string, number>();
+      for (const r of normalizedRows) {
+        const k = `${r.wallet_type ?? ""}::${r.asset}`;
+        dupeKey.set(k, (dupeKey.get(k) ?? 0) + 1);
+      }
+      const duplicates = Array.from(dupeKey.entries())
+        .filter(([, c]) => c > 1)
+        .map(([k, c]) => ({ key: k, count: c }));
+      if (duplicates.length > 0) anomalies.push({ type: "duplicates", duplicates });
+      await audit.log("RECONCILIATION", { duplicates });
+    }
+
+    // Consolidation
     const { data: consolidatedRows } = await admin
       .from("va_positions")
       .select("provider, current_value")
@@ -1113,17 +1175,62 @@ async function syncConnection(connectionId: string) {
     const coinbaseTotal = (consolidatedRows ?? [])
       .filter((row) => row.provider === "coinbase")
       .reduce((sum, row) => sum + safeNumber(row.current_value), 0);
-    const finalIntegratedTotal = (consolidatedRows ?? [])
+    const integratedTotal = (consolidatedRows ?? [])
       .reduce((sum, row) => sum + safeNumber(row.current_value), 0);
-    console.log(JSON.stringify({ bybitTotal, coinbaseTotal, finalIntegratedTotal, totalUsd }));
-    console.log(`[${conn.provider}] Total BRL: ${totalBRL.toFixed(2)}`);
+
+    await audit.log("CONSOLIDATION", { bybitTotal, coinbaseTotal, integratedTotal });
+
+    let difference = 0;
+    let criticalStage: string | null = null;
+    if (typeof expectedTotal === "number" && expectedTotal > 0) {
+      difference = Math.abs(expectedTotal - integratedTotal);
+      if (difference > AUDIT_DIFF_THRESHOLD_BRL) {
+        anomalies.push({
+          type: "total_mismatch",
+          expectedTotal,
+          integratedTotal,
+          difference,
+        });
+        criticalStage = "CONSOLIDATION";
+        await audit.log("ANOMALY", {
+          expectedTotal,
+          integratedTotal,
+          difference,
+        });
+      }
+    }
+    if (!usdtBrl) {
+      anomalies.push({ type: "missing_usdtBrl" });
+      criticalStage = criticalStage ?? "USD_TO_BRL";
+    }
+
+    await audit.log("FINAL_TOTAL", { bybitTotal, coinbaseTotal, integratedTotal, difference });
+
+    await admin.from("va_connections").update({
+      status: "active", last_error: null, last_sync: now,
+    }).eq("id", connectionId);
+
+    const summary = {
+      bybitTotal,
+      coinbaseTotal,
+      integratedTotal,
+      expectedTotal: expectedTotal ?? null,
+      difference,
+      anomalies,
+      anomaliesCount: anomalies.length,
+      walletsDiscovered,
+      normalizedAssetsCount: normalizedRows.length,
+      criticalStage,
+    };
+    await audit.finish("completed", summary);
+
+    return { count: balances.length, runId: audit.runId, ...summary };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await audit.log("ERROR", { message: msg });
+    await audit.finish("failed", { error: msg });
+    throw e;
   }
-
-  await admin.from("va_connections").update({
-    status: "active", last_error: null, last_sync: now,
-  }).eq("id", connectionId);
-
-  return { count: balances.length };
 }
 
 async function handle(body: Action) {
@@ -1143,7 +1250,6 @@ async function handle(body: Action) {
         throw new Error("Unsupported provider");
       }
       if (!api_key || !api_secret) throw new Error("Missing credentials");
-      // Coinbase uses ES256 JWT: api_key = key name, api_secret = EC PRIVATE KEY (PEM). No passphrase required.
 
       const { data: conn, error } = await admin
         .from("va_connections")
@@ -1174,7 +1280,7 @@ async function handle(body: Action) {
       return { connection_id: conn.id };
     }
     case "sync": {
-      return await syncConnection(body.connection_id);
+      return await syncConnection(body.connection_id, body.expected_total);
     }
     case "sync_all": {
       const { data: conns } = await admin.from("va_connections").select("id");
@@ -1212,6 +1318,28 @@ async function handle(body: Action) {
       const { error } = await admin.from("va_positions").delete().eq("id", body.id);
       if (error) throw error;
       return { ok: true };
+    }
+    case "get_audit_runs": {
+      const limit = Math.min(body.limit ?? 20, 100);
+      const { data, error } = await admin
+        .from("exchange_sync_runs")
+        .select("*")
+        .order("started_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return { runs: data ?? [] };
+    }
+    case "get_audit_run": {
+      const [run, logs, normalized] = await Promise.all([
+        admin.from("exchange_sync_runs").select("*").eq("id", body.run_id).maybeSingle(),
+        admin.from("audit_logs").select("*").eq("run_id", body.run_id).order("timestamp"),
+        admin.from("normalized_assets").select("*").eq("run_id", body.run_id),
+      ]);
+      return {
+        run: run.data,
+        logs: logs.data ?? [],
+        normalized: normalized.data ?? [],
+      };
     }
   }
 }
