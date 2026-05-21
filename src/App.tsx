@@ -8,6 +8,7 @@ import RadarAssimetria from "./pages/RadarAssimetria";
 import RadarTesouro from "./pages/RadarTesouro";
 import PlanoAcao from "./pages/PlanoAcao";
 import PosicoesVariaveis from "./pages/PosicoesVariaveis";
+import AdminAuditCenter from "./pages/AdminAuditCenter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
