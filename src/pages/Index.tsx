@@ -224,6 +224,11 @@ const Index = () => {
                       <Coins className="w-4 h-4" /> {t("nav.variable")}
                     </Link>
                   </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/admin/audit" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <ShieldCheck className="w-4 h-4" /> Integration Audit Center
+                    </Link>
+                  </SheetClose>
 
                   {snapshot && (
                     <>
