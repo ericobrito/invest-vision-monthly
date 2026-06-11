@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import Index from "./pages/Index";
 import RadarAssimetria from "./pages/RadarAssimetria";
 import RadarTesouro from "./pages/RadarTesouro";
@@ -14,24 +15,26 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/radar" element={<RadarAssimetria />} />
-          <Route path="/radar-tesouro" element={<RadarTesouro />} />
-          <Route path="/plano-acao" element={<PlanoAcao />} />
-          <Route path="/posicoes-variaveis" element={<PosicoesVariaveis />} />
-          <Route path="/admin/audit" element={<AdminAuditCenter />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/radar" element={<RadarAssimetria />} />
+            <Route path="/radar-tesouro" element={<RadarTesouro />} />
+            <Route path="/plano-acao" element={<PlanoAcao />} />
+            <Route path="/posicoes-variaveis" element={<PosicoesVariaveis />} />
+            <Route path="/admin/audit" element={<AdminAuditCenter />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
