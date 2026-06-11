@@ -2,9 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Design tokens. Dark is default; .light overrides. All colors HSL. */
 
 @layer base {
   :root {
@@ -59,6 +57,51 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 210 20% 85%;
     --sidebar-border: 220 14% 18%;
     --sidebar-ring: 160 84% 39%;
+
+    --gradient-card-from: 220 18% 10%;
+    --gradient-card-to: 220 18% 13%;
+  }
+
+  .light {
+    --background: 210 25% 98%;
+    --foreground: 220 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 12%;
+
+    --primary: 160 84% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 94%;
+    --secondary-foreground: 220 25% 18%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 215 14% 42%;
+
+    --accent: 160 60% 92%;
+    --accent-foreground: 160 84% 22%;
+
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 88%;
+    --input: 220 14% 90%;
+    --ring: 160 84% 32%;
+
+    --chart-positive: 160 84% 32%;
+    --chart-negative: 0 72% 48%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 25% 12%;
+    --sidebar-accent: 220 16% 94%;
+    --sidebar-accent-foreground: 220 25% 18%;
+    --sidebar-border: 220 14% 88%;
+
+    --gradient-card-from: 0 0% 100%;
+    --gradient-card-to: 220 25% 97%;
   }
 }
 
@@ -81,6 +124,6 @@ All colors MUST be HSL.
     color: hsl(var(--chart-negative));
   }
   .gradient-card {
-    background: linear-gradient(135deg, hsl(220 18% 10%), hsl(220 18% 13%));
+    background: linear-gradient(135deg, hsl(var(--gradient-card-from)), hsl(var(--gradient-card-to)));
   }
 }
