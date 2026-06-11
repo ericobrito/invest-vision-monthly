@@ -165,17 +165,30 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                     {inv.annualReturn !== undefined ? `${inv.annualReturn >= 0 ? "+" : ""}${inv.annualReturn.toFixed(2)}%` : "—"}
                   </td>
                 )}
-                {onEditInvestment && (
-                  <td className="p-4">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => onEditInvestment(inv)}
-                      title="Editar investimento"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
+                {showActions && (
+                  <td className="p-4 whitespace-nowrap text-right">
+                    <div className="inline-flex items-center gap-1">
+                      {onDetailInvestment && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onDetailInvestment(inv)}
+                        >
+                          Detalhar
+                        </Button>
+                      )}
+                      {onEditInvestment && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onEditInvestment(inv)}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
