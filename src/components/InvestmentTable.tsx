@@ -1,6 +1,6 @@
 import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
 import { useState, useMemo } from "react";
-import { Pencil, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Link2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type SortKey = "percentage" | "value" | "name" | "applied" | "totalReturn" | "annualReturn";
@@ -9,9 +9,11 @@ type SortDir = "asc" | "desc";
 interface InvestmentTableProps {
   snapshot: MonthlySnapshot;
   onEditInvestment?: (investment: Investment) => void;
+  onDetailInvestment?: (investment: Investment) => void;
 }
 
-const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) => {
+const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: InvestmentTableProps) => {
+  const showActions = Boolean(onEditInvestment || onDetailInvestment);
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
   const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
@@ -113,8 +115,8 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                   Rent. Anual <SortIcon col="annualReturn" />
                 </th>
               )}
-              {onEditInvestment && (
-                <th className="w-10 p-4"></th>
+              {showActions && (
+                <th className="w-1 p-4"></th>
               )}
             </tr>
           </thead>
@@ -130,6 +132,12 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                       style={{ backgroundColor: CHART_COLORS[originalIndex % CHART_COLORS.length] }}
                     />
                     <span className="text-foreground font-medium">{inv.name}</span>
+                    {inv.valueMode === "AUTO" && (
+                      <Zap className="w-3 h-3 text-primary shrink-0" aria-label="Automático" />
+                    )}
+                    {inv.valueMode === "HYBRID" && (
+                      <Link2 className="w-3 h-3 text-accent-foreground shrink-0" aria-label="Híbrido" />
+                    )}
                   </div>
                 </td>
                 <td className="text-right p-4 text-foreground font-mono">{formatBRL(inv.value)}</td>
@@ -157,17 +165,30 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                     {inv.annualReturn !== undefined ? `${inv.annualReturn >= 0 ? "+" : ""}${inv.annualReturn.toFixed(2)}%` : "—"}
                   </td>
                 )}
-                {onEditInvestment && (
-                  <td className="p-4">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => onEditInvestment(inv)}
-                      title="Editar investimento"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
+                {showActions && (
+                  <td className="p-4 whitespace-nowrap text-right">
+                    <div className="inline-flex items-center gap-1">
+                      {onDetailInvestment && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onDetailInvestment(inv)}
+                        >
+                          Detalhar
+                        </Button>
+                      )}
+                      {onEditInvestment && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onEditInvestment(inv)}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -199,7 +220,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) =
                   {overallAnnualReturn !== undefined ? `${overallAnnualReturn >= 0 ? "+" : ""}${overallAnnualReturn.toFixed(2)}%` : "—"}
                 </td>
               )}
-              {onEditInvestment && <td className="p-4"></td>}
+              {showActions && <td className="p-4"></td>}
             </tr>
           </tbody>
         </table>

@@ -113,49 +113,73 @@ export type Database = {
         Row: {
           annual_return: number | null
           applied: number | null
+          average_price: number | null
           created_at: string
+          current_price: number | null
           id: string
           include_in_variable_positions: boolean
           income_type: string
+          invested_amount: number | null
+          last_price_at: string | null
+          linked_provider: string | null
+          linked_symbol: string | null
           name: string
           percentage: number
+          quantity: number | null
           region: string
           snapshot_id: string
           sort_order: number
           total_return: number | null
           value: number
+          value_mode: string
           year_started: string | null
         }
         Insert: {
           annual_return?: number | null
           applied?: number | null
+          average_price?: number | null
           created_at?: string
+          current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
           income_type?: string
+          invested_amount?: number | null
+          last_price_at?: string | null
+          linked_provider?: string | null
+          linked_symbol?: string | null
           name: string
           percentage?: number
+          quantity?: number | null
           region?: string
           snapshot_id: string
           sort_order?: number
           total_return?: number | null
           value?: number
+          value_mode?: string
           year_started?: string | null
         }
         Update: {
           annual_return?: number | null
           applied?: number | null
+          average_price?: number | null
           created_at?: string
+          current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
           income_type?: string
+          invested_amount?: number | null
+          last_price_at?: string | null
+          linked_provider?: string | null
+          linked_symbol?: string | null
           name?: string
           percentage?: number
+          quantity?: number | null
           region?: string
           snapshot_id?: string
           sort_order?: number
           total_return?: number | null
           value?: number
+          value_mode?: string
           year_started?: string | null
         }
         Relationships: [

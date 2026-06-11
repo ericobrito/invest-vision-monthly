@@ -12,7 +12,9 @@ import EvolutionChart from "@/components/EvolutionChart";
 import AssetEvolutionChart from "@/components/AssetEvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
+import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
 import LanguageToggle from "@/components/LanguageToggle";
+import ThemeToggle from "@/components/ThemeToggle";
 import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,8 @@ const Index = () => {
   const [deleteMonth, setDeleteMonth] = useState<string | null>(null);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false);
+  const [detailInvestment, setDetailInvestment] = useState<Investment | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
   const snapshot = monthlyData[effectiveIndex];
@@ -81,6 +85,11 @@ const Index = () => {
   const handleEditInvestment = (inv: Investment) => {
     setEditingInvestment(inv);
     setInvestmentDialogOpen(true);
+  };
+
+  const handleDetailInvestment = (inv: Investment) => {
+    setDetailInvestment(inv);
+    setDetailDialogOpen(true);
   };
 
   const handleSaveInvestment = (updated: Investment) => {
@@ -185,6 +194,7 @@ const Index = () => {
               <Plus className="w-4 h-4 mr-1" /> {t("nav.newMonth")}
             </Button>
             <LanguageToggle />
+            <ThemeToggle />
           </div>
 
           {/* Mobile actions */}
@@ -193,6 +203,7 @@ const Index = () => {
               <Plus className="w-4 h-4" />
             </Button>
             <LanguageToggle />
+            <ThemeToggle />
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Menu">
@@ -285,7 +296,11 @@ const Index = () => {
 
                 <AssetEvolutionChart snapshots={monthlyData} />
 
-                <InvestmentTable snapshot={snapshot} onEditInvestment={handleEditInvestment} />
+                <InvestmentTable
+                  snapshot={snapshot}
+                  onEditInvestment={handleEditInvestment}
+                  onDetailInvestment={handleDetailInvestment}
+                />
 
                 {(() => {
                   const jan2024 = monthlyData.find(s => s.month === '2024-01');
@@ -344,6 +359,12 @@ const Index = () => {
         investment={editingInvestment}
         onSave={handleSaveInvestment}
         isSaving={updateInvestment.isPending}
+      />
+
+      <InvestmentDetailDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        investment={detailInvestment}
       />
 
       <AlertDialog open={!!deleteMonth} onOpenChange={() => setDeleteMonth(null)}>

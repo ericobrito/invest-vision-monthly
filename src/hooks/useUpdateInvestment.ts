@@ -47,7 +47,15 @@ export function useUpdateInvestment() {
           income_type: updated.incomeType || "fixed",
           region: updated.region || "brazil",
           include_in_variable_positions: updated.flags?.includeInVariablePositions === true,
-        })
+          value_mode: updated.valueMode || "MANUAL",
+          linked_provider: updated.linkedAsset?.provider ?? null,
+          linked_symbol: updated.linkedAsset?.symbol ?? null,
+          quantity: updated.quantity ?? null,
+          average_price: updated.averagePrice ?? null,
+          current_price: updated.currentPrice ?? null,
+          invested_amount: updated.investedAmount ?? null,
+          last_price_at: updated.lastPriceAt ?? null,
+        } as any)
         .eq("id", invRow.id)
         .throwOnError();
 

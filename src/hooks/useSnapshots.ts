@@ -18,7 +18,17 @@ function mapRow(row: any, investments: any[]): MonthlySnapshot {
       flags: {
         includeInVariablePositions: inv.include_in_variable_positions === true,
       },
+      valueMode: (inv.value_mode as any) || 'MANUAL',
+      linkedAsset: inv.linked_provider && inv.linked_symbol
+        ? { provider: inv.linked_provider, symbol: inv.linked_symbol }
+        : undefined,
+      quantity: inv.quantity != null ? Number(inv.quantity) : undefined,
+      averagePrice: inv.average_price != null ? Number(inv.average_price) : undefined,
+      currentPrice: inv.current_price != null ? Number(inv.current_price) : undefined,
+      investedAmount: inv.invested_amount != null ? Number(inv.invested_amount) : undefined,
+      lastPriceAt: inv.last_price_at ?? undefined,
     }));
+
 
   return {
     month: row.month,
