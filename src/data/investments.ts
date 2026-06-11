@@ -1,5 +1,11 @@
 export type IncomeType = 'fixed' | 'variable';
 export type Region = 'brazil' | 'exterior';
+export type ValueMode = 'MANUAL' | 'HYBRID' | 'AUTO';
+
+export interface LinkedAsset {
+  provider: string;
+  symbol: string;
+}
 
 export interface Investment {
   name: string;
@@ -14,6 +20,14 @@ export interface Investment {
   flags?: {
     includeInVariablePositions?: boolean;
   };
+  // Dynamic valuation engine
+  valueMode?: ValueMode;
+  linkedAsset?: LinkedAsset;
+  quantity?: number;
+  averagePrice?: number;
+  currentPrice?: number;
+  investedAmount?: number;
+  lastPriceAt?: string;
 }
 
 export interface MonthlySnapshot {
