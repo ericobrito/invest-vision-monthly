@@ -87,6 +87,11 @@ const Index = () => {
     setInvestmentDialogOpen(true);
   };
 
+  const handleDetailInvestment = (inv: Investment) => {
+    setDetailInvestment(inv);
+    setDetailDialogOpen(true);
+  };
+
   const handleSaveInvestment = (updated: Investment) => {
     if (!snapshot || !editingInvestment) return;
     updateInvestment.mutate(
