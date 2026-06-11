@@ -361,6 +361,12 @@ const Index = () => {
         isSaving={updateInvestment.isPending}
       />
 
+      <InvestmentDetailDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        investment={detailInvestment}
+      />
+
       <AlertDialog open={!!deleteMonth} onOpenChange={() => setDeleteMonth(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
