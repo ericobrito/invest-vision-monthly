@@ -115,8 +115,8 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                   Rent. Anual <SortIcon col="annualReturn" />
                 </th>
               )}
-              {onEditInvestment && (
-                <th className="w-10 p-4"></th>
+              {showActions && (
+                <th className="w-1 p-4"></th>
               )}
             </tr>
           </thead>
