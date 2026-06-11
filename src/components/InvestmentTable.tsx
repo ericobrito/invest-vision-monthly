@@ -132,6 +132,12 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                       style={{ backgroundColor: CHART_COLORS[originalIndex % CHART_COLORS.length] }}
                     />
                     <span className="text-foreground font-medium">{inv.name}</span>
+                    {inv.valueMode === "AUTO" && (
+                      <Zap className="w-3 h-3 text-primary shrink-0" aria-label="Automático" />
+                    )}
+                    {inv.valueMode === "HYBRID" && (
+                      <Link2 className="w-3 h-3 text-accent-foreground shrink-0" aria-label="Híbrido" />
+                    )}
                   </div>
                 </td>
                 <td className="text-right p-4 text-foreground font-mono">{formatBRL(inv.value)}</td>
