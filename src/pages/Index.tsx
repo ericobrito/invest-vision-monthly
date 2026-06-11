@@ -44,6 +44,8 @@ const Index = () => {
   const [deleteMonth, setDeleteMonth] = useState<string | null>(null);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false);
+  const [detailInvestment, setDetailInvestment] = useState<Investment | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
   const snapshot = monthlyData[effectiveIndex];
