@@ -1,6 +1,6 @@
 import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
 import { useState, useMemo } from "react";
-import { Pencil, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Link2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type SortKey = "percentage" | "value" | "name" | "applied" | "totalReturn" | "annualReturn";
@@ -9,9 +9,11 @@ type SortDir = "asc" | "desc";
 interface InvestmentTableProps {
   snapshot: MonthlySnapshot;
   onEditInvestment?: (investment: Investment) => void;
+  onDetailInvestment?: (investment: Investment) => void;
 }
 
-const InvestmentTable = ({ snapshot, onEditInvestment }: InvestmentTableProps) => {
+const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: InvestmentTableProps) => {
+  const showActions = Boolean(onEditInvestment || onDetailInvestment);
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
   const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
