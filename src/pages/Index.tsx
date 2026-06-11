@@ -194,6 +194,7 @@ const Index = () => {
               <Plus className="w-4 h-4 mr-1" /> {t("nav.newMonth")}
             </Button>
             <LanguageToggle />
+            <ThemeToggle />
           </div>
 
           {/* Mobile actions */}
@@ -202,6 +203,7 @@ const Index = () => {
               <Plus className="w-4 h-4" />
             </Button>
             <LanguageToggle />
+            <ThemeToggle />
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Menu">
@@ -294,7 +296,11 @@ const Index = () => {
 
                 <AssetEvolutionChart snapshots={monthlyData} />
 
-                <InvestmentTable snapshot={snapshot} onEditInvestment={handleEditInvestment} />
+                <InvestmentTable
+                  snapshot={snapshot}
+                  onEditInvestment={handleEditInvestment}
+                  onDetailInvestment={handleDetailInvestment}
+                />
 
                 {(() => {
                   const jan2024 = monthlyData.find(s => s.month === '2024-01');
