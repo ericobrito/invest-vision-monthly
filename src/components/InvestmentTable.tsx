@@ -220,7 +220,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                   {overallAnnualReturn !== undefined ? `${overallAnnualReturn >= 0 ? "+" : ""}${overallAnnualReturn.toFixed(2)}%` : "—"}
                 </td>
               )}
-              {onEditInvestment && <td className="p-4"></td>}
+              {showActions && <td className="p-4"></td>}
             </tr>
           </tbody>
         </table>
