@@ -1,13 +1,29 @@
 export type IncomeType = 'fixed' | 'variable';
 export type Region = 'brazil' | 'exterior';
 export type ValueMode = 'MANUAL' | 'HYBRID' | 'AUTO';
+export type InvestmentMode = 'CONSOLIDATED' | 'DETAILED' | 'CONNECTED';
 
 export interface LinkedAsset {
   provider: string;
   symbol: string;
 }
 
+export interface Position {
+  id?: string;
+  symbol: string;
+  name?: string;
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  appliedAmount: number;
+  currentValue: number;
+  currency: string;
+  provider?: string;
+  lastPriceAt?: string;
+}
+
 export interface Investment {
+  id?: string;
   name: string;
   value: number;
   percentage: number;
@@ -20,7 +36,12 @@ export interface Investment {
   flags?: {
     includeInVariablePositions?: boolean;
   };
-  // Dynamic valuation engine
+  // Three-mode architecture
+  mode?: InvestmentMode;
+  institution?: string;
+  connectionId?: string;
+  positions?: Position[];
+  // Legacy dynamic valuation (kept for backward compatibility)
   valueMode?: ValueMode;
   linkedAsset?: LinkedAsset;
   quantity?: number;
@@ -42,6 +63,31 @@ export interface MonthlySnapshot {
   exterior?: number;
   growth2025?: number;
 }
+
+/**
+ * Resolve totals based on the investment mode.
+ * - CONSOLIDATED: stored values
+ * - DETAILED: sum of positions
+ * - CONNECTED: sum of imported assets (passed in via connectionAssets)
+ */
+export function resolveInvestmentTotals(
+  inv: Pick<Investment, 'mode' | 'value' | 'applied' | 'positions'>,
+  connectionAssets?: { appliedAmount?: number; currentValue: number }[],
+): { value: number; applied?: number } {
+  const mode = inv.mode || 'CONSOLIDATED';
+  if (mode === 'DETAILED' && inv.positions && inv.positions.length > 0) {
+    const value = inv.positions.reduce((s, p) => s + (Number(p.currentValue) || 0), 0);
+    const applied = inv.positions.reduce((s, p) => s + (Number(p.appliedAmount) || 0), 0);
+    return { value, applied };
+  }
+  if (mode === 'CONNECTED' && connectionAssets && connectionAssets.length > 0) {
+    const value = connectionAssets.reduce((s, a) => s + (Number(a.currentValue) || 0), 0);
+    const applied = connectionAssets.reduce((s, a) => s + (Number(a.appliedAmount) || 0), 0);
+    return { value, applied: applied > 0 ? applied : undefined };
+  }
+  return { value: Number(inv.value) || 0, applied: inv.applied };
+}
+
 
 export const monthlyData: MonthlySnapshot[] = [
   {
