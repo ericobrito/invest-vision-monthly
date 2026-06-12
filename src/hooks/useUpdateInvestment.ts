@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Investment } from "@/data/investments";
+import type { Investment, MonthlySnapshot } from "@/data/investments";
+import { resolveInvestmentTotals } from "@/data/investments";
 import { computeDerivedFields } from "@/hooks/useSnapshots";
-import type { MonthlySnapshot } from "@/data/investments";
 
 interface UpdateParams {
   investmentName: string;
@@ -16,7 +16,6 @@ export function useUpdateInvestment() {
 
   return useMutation({
     mutationFn: async ({ investmentName, snapshotMonth, updated, allSnapshots }: UpdateParams) => {
-      // Get snapshot id
       const { data: snap } = await supabase
         .from("monthly_snapshots")
         .select("id")
@@ -24,7 +23,6 @@ export function useUpdateInvestment() {
         .single();
       if (!snap) throw new Error("Snapshot not found");
 
-      // Get the investment row by name + snapshot
       const { data: invRows } = await supabase
         .from("investments")
         .select("*")
@@ -33,20 +31,31 @@ export function useUpdateInvestment() {
       if (!invRows || invRows.length === 0) throw new Error("Investment not found");
 
       const invRow = invRows[0];
+      const mode = updated.mode || "CONSOLIDATED";
 
-      // Update the investment
+      // Resolve effective totals based on mode
+      const totals = resolveInvestmentTotals({
+        mode,
+        value: updated.value,
+        applied: updated.applied,
+        positions: updated.positions,
+      });
+
       await supabase
         .from("investments")
         .update({
           name: updated.name,
-          value: updated.value,
-          applied: updated.applied ?? null,
+          value: totals.value,
+          applied: totals.applied ?? null,
           year_started: updated.yearStarted ?? null,
           total_return: updated.totalReturn ?? null,
           annual_return: updated.annualReturn ?? null,
           income_type: updated.incomeType || "fixed",
           region: updated.region || "brazil",
           include_in_variable_positions: updated.flags?.includeInVariablePositions === true,
+          mode,
+          institution: updated.institution ?? null,
+          connection_id: updated.connectionId ?? null,
           value_mode: updated.valueMode || "MANUAL",
           linked_provider: updated.linkedAsset?.provider ?? null,
           linked_symbol: updated.linkedAsset?.symbol ?? null,
@@ -59,7 +68,35 @@ export function useUpdateInvestment() {
         .eq("id", invRow.id)
         .throwOnError();
 
-      // Recalculate snapshot totals: fetch all investments for this snapshot
+      // Sync positions for DETAILED mode (delete all + reinsert is simpler/safer)
+      await (supabase as any)
+        .from("investment_positions")
+        .delete()
+        .eq("investment_id", invRow.id);
+
+      if (mode === "DETAILED" && updated.positions && updated.positions.length > 0) {
+        await (supabase as any)
+          .from("investment_positions")
+          .insert(
+            updated.positions.map((p, i) => ({
+              investment_id: invRow.id,
+              symbol: p.symbol,
+              name: p.name ?? null,
+              quantity: p.quantity,
+              average_price: p.averagePrice,
+              current_price: p.currentPrice,
+              applied_amount: p.appliedAmount,
+              current_value: p.currentValue,
+              currency: p.currency || "BRL",
+              provider: p.provider ?? null,
+              sort_order: i,
+              last_price_at: p.lastPriceAt ?? null,
+            }))
+          )
+          .throwOnError();
+      }
+
+      // Recalculate snapshot totals
       const { data: allInvs } = await supabase
         .from("investments")
         .select("*")
@@ -68,13 +105,11 @@ export function useUpdateInvestment() {
 
       const total = allInvs.reduce((s, i) => s + Number(i.value), 0);
 
-      // Update percentages
       for (const inv of allInvs) {
         const pct = total > 0 ? Number(((Number(inv.value) / total) * 100).toFixed(2)) : 0;
         await supabase.from("investments").update({ percentage: pct }).eq("id", inv.id).throwOnError();
       }
 
-      // Recompute snapshot derived fields
       const invData = allInvs.map(inv => ({
         name: inv.name,
         value: Number(inv.value),
