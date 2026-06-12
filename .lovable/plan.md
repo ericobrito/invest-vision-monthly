@@ -1,75 +1,91 @@
-# Integration Audit Center
+# Three-Mode Investment Architecture
 
-A permanent, persisted audit system for exchange synchronization. Every stage of the sync pipeline writes to the database so you can pinpoint exactly where portfolio value changes.
+Extends the existing portfolio so every investment is one of three modes, each with a single source of truth. No redesign of the dashboard, no forced migration — current rows become `CONSOLIDATED` automatically.
 
-> Note: built on Lovable Cloud (Supabase). Access gating is **deferred** — the `/admin/audit` route is open for now (you confirmed "skip auth"). When you're ready to gate it, we'll add Lovable Cloud auth + a `user_roles` table and lock the page + RLS to admins (ericoqb@gmail.com).
+## 1. Modes and source of truth
 
----
+| Mode | Source of truth | Calculations |
+|---|---|---|
+| `CONSOLIDATED` | `applied`, `value` on the investment row | Stored values used as-is (today's behavior) |
+| `DETAILED` | `positions[]` rows | `applied = Σ position.appliedAmount`, `value = Σ position.currentValue` |
+| `CONNECTED` | Provider API (Bybit, Coinbase, Binance, Kraken, …) via existing `va_connections` | Computed from imported `va_positions` |
 
-## 1. Database (new tables)
+Existing rows have no `mode` → treated as `CONSOLIDATED`. No data migration required.
 
-- **`exchange_sync_runs`** — one row per sync invocation
-  - `run_id`, `status` (running/completed/failed), `started_at`, `completed_at`, `duration_ms`
-  - `bybit_total_brl`, `coinbase_total_brl`, `integrated_total_brl`, `expected_total_brl`, `difference_brl`
-  - `connection_id`, `provider`, `triggered_by`
-- **`audit_logs`** — append-only stage events
-  - `run_id`, `exchange`, `stage` (BYBIT_RAW, COINBASE_RAW, WALLET_DISCOVERY, ASSET_EXTRACTED, NORMALIZED_ASSET, RECONCILIATION, CONSOLIDATION, FINAL_TOTAL, ANOMALY, ERROR), `timestamp`, `data jsonb`
-- **`normalized_assets`** — per-asset snapshot for a run
-  - `run_id`, `exchange`, `wallet_type`, `asset`, `quantity`, `usd_value`, `brl_value`, `usd_to_brl`, `wallets jsonb`, `raw jsonb`, `source_field`
+## 2. Database
 
-All public (matches existing tables). Indexes on `run_id`, `(exchange, stage)`, `started_at desc`.
+New table `investment_positions` (DETAILED mode):
 
-## 2. Edge function audit pipeline (`supabase/functions/variable-assets/index.ts`)
-
-Refactor `syncConnection` to a staged pipeline. Each stage:
-1. `saveRawResponse` → `BYBIT_RAW` / `COINBASE_RAW`
-2. `walletDiscovery` → `WALLET_DISCOVERY` (lists discovered wallet types)
-3. `extractAssets` → `ASSET_EXTRACTED`
-4. `normalizeAssets` → writes rows to `normalized_assets` + `NORMALIZED_ASSET` logs
-5. `reconcileDuplicates` → `RECONCILIATION` (cross-wallet asset merges)
-6. `consolidatePortfolio` → `CONSOLIDATION` (sums per exchange in BRL)
-7. `finalEquity` → updates `exchange_sync_runs` totals + `FINAL_TOTAL`
-
-`AuditService` (in the function) wraps inserts with `service_role` client and never throws into the sync path (audit failures are logged but don't break sync).
-
-**Anomaly detection** runs after consolidation:
-- difference > 10 BRL vs `expected_total_brl` (passed by client when known)
-- negative balances, null equity, duplicated assets within same wallet_type, missing wallet groups for connected providers, USD/BRL conversion failures (e.g. `usdToBrl` null or asset price missing)
-
-New action `get_audit_runs` / `get_audit_run` / `get_normalized_assets` for the UI.
-
-## 3. Frontend — `/admin/audit`
-
-New route `AdminAuditCenter.tsx` with sidebar-style tabs (single page, internal tabs to keep UI structure minimal):
-- **Exchange Health** — latest 20 runs with status, duration, totals, difference, anomaly count
-- **Raw Responses** — JSON viewer per run / exchange (BYBIT_RAW, COINBASE_RAW)
-- **Wallet Discovery** — wallets found per exchange (UNIFIED/FUND/SPOT/CONTRACT/EARN; Coinbase portfolios DEFAULT/CONSUMER/INTX)
-- **Asset Normalization** — table: asset · wallet · quantity · USD · BRL · source_field
-- **Consolidation Audit** — Bybit total · Coinbase total · Integrated · Expected · Difference
-- **Error History** — `ERROR` + `ANOMALY` logs
-- **Export Audit** — buttons:
-  - Export JSON (full run)
-  - Export CSV (normalized_assets)
-  - Download Raw Responses
-  - Download Audit Report (consolidated markdown/JSON)
-
-Add **Admin → Integration Audit Center** entry to nav (Index page menu). On `/posicoes-variaveis` show a "Last sync" pill with link to `/admin/audit?run=<id>`.
-
-## 4. After each sync, return to the client
 ```
-{ runId, status, exchanges, walletsFound, normalizedAssetsCount,
-  bybitTotal, coinbaseTotal, integratedTotal, anomalies, criticalStage }
+id, investment_id (FK investments, cascade), symbol, name,
+quantity numeric, average_price numeric, current_price numeric,
+applied_amount numeric, current_value numeric, currency text default 'BRL',
+last_price_at timestamptz, created_at, updated_at
 ```
-Where `criticalStage` = the first stage where the running sum diverged from raw exchange-reported equity by >10 BRL.
 
-## 5. Technical notes
+`investments` table additions:
+- `mode text` default `'CONSOLIDATED'` (`CONSOLIDATED|DETAILED|CONNECTED`)
+- `institution text` nullable
+- `connection_id uuid` nullable (FK `va_connections.id` for CONNECTED mode)
 
-- All writes use the service role inside the edge function; no client writes to audit tables.
-- `audit_logs.data` and `normalized_assets.raw` are `jsonb` for arbitrary payloads.
-- `exchange_sync_runs` retains last 90 days; older rows can be pruned later.
-- Anomaly thresholds + admin email kept as constants in one config block for easy tuning.
-- No changes to existing `/posicoes-variaveis` UI structure beyond adding a small "Audit" link.
+Plus standard GRANTs + RLS (open policies to match existing tables in this project — no auth gating yet).
 
-## Out of scope (deferred)
-- Authentication / role-based gating (you chose "skip auth"). The route will be reachable by URL — fine for now, but we should add auth before publishing.
-- Firestore (project is Supabase-based).
+## 3. Calculation engine
+
+New helper `resolveInvestmentTotals(investment, positions?, connectionAssets?)`:
+
+```text
+switch (mode) {
+  CONSOLIDATED → { applied, value } from row
+  DETAILED     → sum over positions[]
+  CONNECTED    → sum over connectionAssets[] (from existing variable-assets pipeline)
+}
+```
+
+Used by `useSnapshots` so the portfolio table, summary cards, and percentages always reflect the correct source. Manual edits to `applied`/`value` are disabled when mode ≠ CONSOLIDATED.
+
+## 4. UI changes (no layout redesign)
+
+- **Edit dialog (`InvestmentEditDialog`)**: replace current "Valuation mode" selector with `Mode` step:
+  - `CONSOLIDATED` → existing simple form (Applied + Current).
+  - `DETAILED` → hides Applied/Current; shows a `PositionsEditor` list with `[+ Add position]`. Each row: symbol search, name, quantity, average price, current price, currency. Totals shown read-only.
+  - `CONNECTED` → hides Applied/Current; shows provider/connection picker tied to existing `va_connections`. Totals come from the latest sync.
+- **Table (`InvestmentTable`)**: unchanged columns. Mode icon next to name (●/▦/⚡). Existing `[Detalhar] [Editar]` ghost buttons preserved.
+- **Detail dialog (`InvestmentDetailDialog`)**: same shell; body switches by mode — summary (CONSOLIDATED), nested positions table (DETAILED), imported assets table (CONNECTED).
+
+## 5. Asset price lookup (DETAILED)
+
+New edge function `asset-quote` with actions:
+- `search(query)` → ticker suggestions (stocks via BRAPI, crypto via CoinGecko).
+- `quote(provider, symbol)` → `{ price, currency, name, changePct }`.
+
+Used inside `PositionsEditor` to auto-fill `currentPrice` and `name` after the user picks a symbol. Quantity × averagePrice and Quantity × currentPrice are computed client-side.
+
+## 6. CONNECTED mode integration
+
+Reuses existing `variable-assets` edge function + `va_connections` / `va_positions`. The investment row stores `connection_id`; totals are read from the latest successful sync. No duplicate sync logic.
+
+## 7. Backward compatibility
+
+- Rows without `mode` resolve to `CONSOLIDATED`.
+- Existing edit/create flow continues to work — `CONSOLIDATED` is default.
+- `useUpdateInvestment` writes `mode`, `institution`, `connection_id` and the new positions array (upsert + delete-missing).
+- Dashboard layout, columns, totals, and charts unchanged in look.
+
+## Out of scope
+
+- Auth / role gating (per earlier decision).
+- Migrating existing manual rows into DETAILED automatically.
+- New top-level pages or routes.
+
+## Files to touch
+
+- `supabase/migrations/<new>.sql` — `investment_positions`, columns on `investments`, GRANTs, RLS.
+- `supabase/functions/asset-quote/index.ts` — new.
+- `src/data/investments.ts` — add `InvestmentMode`, `Position` types, `resolveInvestmentTotals`.
+- `src/hooks/useSnapshots.ts` — load positions, apply resolver.
+- `src/hooks/useUpdateInvestment.ts` — persist mode, positions, connection_id.
+- `src/components/InvestmentEditDialog.tsx` — three-mode form, embedded `PositionsEditor`.
+- `src/components/PositionsEditor.tsx` — new.
+- `src/components/InvestmentDetailDialog.tsx` — mode-aware body.
+- `src/components/InvestmentTable.tsx` — mode icon only.
