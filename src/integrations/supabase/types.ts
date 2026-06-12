@@ -109,20 +109,85 @@ export type Database = {
         }
         Relationships: []
       }
+      investment_positions: {
+        Row: {
+          applied_amount: number
+          average_price: number
+          created_at: string
+          currency: string
+          current_price: number
+          current_value: number
+          id: string
+          investment_id: string
+          last_price_at: string | null
+          name: string | null
+          provider: string | null
+          quantity: number
+          sort_order: number
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          applied_amount?: number
+          average_price?: number
+          created_at?: string
+          currency?: string
+          current_price?: number
+          current_value?: number
+          id?: string
+          investment_id: string
+          last_price_at?: string | null
+          name?: string | null
+          provider?: string | null
+          quantity?: number
+          sort_order?: number
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          applied_amount?: number
+          average_price?: number
+          created_at?: string
+          currency?: string
+          current_price?: number
+          current_value?: number
+          id?: string
+          investment_id?: string
+          last_price_at?: string | null
+          name?: string | null
+          provider?: string | null
+          quantity?: number
+          sort_order?: number
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_positions_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investments: {
         Row: {
           annual_return: number | null
           applied: number | null
           average_price: number | null
+          connection_id: string | null
           created_at: string
           current_price: number | null
           id: string
           include_in_variable_positions: boolean
           income_type: string
+          institution: string | null
           invested_amount: number | null
           last_price_at: string | null
           linked_provider: string | null
           linked_symbol: string | null
+          mode: string
           name: string
           percentage: number
           quantity: number | null
@@ -138,15 +203,18 @@ export type Database = {
           annual_return?: number | null
           applied?: number | null
           average_price?: number | null
+          connection_id?: string | null
           created_at?: string
           current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
           income_type?: string
+          institution?: string | null
           invested_amount?: number | null
           last_price_at?: string | null
           linked_provider?: string | null
           linked_symbol?: string | null
+          mode?: string
           name: string
           percentage?: number
           quantity?: number | null
@@ -162,15 +230,18 @@ export type Database = {
           annual_return?: number | null
           applied?: number | null
           average_price?: number | null
+          connection_id?: string | null
           created_at?: string
           current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
           income_type?: string
+          institution?: string | null
           invested_amount?: number | null
           last_price_at?: string | null
           linked_provider?: string | null
           linked_symbol?: string | null
+          mode?: string
           name?: string
           percentage?: number
           quantity?: number | null
@@ -183,6 +254,13 @@ export type Database = {
           year_started?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "investments_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "va_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "investments_snapshot_id_fkey"
             columns: ["snapshot_id"]
