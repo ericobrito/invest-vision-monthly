@@ -1,7 +1,8 @@
 import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
 import { useState, useMemo } from "react";
-import { ArrowUpDown, ArrowUp, ArrowDown, Link2, Zap } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
 
 type SortKey = "percentage" | "value" | "name" | "applied" | "totalReturn" | "annualReturn";
 type SortDir = "asc" | "desc";
@@ -132,13 +133,17 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                       style={{ backgroundColor: CHART_COLORS[originalIndex % CHART_COLORS.length] }}
                     />
                     <span className="text-foreground font-medium">{inv.name}</span>
-                    {inv.valueMode === "AUTO" && (
+                    {inv.mode === "DETAILED" && (
+                      <Layers className="w-3 h-3 text-accent-foreground shrink-0" aria-label="Detalhado" />
+                    )}
+                    {inv.mode === "CONNECTED" && (
+                      <Zap className="w-3 h-3 text-primary shrink-0" aria-label="Conectado" />
+                    )}
+                    {(!inv.mode || inv.mode === "CONSOLIDATED") && inv.valueMode === "AUTO" && (
                       <Zap className="w-3 h-3 text-primary shrink-0" aria-label="Automático" />
                     )}
-                    {inv.valueMode === "HYBRID" && (
-                      <Link2 className="w-3 h-3 text-accent-foreground shrink-0" aria-label="Híbrido" />
-                    )}
                   </div>
+
                 </td>
                 <td className="text-right p-4 text-foreground font-mono">{formatBRL(inv.value)}</td>
                 <td className="text-right p-4 text-muted-foreground font-mono">{inv.percentage.toFixed(2)}%</td>

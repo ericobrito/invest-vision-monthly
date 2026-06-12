@@ -16,7 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Investment, IncomeType, Region, ValueMode } from "@/data/investments";
+import { Wallet, Layers, Zap } from "lucide-react";
+import type { Investment, IncomeType, Region, InvestmentMode, Position } from "@/data/investments";
+import { supabase } from "@/integrations/supabase/client";
+import PositionsEditor from "@/components/PositionsEditor";
 
 interface InvestmentEditDialogProps {
   open: boolean;
@@ -26,6 +29,12 @@ interface InvestmentEditDialogProps {
   isSaving?: boolean;
 }
 
+const modeOptions: { value: InvestmentMode; label: string; description: string; Icon: typeof Wallet }[] = [
+  { value: "CONSOLIDATED", label: "Consolidado", description: "Valor manual. Ideal para reserva, previdência, imóveis, fundos alternativos.", Icon: Wallet },
+  { value: "DETAILED", label: "Detalhado", description: "Posições individuais (ações, ETFs, cripto). Cálculo automático a partir de quantidade × preço.", Icon: Layers },
+  { value: "CONNECTED", label: "Conectado", description: "Importado automaticamente de uma corretora ou exchange conectada.", Icon: Zap },
+];
+
 const InvestmentEditDialog = ({
   open,
   onOpenChange,
@@ -34,92 +43,69 @@ const InvestmentEditDialog = ({
   isSaving,
 }: InvestmentEditDialogProps) => {
   const [name, setName] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [mode, setMode] = useState<InvestmentMode>("CONSOLIDATED");
   const [value, setValue] = useState("");
   const [applied, setApplied] = useState("");
   const [yearStarted, setYearStarted] = useState("");
   const [incomeType, setIncomeType] = useState<IncomeType>("fixed");
   const [region, setRegion] = useState<Region>("brazil");
   const [includeInVariable, setIncludeInVariable] = useState(false);
-
-  // Dynamic valuation
-  const [valueMode, setValueMode] = useState<ValueMode>("MANUAL");
-  const [provider, setProvider] = useState("");
-  const [symbol, setSymbol] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [averagePrice, setAveragePrice] = useState("");
-  const [currentPrice, setCurrentPrice] = useState("");
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [connectionId, setConnectionId] = useState<string>("");
+  const [connections, setConnections] = useState<{ id: string; provider: string; label?: string }[]>([]);
 
   useEffect(() => {
     if (investment) {
       setName(investment.name);
+      setInstitution(investment.institution ?? "");
+      setMode(investment.mode || "CONSOLIDATED");
       setValue(String(investment.value));
       setApplied(investment.applied != null ? String(investment.applied) : "");
       setYearStarted(investment.yearStarted ?? "");
       setIncomeType(investment.incomeType || "fixed");
       setRegion(investment.region || "brazil");
       setIncludeInVariable(investment.flags?.includeInVariablePositions === true);
-      setValueMode(investment.valueMode || "MANUAL");
-      setProvider(investment.linkedAsset?.provider ?? "");
-      setSymbol(investment.linkedAsset?.symbol ?? "");
-      setQuantity(investment.quantity != null ? String(investment.quantity) : "");
-      setAveragePrice(investment.averagePrice != null ? String(investment.averagePrice) : "");
-      setCurrentPrice(investment.currentPrice != null ? String(investment.currentPrice) : "");
+      setPositions(investment.positions ?? []);
+      setConnectionId(investment.connectionId ?? "");
     }
   }, [investment, open]);
 
-  // For AUTO/HYBRID, derive value from quantity * currentPrice when possible
-  const effectiveValue = useMemo(() => {
-    const qty = Number(quantity) || 0;
-    const cp = Number(currentPrice) || 0;
-    if ((valueMode === "AUTO" || valueMode === "HYBRID") && qty > 0 && cp > 0) {
-      return qty * cp;
-    }
-    return Number(value) || 0;
-  }, [valueMode, quantity, currentPrice, value]);
-
-  const effectiveApplied = useMemo(() => {
-    const qty = Number(quantity) || 0;
-    const ap = Number(averagePrice) || 0;
-    if (qty > 0 && ap > 0) return qty * ap;
-    return Number(applied) || 0;
-  }, [quantity, averagePrice, applied]);
+  // Load connections for CONNECTED mode
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await supabase.from("va_connections").select("id, provider, label").eq("status", "active");
+      if (data) setConnections(data as any);
+    })();
+  }, [open]);
 
   const computed = useMemo(() => {
-    const v = effectiveValue;
-    const a = effectiveApplied;
-    const totalReturn = a > 0 ? ((v - a) / a) * 100 : undefined;
+    let v = Number(value) || 0;
+    let a = applied ? Number(applied) : undefined;
+    if (mode === "DETAILED") {
+      v = positions.reduce((s, p) => s + p.currentValue, 0);
+      a = positions.reduce((s, p) => s + p.appliedAmount, 0);
+    }
+    const totalReturn = a && a > 0 ? ((v - a) / a) * 100 : undefined;
     let annualReturn: number | undefined;
-    if (yearStarted && a > 0 && v > 0) {
+    if (yearStarted && a && a > 0 && v > 0) {
       const start = new Date(yearStarted.length === 4 ? `${yearStarted}-01-01` : yearStarted);
       const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      if (years > 0) {
-        annualReturn = (Math.pow(v / a, 1 / years) - 1) * 100;
-      }
+      if (years > 0) annualReturn = (Math.pow(v / a, 1 / years) - 1) * 100;
     }
-    return { totalReturn, annualReturn };
-  }, [effectiveValue, effectiveApplied, yearStarted]);
+    return { value: v, applied: a, totalReturn, annualReturn };
+  }, [mode, value, applied, positions, yearStarted]);
 
   const handleSave = () => {
     if (!investment) return;
-    const qty = quantity ? Number(quantity) : undefined;
-    const ap = averagePrice ? Number(averagePrice) : undefined;
-    const cp = currentPrice ? Number(currentPrice) : undefined;
-
-    const linkedAsset =
-      valueMode !== "MANUAL" && provider.trim() && symbol.trim()
-        ? { provider: provider.trim(), symbol: symbol.trim().toUpperCase() }
-        : undefined;
-
-    const finalValue =
-      (valueMode === "AUTO" || valueMode === "HYBRID") && qty && cp ? qty * cp : Number(value) || 0;
-    const finalApplied =
-      qty && ap ? qty * ap : applied ? Number(applied) : undefined;
-
     onSave({
       ...investment,
       name,
-      value: finalValue,
-      applied: finalApplied,
+      institution: institution || undefined,
+      mode,
+      value: computed.value,
+      applied: computed.applied,
       yearStarted: yearStarted || undefined,
       totalReturn: computed.totalReturn != null ? Number(computed.totalReturn.toFixed(2)) : undefined,
       annualReturn: computed.annualReturn != null ? Number(computed.annualReturn.toFixed(2)) : undefined,
@@ -129,136 +115,94 @@ const InvestmentEditDialog = ({
         ...(investment.flags || {}),
         includeInVariablePositions: includeInVariable,
       },
-      valueMode,
-      linkedAsset,
-      quantity: qty,
-      averagePrice: ap,
-      currentPrice: cp,
-      investedAmount: finalApplied,
-      lastPriceAt: cp ? new Date().toISOString() : investment.lastPriceAt,
+      positions: mode === "DETAILED" ? positions : undefined,
+      connectionId: mode === "CONNECTED" ? (connectionId || undefined) : undefined,
     });
   };
 
-  const showLinkFields = valueMode === "HYBRID" || valueMode === "AUTO";
-  const valueIsAuto = valueMode === "AUTO" || (valueMode === "HYBRID" && Number(quantity) > 0 && Number(currentPrice) > 0);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Investimento</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Mode selector */}
           <div>
-            <Label>Nome</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Label className="text-sm font-semibold">Como deseja acompanhar este investimento?</Label>
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {modeOptions.map(({ value: v, label, description, Icon }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setMode(v)}
+                  className={`text-left rounded-lg border p-3 transition ${
+                    mode === v
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-muted/20 hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium text-sm">{label}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-snug">{description}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div>
-            <Label>Modo de valoração</Label>
-            <Select value={valueMode} onValueChange={(v) => setValueMode(v as ValueMode)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MANUAL">Manual — valor inserido manualmente</SelectItem>
-                <SelectItem value="HYBRID">Híbrido — quantidade × preço (editável)</SelectItem>
-                <SelectItem value="AUTO">Automático — vinculado a ativo via API</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Nome</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Instituição</Label>
+              <Input value={institution} placeholder="Avenue, XP, Bybit..." onChange={(e) => setInstitution(e.target.value)} />
+            </div>
           </div>
 
-          {showLinkFields && (
-            <div className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3 bg-muted/30">
+          {/* Mode-specific body */}
+          {mode === "CONSOLIDATED" && (
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Provider</Label>
-                <Select value={provider} onValueChange={setProvider}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bybit">Bybit</SelectItem>
-                    <SelectItem value="coinbase">Coinbase</SelectItem>
-                    <SelectItem value="binance">Binance</SelectItem>
-                    <SelectItem value="brapi">B3 (BRAPI)</SelectItem>
-                    <SelectItem value="yahoo">Yahoo Finance</SelectItem>
-                    <SelectItem value="coingecko">CoinGecko</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Valor Atual (R$)</Label>
+                <Input type="number" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
               </div>
               <div>
-                <Label>Símbolo</Label>
-                <Input
-                  placeholder="BTC, PETR4..."
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                />
-              </div>
-              <div>
-                <Label>Quantidade</Label>
-                <Input
-                  type="number"
-                  step="0.00000001"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Preço médio (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={averagePrice}
-                  onChange={(e) => setAveragePrice(e.target.value)}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>Preço atual (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={currentPrice}
-                  onChange={(e) => setCurrentPrice(e.target.value)}
-                />
+                <Label>Valor Aplicado (R$)</Label>
+                <Input type="number" step="0.01" value={applied} onChange={(e) => setApplied(e.target.value)} />
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>
-                Valor Atual (R$)
-                {valueIsAuto && <span className="text-xs text-muted-foreground ml-1">(auto)</span>}
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={valueIsAuto ? effectiveValue.toFixed(2) : value}
-                onChange={(e) => setValue(e.target.value)}
-                disabled={valueIsAuto}
-              />
+          {mode === "DETAILED" && (
+            <PositionsEditor positions={positions} onChange={setPositions} />
+          )}
+
+          {mode === "CONNECTED" && (
+            <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-3">
+              <div>
+                <Label>Conexão</Label>
+                <Select value={connectionId} onValueChange={setConnectionId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione uma conexão ativa" /></SelectTrigger>
+                  <SelectContent>
+                    {connections.length === 0 && <SelectItem value="__none" disabled>Nenhuma conexão ativa</SelectItem>}
+                    {connections.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.provider.toUpperCase()}{c.label ? ` — ${c.label}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Os valores serão atualizados automaticamente a partir da sincronização. Gerencie conexões na página de Posições Variáveis.
+              </p>
             </div>
-            <div>
-              <Label>
-                Valor Aplicado (R$)
-                {Number(quantity) > 0 && Number(averagePrice) > 0 && (
-                  <span className="text-xs text-muted-foreground ml-1">(auto)</span>
-                )}
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={
-                  Number(quantity) > 0 && Number(averagePrice) > 0
-                    ? effectiveApplied.toFixed(2)
-                    : applied
-                }
-                onChange={(e) => setApplied(e.target.value)}
-                disabled={Number(quantity) > 0 && Number(averagePrice) > 0}
-              />
-            </div>
-          </div>
+          )}
 
           <div>
             <Label>Data do Aporte</Label>
@@ -269,9 +213,7 @@ const InvestmentEditDialog = ({
             <div>
               <Label>Tipo de Renda</Label>
               <Select value={incomeType} onValueChange={(v) => setIncomeType(v as IncomeType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="fixed">Renda Fixa</SelectItem>
                   <SelectItem value="variable">Renda Variável</SelectItem>
@@ -281,9 +223,7 @@ const InvestmentEditDialog = ({
             <div>
               <Label>Região</Label>
               <Select value={region} onValueChange={(v) => setRegion(v as Region)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="brazil">Brasil</SelectItem>
                   <SelectItem value="exterior">Exterior</SelectItem>
@@ -303,10 +243,15 @@ const InvestmentEditDialog = ({
             </Label>
           </div>
 
-          {/* Auto-calculated preview */}
           <div className="bg-muted/50 rounded-lg p-3 space-y-1">
             <p className="text-xs font-semibold text-muted-foreground mb-2">Calculado automaticamente</p>
-            <div className="flex gap-6 text-sm">
+            <div className="flex gap-6 text-sm flex-wrap">
+              <div>
+                <span className="text-muted-foreground">Valor atual: </span>
+                <strong className="font-mono">
+                  {computed.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </strong>
+              </div>
               <div>
                 <span className="text-muted-foreground">Rent. Total: </span>
                 <strong className={computed.totalReturn != null ? (computed.totalReturn >= 0 ? "text-positive" : "text-negative") : ""}>

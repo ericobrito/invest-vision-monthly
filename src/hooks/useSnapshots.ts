@@ -1,33 +1,49 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { MonthlySnapshot, Investment, IncomeType, Region } from "@/data/investments";
+import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
+import { resolveInvestmentTotals } from "@/data/investments";
 
-function mapRow(row: any, investments: any[]): MonthlySnapshot {
+function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>): MonthlySnapshot {
   const mappedInvestments: Investment[] = investments
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
-    .map((inv: any): Investment => ({
-      name: inv.name,
-      value: Number(inv.value),
-      percentage: Number(inv.percentage),
-      applied: inv.applied != null ? Number(inv.applied) : undefined,
-      totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
-      annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
-      yearStarted: inv.year_started ? (inv.year_started.length === 4 ? `${inv.year_started}-01-01` : inv.year_started) : undefined,
-      incomeType: (inv.income_type as IncomeType) || 'fixed',
-      region: (inv.region as Region) || 'brazil',
-      flags: {
-        includeInVariablePositions: inv.include_in_variable_positions === true,
-      },
-      valueMode: (inv.value_mode as any) || 'MANUAL',
-      linkedAsset: inv.linked_provider && inv.linked_symbol
-        ? { provider: inv.linked_provider, symbol: inv.linked_symbol }
-        : undefined,
-      quantity: inv.quantity != null ? Number(inv.quantity) : undefined,
-      averagePrice: inv.average_price != null ? Number(inv.average_price) : undefined,
-      currentPrice: inv.current_price != null ? Number(inv.current_price) : undefined,
-      investedAmount: inv.invested_amount != null ? Number(inv.invested_amount) : undefined,
-      lastPriceAt: inv.last_price_at ?? undefined,
-    }));
+    .map((inv: any): Investment => {
+      const positions = positionsByInvestment.get(inv.id) || undefined;
+      const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
+      const totals = resolveInvestmentTotals({
+        mode,
+        value: Number(inv.value),
+        applied: inv.applied != null ? Number(inv.applied) : undefined,
+        positions,
+      });
+      return {
+        id: inv.id,
+        name: inv.name,
+        value: totals.value,
+        percentage: Number(inv.percentage),
+        applied: totals.applied,
+        totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
+        annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
+        yearStarted: inv.year_started ? (inv.year_started.length === 4 ? `${inv.year_started}-01-01` : inv.year_started) : undefined,
+        incomeType: (inv.income_type as IncomeType) || 'fixed',
+        region: (inv.region as Region) || 'brazil',
+        flags: {
+          includeInVariablePositions: inv.include_in_variable_positions === true,
+        },
+        mode,
+        institution: inv.institution ?? undefined,
+        connectionId: inv.connection_id ?? undefined,
+        positions,
+        valueMode: (inv.value_mode as any) || 'MANUAL',
+        linkedAsset: inv.linked_provider && inv.linked_symbol
+          ? { provider: inv.linked_provider, symbol: inv.linked_symbol }
+          : undefined,
+        quantity: inv.quantity != null ? Number(inv.quantity) : undefined,
+        averagePrice: inv.average_price != null ? Number(inv.average_price) : undefined,
+        currentPrice: inv.current_price != null ? Number(inv.current_price) : undefined,
+        investedAmount: inv.invested_amount != null ? Number(inv.invested_amount) : undefined,
+        lastPriceAt: inv.last_price_at ?? undefined,
+      };
+    });
 
 
   return {
@@ -59,6 +75,32 @@ export function useSnapshots() {
         .select("*");
       if (iErr) throw iErr;
 
+      const investmentIds = (investments || []).map((i: any) => i.id);
+      const positionsByInvestment = new Map<string, Position[]>();
+      if (investmentIds.length > 0) {
+        const { data: positions } = await (supabase as any)
+          .from("investment_positions")
+          .select("*")
+          .in("investment_id", investmentIds);
+        for (const p of positions || []) {
+          const list = positionsByInvestment.get(p.investment_id) || [];
+          list.push({
+            id: p.id,
+            symbol: p.symbol,
+            name: p.name ?? undefined,
+            quantity: Number(p.quantity),
+            averagePrice: Number(p.average_price),
+            currentPrice: Number(p.current_price),
+            appliedAmount: Number(p.applied_amount),
+            currentValue: Number(p.current_value),
+            currency: p.currency || 'BRL',
+            provider: p.provider ?? undefined,
+            lastPriceAt: p.last_price_at ?? undefined,
+          });
+          positionsByInvestment.set(p.investment_id, list);
+        }
+      }
+
       const invBySnapshot = new Map<string, any[]>();
       for (const inv of investments) {
         const list = invBySnapshot.get(inv.snapshot_id) || [];
@@ -66,10 +108,11 @@ export function useSnapshots() {
         invBySnapshot.set(inv.snapshot_id, list);
       }
 
-      return snapshots.map((s) => mapRow(s, invBySnapshot.get(s.id) || []));
+      return snapshots.map((s) => mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment));
     },
   });
 }
+
 
 export interface SnapshotFormData {
   month: string;
