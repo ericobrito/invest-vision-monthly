@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, type Investment } from "@/data/investments";
-import { TrendingUp, TrendingDown, Link2, Zap, PencilLine } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Layers, Zap } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -15,65 +15,42 @@ function fmtNum(n?: number, digits = 2) {
 }
 
 const modeMeta = {
-  MANUAL: { label: "Manual", icon: PencilLine, color: "bg-secondary text-secondary-foreground" },
-  HYBRID: { label: "Híbrido", icon: Link2, color: "bg-accent text-accent-foreground" },
-  AUTO: { label: "Automático", icon: Zap, color: "bg-primary/15 text-primary" },
+  CONSOLIDATED: { label: "Consolidado", icon: Wallet, color: "bg-secondary text-secondary-foreground" },
+  DETAILED: { label: "Detalhado", icon: Layers, color: "bg-accent text-accent-foreground" },
+  CONNECTED: { label: "Conectado", icon: Zap, color: "bg-primary/15 text-primary" },
 } as const;
 
 const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
   if (!investment) return null;
 
-  const mode = investment.valueMode || "MANUAL";
+  const mode = investment.mode || "CONSOLIDATED";
   const Meta = modeMeta[mode];
   const Icon = Meta.icon;
 
-  const invested = investment.investedAmount ?? investment.applied;
+  const invested = investment.applied;
   const pnl = invested != null ? investment.value - invested : undefined;
   const pnlPct = invested && invested > 0 ? ((investment.value - invested) / invested) * 100 : undefined;
   const pnlPositive = (pnl ?? 0) >= 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {investment.name}
             <Badge className={`gap-1 ${Meta.color}`} variant="secondary">
               <Icon className="w-3 h-3" /> {Meta.label}
             </Badge>
+            {investment.institution && (
+              <span className="text-sm text-muted-foreground font-normal">· {investment.institution}</span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {investment.linkedAsset && (
-            <div className="rounded-lg border border-border p-3 bg-muted/30">
-              <p className="text-xs text-muted-foreground mb-1">Ativo vinculado</p>
-              <p className="font-mono text-sm">
-                <span className="uppercase">{investment.linkedAsset.provider}</span>
-                {" · "}
-                <span className="font-semibold">{investment.linkedAsset.symbol}</span>
-              </p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Stat label="Valor atual" value={formatBRL(investment.value)} mono strong />
-            <Stat
-              label="Valor investido"
-              value={invested != null ? formatBRL(invested) : "—"}
-              mono
-            />
-            <Stat label="Quantidade" value={fmtNum(investment.quantity, 8)} mono />
-            <Stat
-              label="Preço médio"
-              value={investment.averagePrice != null ? formatBRL(investment.averagePrice) : "—"}
-              mono
-            />
-            <Stat
-              label="Preço atual"
-              value={investment.currentPrice != null ? formatBRL(investment.currentPrice) : "—"}
-              mono
-            />
+            <Stat label="Valor aplicado" value={invested != null ? formatBRL(invested) : "—"} mono />
             <Stat label="% da carteira" value={`${investment.percentage.toFixed(2)}%`} mono />
           </div>
 
@@ -93,6 +70,58 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                   </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Mode-specific body */}
+          {mode === "DETAILED" && investment.positions && investment.positions.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Posições</p>
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground bg-muted/30">
+                      <th className="text-left p-2 font-medium">Ativo</th>
+                      <th className="text-right p-2 font-medium">Qtd</th>
+                      <th className="text-right p-2 font-medium">Preço médio</th>
+                      <th className="text-right p-2 font-medium">Preço atual</th>
+                      <th className="text-right p-2 font-medium">Valor atual</th>
+                      <th className="text-right p-2 font-medium">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {investment.positions.map((p, i) => {
+                      const r = p.appliedAmount > 0 ? ((p.currentValue - p.appliedAmount) / p.appliedAmount) * 100 : undefined;
+                      return (
+                        <tr key={i} className="border-b border-border/50">
+                          <td className="p-2">
+                            <div className="font-medium">{p.symbol}</div>
+                            {p.name && <div className="text-xs text-muted-foreground">{p.name}</div>}
+                          </td>
+                          <td className="text-right p-2 font-mono">{fmtNum(p.quantity, 6)}</td>
+                          <td className="text-right p-2 font-mono">{fmtNum(p.averagePrice)}</td>
+                          <td className="text-right p-2 font-mono">{fmtNum(p.currentPrice)}</td>
+                          <td className="text-right p-2 font-mono">{formatBRL(p.currentValue)}</td>
+                          <td className={`text-right p-2 font-mono ${r != null ? (r >= 0 ? "text-positive" : "text-negative") : ""}`}>
+                            {r != null ? `${r >= 0 ? "+" : ""}${r.toFixed(2)}%` : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {mode === "CONNECTED" && (
+            <div className="rounded-lg border border-border p-3 bg-muted/30 text-sm">
+              <p className="text-muted-foreground">
+                Este investimento é sincronizado automaticamente. Veja a página de Posições Variáveis para detalhes da conexão.
+              </p>
+              {investment.connectionId && (
+                <p className="font-mono text-xs mt-2 text-muted-foreground">Conexão: {investment.connectionId}</p>
+              )}
             </div>
           )}
 
