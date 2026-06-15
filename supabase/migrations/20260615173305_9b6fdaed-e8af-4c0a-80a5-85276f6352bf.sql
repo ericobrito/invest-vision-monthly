@@ -1,0 +1,2 @@
+ALTER TABLE public.investments
+  ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'BRL';

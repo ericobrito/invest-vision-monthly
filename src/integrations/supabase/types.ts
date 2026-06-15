@@ -190,6 +190,7 @@ export type Database = {
           average_price: number | null
           connection_id: string | null
           created_at: string
+          currency: string
           current_price: number | null
           id: string
           include_in_variable_positions: boolean
@@ -217,6 +218,7 @@ export type Database = {
           average_price?: number | null
           connection_id?: string | null
           created_at?: string
+          currency?: string
           current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
@@ -244,6 +246,7 @@ export type Database = {
           average_price?: number | null
           connection_id?: string | null
           created_at?: string
+          currency?: string
           current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
