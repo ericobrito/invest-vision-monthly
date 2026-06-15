@@ -66,10 +66,11 @@ export function useUpdateInvestment() {
         .from("investments")
         .update({
           name: updated.name,
-          // Persist BRL-normalized value for portfolio aggregation.
+          // Persist BRL-normalized value for portfolio aggregation (single source of truth).
           value: totals.valueBRL,
           applied: totals.appliedBRL ?? null,
-          currency: updated.currency || "BRL",
+          currency: "BRL",
+
           year_started: updated.yearStarted ?? null,
           total_return: updated.totalReturn ?? null,
           annual_return: updated.annualReturn ?? null,
