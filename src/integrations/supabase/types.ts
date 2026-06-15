@@ -112,11 +112,15 @@ export type Database = {
       investment_positions: {
         Row: {
           applied_amount: number
+          applied_amount_brl: number | null
           average_price: number
           created_at: string
           currency: string
           current_price: number
           current_value: number
+          current_value_brl: number | null
+          fx_rate: number | null
+          fx_rate_at: string | null
           id: string
           investment_id: string
           last_price_at: string | null
@@ -129,11 +133,15 @@ export type Database = {
         }
         Insert: {
           applied_amount?: number
+          applied_amount_brl?: number | null
           average_price?: number
           created_at?: string
           currency?: string
           current_price?: number
           current_value?: number
+          current_value_brl?: number | null
+          fx_rate?: number | null
+          fx_rate_at?: string | null
           id?: string
           investment_id: string
           last_price_at?: string | null
@@ -146,11 +154,15 @@ export type Database = {
         }
         Update: {
           applied_amount?: number
+          applied_amount_brl?: number | null
           average_price?: number
           created_at?: string
           currency?: string
           current_price?: number
           current_value?: number
+          current_value_brl?: number | null
+          fx_rate?: number | null
+          fx_rate_at?: string | null
           id?: string
           investment_id?: string
           last_price_at?: string | null
@@ -178,6 +190,7 @@ export type Database = {
           average_price: number | null
           connection_id: string | null
           created_at: string
+          currency: string
           current_price: number | null
           id: string
           include_in_variable_positions: boolean
@@ -205,6 +218,7 @@ export type Database = {
           average_price?: number | null
           connection_id?: string | null
           created_at?: string
+          currency?: string
           current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean
@@ -232,6 +246,7 @@ export type Database = {
           average_price?: number | null
           connection_id?: string | null
           created_at?: string
+          currency?: string
           current_price?: number | null
           id?: string
           include_in_variable_positions?: boolean

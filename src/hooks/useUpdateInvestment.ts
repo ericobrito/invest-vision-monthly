@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Investment, MonthlySnapshot } from "@/data/investments";
 import { resolveInvestmentTotals } from "@/data/investments";
 import { computeDerivedFields } from "@/hooks/useSnapshots";
+import { fetchFxRatesToBRL, getFxRate } from "@/lib/fx";
 
 interface UpdateParams {
   investmentName: string;
@@ -16,6 +17,8 @@ export function useUpdateInvestment() {
 
   return useMutation({
     mutationFn: async ({ investmentName, snapshotMonth, updated, allSnapshots }: UpdateParams) => {
+      const fxRates = await fetchFxRatesToBRL();
+
       const { data: snap } = await supabase
         .from("monthly_snapshots")
         .select("id")
@@ -33,20 +36,41 @@ export function useUpdateInvestment() {
       const invRow = invRows[0];
       const mode = updated.mode || "CONSOLIDATED";
 
-      // Resolve effective totals based on mode
-      const totals = resolveInvestmentTotals({
-        mode,
-        value: updated.value,
-        applied: updated.applied,
-        positions: updated.positions,
+      // Pre-compute BRL values on each position so DB is the audit source of truth.
+      const nowIso = new Date().toISOString();
+      const positionsWithBRL = (updated.positions ?? []).map((p) => {
+        const rate = getFxRate(p.currency, fxRates);
+        return {
+          ...p,
+          fxRate: rate,
+          fxRateAt: nowIso,
+          currentValueBRL: (Number(p.currentValue) || 0) * rate,
+          appliedAmountBRL: (Number(p.appliedAmount) || 0) * rate,
+        };
       });
+
+      // Resolve effective totals based on mode (BRL-normalized).
+      const totals = resolveInvestmentTotals(
+        {
+          mode,
+          value: updated.value,
+          applied: updated.applied,
+          positions: positionsWithBRL,
+          currency: updated.currency || "BRL",
+        },
+        undefined,
+        fxRates,
+      );
 
       await supabase
         .from("investments")
         .update({
           name: updated.name,
-          value: totals.value,
-          applied: totals.applied ?? null,
+          // Persist BRL-normalized value for portfolio aggregation (single source of truth).
+          value: totals.valueBRL,
+          applied: totals.appliedBRL ?? null,
+          currency: "BRL",
+
           year_started: updated.yearStarted ?? null,
           total_return: updated.totalReturn ?? null,
           annual_return: updated.annualReturn ?? null,
@@ -68,17 +92,17 @@ export function useUpdateInvestment() {
         .eq("id", invRow.id)
         .throwOnError();
 
-      // Sync positions for DETAILED mode (delete all + reinsert is simpler/safer)
+      // Sync positions for DETAILED mode (delete all + reinsert is simpler/safer).
       await (supabase as any)
         .from("investment_positions")
         .delete()
         .eq("investment_id", invRow.id);
 
-      if (mode === "DETAILED" && updated.positions && updated.positions.length > 0) {
+      if (mode === "DETAILED" && positionsWithBRL.length > 0) {
         await (supabase as any)
           .from("investment_positions")
           .insert(
-            updated.positions.map((p, i) => ({
+            positionsWithBRL.map((p, i) => ({
               investment_id: invRow.id,
               symbol: p.symbol,
               name: p.name ?? null,
@@ -88,6 +112,10 @@ export function useUpdateInvestment() {
               applied_amount: p.appliedAmount,
               current_value: p.currentValue,
               currency: p.currency || "BRL",
+              current_value_brl: p.currentValueBRL,
+              applied_amount_brl: p.appliedAmountBRL,
+              fx_rate: p.fxRate,
+              fx_rate_at: p.fxRateAt,
               provider: p.provider ?? null,
               sort_order: i,
               last_price_at: p.lastPriceAt ?? null,
@@ -96,7 +124,7 @@ export function useUpdateInvestment() {
           .throwOnError();
       }
 
-      // Recalculate snapshot totals
+      // Recalculate snapshot totals using BRL values stored on investments.value
       const { data: allInvs } = await supabase
         .from("investments")
         .select("*")
@@ -144,3 +172,4 @@ export function useUpdateInvestment() {
     },
   });
 }
+

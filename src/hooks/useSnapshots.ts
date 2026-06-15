@@ -2,23 +2,39 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
 import { resolveInvestmentTotals } from "@/data/investments";
+import { fetchFxRatesToBRL, type FxRates } from "@/lib/fx";
 
-function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>): MonthlySnapshot {
+function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>, fxRates: FxRates): MonthlySnapshot {
   const mappedInvestments: Investment[] = investments
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
     .map((inv: any): Investment => {
       const positions = positionsByInvestment.get(inv.id) || undefined;
       const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
-      const totals = resolveInvestmentTotals({
+      const totals = resolveInvestmentTotals(
+        {
+          mode,
+          value: Number(inv.value),
+          applied: inv.applied != null ? Number(inv.applied) : undefined,
+          positions,
+          currency: inv.currency || 'BRL',
+        },
+        undefined,
+        fxRates,
+      );
+      // eslint-disable-next-line no-console
+      console.debug("[audit/investment]", {
+        investmentName: inv.name,
         mode,
-        value: Number(inv.value),
-        applied: inv.applied != null ? Number(inv.applied) : undefined,
-        positions,
+        valueNative: totals.value,
+        valueBRL: totals.valueBRL,
       });
       return {
         id: inv.id,
         name: inv.name,
         value: totals.value,
+        valueBRL: totals.valueBRL,
+        appliedBRL: totals.appliedBRL,
+        currency: inv.currency || 'BRL',
         percentage: Number(inv.percentage),
         applied: totals.applied,
         totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
@@ -45,11 +61,15 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
       };
     });
 
+  // Portfolio aggregation MUST use BRL-normalized values.
+  const totalBRL = mappedInvestments.reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+  // eslint-disable-next-line no-console
+  console.debug("[audit/portfolio]", { month: row.month, totalPortfolioBRL: totalBRL, storedTotal: Number(row.total) });
 
   return {
     month: row.month,
     label: row.label,
-    total: Number(row.total),
+    total: totalBRL > 0 ? totalBRL : Number(row.total),
     change: row.change_value != null ? { value: Number(row.change_value), percentage: Number(row.change_percentage) } : undefined,
     fixedIncome: row.fixed_income != null ? Number(row.fixed_income) : undefined,
     variableIncome: row.variable_income != null ? Number(row.variable_income) : undefined,
@@ -64,15 +84,12 @@ export function useSnapshots() {
   return useQuery({
     queryKey: ["snapshots"],
     queryFn: async (): Promise<MonthlySnapshot[]> => {
-      const { data: snapshots, error: sErr } = await supabase
-        .from("monthly_snapshots")
-        .select("*")
-        .order("month");
+      const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
+        supabase.from("monthly_snapshots").select("*").order("month"),
+        supabase.from("investments").select("*"),
+        fetchFxRatesToBRL(),
+      ]);
       if (sErr) throw sErr;
-
-      const { data: investments, error: iErr } = await supabase
-        .from("investments")
-        .select("*");
       if (iErr) throw iErr;
 
       const investmentIds = (investments || []).map((i: any) => i.id);
@@ -94,6 +111,10 @@ export function useSnapshots() {
             appliedAmount: Number(p.applied_amount),
             currentValue: Number(p.current_value),
             currency: p.currency || 'BRL',
+            currentValueBRL: p.current_value_brl != null ? Number(p.current_value_brl) : undefined,
+            appliedAmountBRL: p.applied_amount_brl != null ? Number(p.applied_amount_brl) : undefined,
+            fxRate: p.fx_rate != null ? Number(p.fx_rate) : undefined,
+            fxRateAt: p.fx_rate_at ?? undefined,
             provider: p.provider ?? undefined,
             lastPriceAt: p.last_price_at ?? undefined,
           });
@@ -108,10 +129,11 @@ export function useSnapshots() {
         invBySnapshot.set(inv.snapshot_id, list);
       }
 
-      return snapshots.map((s) => mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment));
+      return snapshots.map((s) => mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment, fxRates));
     },
   });
 }
+
 
 
 export interface SnapshotFormData {
