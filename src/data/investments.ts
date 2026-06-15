@@ -18,6 +18,12 @@ export interface Position {
   appliedAmount: number;
   currentValue: number;
   currency: string;
+  /** Pre-computed BRL values (single source of truth for aggregation). */
+  currentValueBRL?: number;
+  appliedAmountBRL?: number;
+  /** Units of BRL per 1 unit of position currency at time of save. */
+  fxRate?: number;
+  fxRateAt?: string;
   provider?: string;
   lastPriceAt?: string;
 }
@@ -25,9 +31,15 @@ export interface Position {
 export interface Investment {
   id?: string;
   name: string;
+  /** Native-currency value (legacy / CONSOLIDATED). */
   value: number;
+  /** BRL-normalized value used for portfolio aggregation. */
+  valueBRL?: number;
+  appliedBRL?: number;
   percentage: number;
   applied?: number;
+  /** Currency of the CONSOLIDATED `value` / `applied` fields (default BRL). */
+  currency?: string;
   totalReturn?: number;
   yearStarted?: string;
   annualReturn?: number;
@@ -64,28 +76,87 @@ export interface MonthlySnapshot {
   growth2025?: number;
 }
 
+/** Internal FX helper (avoid importing the hook to keep this file framework-agnostic). */
+function rateFor(currency: string | undefined, rates?: Record<string, number>): number {
+  if (!currency || currency === "BRL") return 1;
+  const r = rates?.[currency.toUpperCase()];
+  return Number.isFinite(r) && (r as number) > 0 ? (r as number) : 1;
+}
+
 /**
- * Resolve totals based on the investment mode.
- * - CONSOLIDATED: stored values
- * - DETAILED: sum of positions
- * - CONNECTED: sum of imported assets (passed in via connectionAssets)
+ * Resolve totals in BRL based on the investment mode.
+ * - CONSOLIDATED: stored values, converted from `currency` to BRL when needed
+ * - DETAILED: sum of positions, each normalized to BRL
+ * - CONNECTED: sum of imported assets normalized to BRL
+ *
+ * ALWAYS returns BOTH native (`value`) and BRL (`valueBRL`) totals.
+ * Portfolio aggregation MUST use `valueBRL`.
  */
 export function resolveInvestmentTotals(
-  inv: Pick<Investment, 'mode' | 'value' | 'applied' | 'positions'>,
-  connectionAssets?: { appliedAmount?: number; currentValue: number }[],
-): { value: number; applied?: number } {
+  inv: Pick<Investment, 'mode' | 'value' | 'applied' | 'positions' | 'currency'>,
+  connectionAssets?: { appliedAmount?: number; currentValue: number; currency?: string }[],
+  fxRates?: Record<string, number>,
+): { value: number; applied?: number; valueBRL: number; appliedBRL?: number } {
   const mode = inv.mode || 'CONSOLIDATED';
+
   if (mode === 'DETAILED' && inv.positions && inv.positions.length > 0) {
-    const value = inv.positions.reduce((s, p) => s + (Number(p.currentValue) || 0), 0);
-    const applied = inv.positions.reduce((s, p) => s + (Number(p.appliedAmount) || 0), 0);
-    return { value, applied };
+    let valueBRL = 0;
+    let appliedBRL = 0;
+    let valueNative = 0;
+    let appliedNative = 0;
+    for (const p of inv.positions) {
+      const cv = Number(p.currentValue) || 0;
+      const ap = Number(p.appliedAmount) || 0;
+      valueNative += cv;
+      appliedNative += ap;
+      const rate = p.fxRate ?? rateFor(p.currency, fxRates);
+      const cvBRL = p.currentValueBRL != null ? Number(p.currentValueBRL) : cv * rate;
+      const apBRL = p.appliedAmountBRL != null ? Number(p.appliedAmountBRL) : ap * rate;
+      valueBRL += cvBRL;
+      appliedBRL += apBRL;
+      // eslint-disable-next-line no-console
+      console.debug("[audit/position]", {
+        symbol: p.symbol,
+        currency: p.currency,
+        currentValue: cv,
+        fxRate: rate,
+        currentValueBRL: cvBRL,
+      });
+    }
+    return { value: valueNative, applied: appliedNative, valueBRL, appliedBRL };
   }
+
   if (mode === 'CONNECTED' && connectionAssets && connectionAssets.length > 0) {
-    const value = connectionAssets.reduce((s, a) => s + (Number(a.currentValue) || 0), 0);
-    const applied = connectionAssets.reduce((s, a) => s + (Number(a.appliedAmount) || 0), 0);
-    return { value, applied: applied > 0 ? applied : undefined };
+    let valueBRL = 0;
+    let appliedBRL = 0;
+    let valueNative = 0;
+    let appliedNative = 0;
+    for (const a of connectionAssets) {
+      const cv = Number(a.currentValue) || 0;
+      const ap = Number(a.appliedAmount) || 0;
+      const rate = rateFor(a.currency, fxRates);
+      valueNative += cv;
+      appliedNative += ap;
+      valueBRL += cv * rate;
+      appliedBRL += ap * rate;
+    }
+    return {
+      value: valueNative,
+      applied: appliedNative > 0 ? appliedNative : undefined,
+      valueBRL,
+      appliedBRL: appliedBRL > 0 ? appliedBRL : undefined,
+    };
   }
-  return { value: Number(inv.value) || 0, applied: inv.applied };
+
+  // CONSOLIDATED
+  const native = Number(inv.value) || 0;
+  const rate = rateFor(inv.currency, fxRates);
+  return {
+    value: native,
+    applied: inv.applied,
+    valueBRL: native * rate,
+    appliedBRL: inv.applied != null ? Number(inv.applied) * rate : undefined,
+  };
 }
 
 
