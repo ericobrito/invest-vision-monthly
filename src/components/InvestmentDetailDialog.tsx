@@ -83,25 +83,36 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                     <tr className="border-b border-border text-muted-foreground bg-muted/30">
                       <th className="text-left p-2 font-medium">Ativo</th>
                       <th className="text-right p-2 font-medium">Qtd</th>
-                      <th className="text-right p-2 font-medium">Preço médio</th>
                       <th className="text-right p-2 font-medium">Preço atual</th>
-                      <th className="text-right p-2 font-medium">Valor atual</th>
+                      <th className="text-right p-2 font-medium">Valor (nativo)</th>
+                      <th className="text-right p-2 font-medium">Valor (BRL)</th>
                       <th className="text-right p-2 font-medium">Resultado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {investment.positions.map((p, i) => {
                       const r = p.appliedAmount > 0 ? ((p.currentValue - p.appliedAmount) / p.appliedAmount) * 100 : undefined;
+                      const cur = (p.currency || "BRL").toUpperCase();
+                      const nativeLabel =
+                        cur === "BRL" ? `R$ ${fmtNum(p.currentValue)}` :
+                        cur === "USD" ? `US$ ${fmtNum(p.currentValue)}` :
+                        cur === "EUR" ? `€ ${fmtNum(p.currentValue)}` :
+                        cur === "GBP" ? `£ ${fmtNum(p.currentValue)}` :
+                        `${fmtNum(p.currentValue)} ${cur}`;
+                      const valBRL = p.currentValueBRL ?? (p.currentValue * (p.fxRate ?? 1));
                       return (
                         <tr key={i} className="border-b border-border/50">
                           <td className="p-2">
                             <div className="font-medium">{p.symbol}</div>
                             {p.name && <div className="text-xs text-muted-foreground">{p.name}</div>}
+                            {cur !== "BRL" && p.fxRate && (
+                              <div className="text-[10px] text-muted-foreground font-mono">FX {cur}/BRL {p.fxRate.toFixed(4)}</div>
+                            )}
                           </td>
                           <td className="text-right p-2 font-mono">{fmtNum(p.quantity, 6)}</td>
-                          <td className="text-right p-2 font-mono">{fmtNum(p.averagePrice)}</td>
                           <td className="text-right p-2 font-mono">{fmtNum(p.currentPrice)}</td>
-                          <td className="text-right p-2 font-mono">{formatBRL(p.currentValue)}</td>
+                          <td className="text-right p-2 font-mono">{nativeLabel}</td>
+                          <td className="text-right p-2 font-mono">{formatBRL(valBRL)}</td>
                           <td className={`text-right p-2 font-mono ${r != null ? (r >= 0 ? "text-positive" : "text-negative") : ""}`}>
                             {r != null ? `${r >= 0 ? "+" : ""}${r.toFixed(2)}%` : "—"}
                           </td>
@@ -110,6 +121,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                     })}
                   </tbody>
                 </table>
+
               </div>
             </div>
           )}
