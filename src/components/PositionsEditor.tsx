@@ -31,10 +31,22 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
 
   const recomputeBRL = (p: Position): Position => {
     const rate = getFxRate(p.currency, fxRates);
+    const rawValue = (Number(p.currentValue) || 0);
+    const currentValueBRL = rawValue * rate;
+    // Mandatory audit log per spec.
+    console.log({
+      symbol: p.symbol,
+      quantity: p.quantity,
+      currentPrice: p.currentPrice,
+      currency: p.currency,
+      rawValueUSD: rawValue,
+      usdBrlRate: rate,
+      currentValueBRL,
+    });
     return {
       ...p,
       fxRate: rate,
-      currentValueBRL: (Number(p.currentValue) || 0) * rate,
+      currentValueBRL,
       appliedAmountBRL: (Number(p.appliedAmount) || 0) * rate,
     };
   };
@@ -52,6 +64,7 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     });
     onChange(next);
   };
+
 
   const addPosition = () => onChange([...positions, emptyPosition()]);
 

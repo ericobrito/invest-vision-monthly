@@ -40,11 +40,22 @@ export function useUpdateInvestment() {
       const nowIso = new Date().toISOString();
       const positionsWithBRL = (updated.positions ?? []).map((p) => {
         const rate = getFxRate(p.currency, fxRates);
+        const rawValue = Number(p.currentValue) || 0;
+        const currentValueBRL = rawValue * rate;
+        console.log({
+          symbol: p.symbol,
+          quantity: p.quantity,
+          currentPrice: p.currentPrice,
+          currency: p.currency,
+          rawValueUSD: rawValue,
+          usdBrlRate: rate,
+          currentValueBRL,
+        });
         return {
           ...p,
           fxRate: rate,
           fxRateAt: nowIso,
-          currentValueBRL: (Number(p.currentValue) || 0) * rate,
+          currentValueBRL,
           appliedAmountBRL: (Number(p.appliedAmount) || 0) * rate,
         };
       });
@@ -61,6 +72,12 @@ export function useUpdateInvestment() {
         undefined,
         fxRates,
       );
+
+      console.log({
+        investmentName: updated.name,
+        investmentCurrentValueBRL: totals.valueBRL,
+      });
+
 
       await supabase
         .from("investments")
