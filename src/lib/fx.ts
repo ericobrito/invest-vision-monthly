@@ -15,7 +15,7 @@ export type SupportedCurrency = "BRL" | "USD" | "EUR" | "GBP";
 export const SUPPORTED_CURRENCIES: SupportedCurrency[] = ["BRL", "USD", "EUR", "GBP"];
 
 /** Rate map: currency code -> units of BRL per 1 unit of currency. */
-export type FxRates = Record<string, number> & { updatedAt?: string };
+export type FxRates = Record<string, number>;
 
 export interface CurrencyRates {
   USD_BRL: number;
@@ -89,7 +89,7 @@ export async function fetchFxRatesToBRL(): Promise<FxRates> {
   if (cached) return cached.rates;
 
   const others = SUPPORTED_CURRENCIES.filter((c) => c !== "BRL");
-  const rates: FxRates = { BRL: 1, updatedAt: new Date().toISOString() };
+  const rates: FxRates = { BRL: 1 };
 
   await Promise.all(
     others.map(async (cur) => {
@@ -160,7 +160,7 @@ class CurrencyServiceImpl {
       USD_BRL: r.USD,
       EUR_BRL: r.EUR,
       GBP_BRL: r.GBP,
-      updatedAt: new Date(r.updatedAt ?? this.fetchedAt),
+      updatedAt: new Date(this.fetchedAt || Date.now()),
     };
   }
 
