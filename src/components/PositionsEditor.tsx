@@ -56,11 +56,15 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     const next = positions.map((p, i) => {
       if (i !== idx) return p;
       const merged: Position = { ...p, ...patch };
-      const qty = Number(merged.quantity) || 0;
-      const ap = Number(merged.averagePrice) || 0;
-      const cp = Number(merged.currentPrice) || 0;
-      merged.appliedAmount = qty * ap;
-      merged.currentValue = qty * cp;
+      // Derive native invested/current via the centralized service (single source of truth).
+      const m = portfolioCalculationService.calculatePositionMetrics(
+        Number(merged.quantity) || 0,
+        Number(merged.averagePrice) || 0,
+        Number(merged.currentPrice) || 0,
+        merged.symbol,
+      );
+      merged.appliedAmount = m.investedValue;
+      merged.currentValue = m.currentValue;
       return recomputeBRL(merged);
     });
     onChange(next);
