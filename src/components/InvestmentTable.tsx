@@ -95,19 +95,28 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   // Map original index for color consistency
   const originalOrder = snapshot.investments.map(i => i.name);
 
-  // Totals
-  const totalApplied = snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
+  // Portfolio totals via PortfolioCalculationService (single source of truth).
+  const portfolio = portfolioCalculationService.calculatePortfolioMetrics(
+    snapshot.investments.map((inv) => ({
+      name: inv.name,
+      mode: inv.mode || "CONSOLIDATED",
+      positions: (inv.positions ?? []).map((p) => ({
+        symbol: p.symbol,
+        quantity: p.quantity,
+        averagePrice: p.averagePrice,
+        currentPrice: p.currentPrice,
+        currency: p.currency,
+        fxRate: p.fxRate ?? 1,
+      })),
+      appliedBRL: inv.appliedBRL ?? inv.applied,
+      currentValueBRL: inv.valueBRL ?? inv.value,
+    })),
+  );
+  const totalApplied = portfolio.investedValue > 0
+    ? portfolio.investedValue
+    : snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
   const totalValue = snapshot.total;
-
-  // Overall total return using oldest yearStarted
-  const oldestYear = snapshot.investments
-    .filter(i => i.yearStarted)
-    .map(i => i.yearStarted!)
-    .sort()[0];
-
-  const overallTotalReturn = totalApplied > 0
-    ? ((totalValue - totalApplied) / totalApplied) * 100
-    : undefined;
+  const overallTotalReturn = totalApplied > 0 ? portfolio.profitPercent : undefined;
 
   let overallAnnualReturn: number | undefined;
   if (oldestYear && totalApplied > 0 && totalValue > 0) {
