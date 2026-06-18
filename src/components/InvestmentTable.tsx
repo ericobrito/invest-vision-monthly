@@ -2,6 +2,7 @@ import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "
 import { useState, useMemo } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 
 type SortKey = "percentage" | "value" | "name" | "applied" | "totalReturn" | "annualReturn";
