@@ -249,8 +249,8 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                 <span>
                   Em BRL: <span className="font-mono text-foreground">{formatBRL(valueBRL)}</span>
                 </span>
-                <span className={valueBRL >= appliedBRL ? "text-positive" : "text-negative"}>
-                  {appliedBRL > 0 ? `${(((valueBRL - appliedBRL) / appliedBRL) * 100).toFixed(2)}%` : "—"}
+                <span className={m.profitPercent >= 0 ? "text-positive" : "text-negative"}>
+                  {appliedBRL > 0 ? `${m.profitPercent >= 0 ? "+" : ""}${m.profitPercent.toFixed(2)}%` : "—"}
                 </span>
               </div>
             </div>
