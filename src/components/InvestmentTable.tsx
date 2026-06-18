@@ -76,7 +76,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
         case "value": va = a.value; vb = b.value; break;
         case "percentage": va = a.percentage; vb = b.percentage; break;
         case "applied": va = a.applied ?? 0; vb = b.applied ?? 0; break;
-        case "totalReturn": va = a.totalReturn ?? -Infinity; vb = b.totalReturn ?? -Infinity; break;
+        case "totalReturn": va = displayedTotalReturn(a) ?? -Infinity; vb = displayedTotalReturn(b) ?? -Infinity; break;
         case "annualReturn": va = a.annualReturn ?? -Infinity; vb = b.annualReturn ?? -Infinity; break;
         default: va = a.percentage; vb = b.percentage;
       }
