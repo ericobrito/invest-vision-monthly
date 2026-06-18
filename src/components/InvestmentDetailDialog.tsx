@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, type Investment } from "@/data/investments";
 import { TrendingUp, TrendingDown, Wallet, Layers, Zap } from "lucide-react";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 interface Props {
   open: boolean;
