@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, type Investment } from "@/data/investments";
 import { TrendingUp, TrendingDown, Wallet, Layers, Zap } from "lucide-react";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 interface Props {
   open: boolean;
@@ -27,9 +28,24 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
   const Meta = modeMeta[mode];
   const Icon = Meta.icon;
 
-  const invested = investment.applied;
-  const pnl = invested != null ? investment.value - invested : undefined;
-  const pnlPct = invested && invested > 0 ? ((investment.value - invested) / invested) * 100 : undefined;
+  // All performance metrics flow through PortfolioCalculationService.
+  const invMetrics = portfolioCalculationService.calculateInvestmentMetrics({
+    name: investment.name,
+    mode,
+    positions: (investment.positions ?? []).map((p) => ({
+      symbol: p.symbol,
+      quantity: p.quantity,
+      averagePrice: p.averagePrice,
+      currentPrice: p.currentPrice,
+      currency: p.currency,
+      fxRate: p.fxRate ?? 1,
+    })),
+    appliedBRL: investment.appliedBRL ?? investment.applied,
+    currentValueBRL: investment.valueBRL ?? investment.value,
+  });
+  const invested = invMetrics.investedValue > 0 ? invMetrics.investedValue : undefined;
+  const pnl = invested != null ? invMetrics.profit : undefined;
+  const pnlPct = invested != null ? invMetrics.profitPercent : undefined;
   const pnlPositive = (pnl ?? 0) >= 0;
 
   return (
@@ -91,15 +107,21 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                   </thead>
                   <tbody>
                     {investment.positions.map((p, i) => {
-                      const r = p.appliedAmount > 0 ? ((p.currentValue - p.appliedAmount) / p.appliedAmount) * 100 : undefined;
                       const cur = (p.currency || "BRL").toUpperCase();
+                      const posMetrics = portfolioCalculationService.calculatePositionMetrics(
+                        p.quantity,
+                        p.averagePrice,
+                        p.currentPrice,
+                        p.symbol,
+                      );
+                      const r = posMetrics.investedValue > 0 ? posMetrics.profitPercent : undefined;
                       const nativeLabel =
-                        cur === "BRL" ? `R$ ${fmtNum(p.currentValue)}` :
-                        cur === "USD" ? `US$ ${fmtNum(p.currentValue)}` :
-                        cur === "EUR" ? `€ ${fmtNum(p.currentValue)}` :
-                        cur === "GBP" ? `£ ${fmtNum(p.currentValue)}` :
-                        `${fmtNum(p.currentValue)} ${cur}`;
-                      const valBRL = p.currentValueBRL ?? (p.currentValue * (p.fxRate ?? 1));
+                        cur === "BRL" ? `R$ ${fmtNum(posMetrics.currentValue)}` :
+                        cur === "USD" ? `US$ ${fmtNum(posMetrics.currentValue)}` :
+                        cur === "EUR" ? `€ ${fmtNum(posMetrics.currentValue)}` :
+                        cur === "GBP" ? `£ ${fmtNum(posMetrics.currentValue)}` :
+                        `${fmtNum(posMetrics.currentValue)} ${cur}`;
+                      const valBRL = posMetrics.currentValue * (p.fxRate ?? 1);
                       return (
                         <tr key={i} className="border-b border-border/50">
                           <td className="p-2">

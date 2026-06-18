@@ -8,6 +8,7 @@ import { Plus, Trash2, RefreshCw, Loader2 } from "lucide-react";
 import { formatBRL, type Position } from "@/data/investments";
 import { toast } from "sonner";
 import { useFxRates, getFxRate, SUPPORTED_CURRENCIES } from "@/lib/fx";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 interface Props {
   positions: Position[];
@@ -55,11 +56,15 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     const next = positions.map((p, i) => {
       if (i !== idx) return p;
       const merged: Position = { ...p, ...patch };
-      const qty = Number(merged.quantity) || 0;
-      const ap = Number(merged.averagePrice) || 0;
-      const cp = Number(merged.currentPrice) || 0;
-      merged.appliedAmount = qty * ap;
-      merged.currentValue = qty * cp;
+      // Derive native invested/current via the centralized service (single source of truth).
+      const m = portfolioCalculationService.calculatePositionMetrics(
+        Number(merged.quantity) || 0,
+        Number(merged.averagePrice) || 0,
+        Number(merged.currentPrice) || 0,
+        merged.symbol,
+      );
+      merged.appliedAmount = m.investedValue;
+      merged.currentValue = m.currentValue;
       return recomputeBRL(merged);
     });
     onChange(next);
@@ -102,15 +107,21 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     }
   };
 
-  // BRL-normalized totals (single source of truth for portfolio aggregation).
-  const totalAppliedBRL = positions.reduce(
-    (s, p) => s + (p.appliedAmountBRL ?? (Number(p.appliedAmount) || 0) * getFxRate(p.currency, fxRates)),
-    0,
-  );
-  const totalValueBRL = positions.reduce(
-    (s, p) => s + (p.currentValueBRL ?? (Number(p.currentValue) || 0) * getFxRate(p.currency, fxRates)),
-    0,
-  );
+  // BRL-normalized totals via the centralized service (single source of truth).
+  const totalsMetric = portfolioCalculationService.calculateInvestmentMetrics({
+    name: "__editor__",
+    mode: "DETAILED",
+    positions: positions.map((p) => ({
+      symbol: p.symbol,
+      quantity: p.quantity,
+      averagePrice: p.averagePrice,
+      currentPrice: p.currentPrice,
+      currency: p.currency,
+      fxRate: getFxRate(p.currency, fxRates),
+    })),
+  });
+  const totalAppliedBRL = totalsMetric.investedValue;
+  const totalValueBRL = totalsMetric.currentValue;
 
   return (
     <div className="space-y-3">
@@ -137,8 +148,16 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
       <div className="space-y-3">
         {positions.map((p, idx) => {
           const rate = getFxRate(p.currency, fxRates);
-          const valueBRL = p.currentValueBRL ?? (Number(p.currentValue) || 0) * rate;
-          const appliedBRL = p.appliedAmountBRL ?? (Number(p.appliedAmount) || 0) * rate;
+          const m = portfolioCalculationService.calculatePositionMetricsBRL({
+            symbol: p.symbol,
+            quantity: p.quantity,
+            averagePrice: p.averagePrice,
+            currentPrice: p.currentPrice,
+            currency: p.currency,
+            fxRate: rate,
+          });
+          const valueBRL = m.currentValue;
+          const appliedBRL = m.investedValue;
           return (
             <div key={idx} className="rounded-lg border border-border p-3 bg-muted/20 space-y-2">
               <div className="grid grid-cols-12 gap-2">
@@ -236,8 +255,8 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                 <span>
                   Em BRL: <span className="font-mono text-foreground">{formatBRL(valueBRL)}</span>
                 </span>
-                <span className={valueBRL >= appliedBRL ? "text-positive" : "text-negative"}>
-                  {appliedBRL > 0 ? `${(((valueBRL - appliedBRL) / appliedBRL) * 100).toFixed(2)}%` : "—"}
+                <span className={m.profitPercent >= 0 ? "text-positive" : "text-negative"}>
+                  {appliedBRL > 0 ? `${m.profitPercent >= 0 ? "+" : ""}${m.profitPercent.toFixed(2)}%` : "—"}
                 </span>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "
 import { useState, useMemo } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 
 type SortKey = "percentage" | "value" | "name" | "applied" | "totalReturn" | "annualReturn";
@@ -17,6 +18,40 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   const showActions = Boolean(onEditInvestment || onDetailInvestment);
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
   const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
+
+  // Per-investment metrics derived ONCE via the centralized service.
+  const metricsByName = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof portfolioCalculationService.calculateInvestmentMetrics>>();
+    for (const inv of snapshot.investments) {
+      map.set(
+        inv.name,
+        portfolioCalculationService.calculateInvestmentMetrics({
+          name: inv.name,
+          mode: inv.mode || "CONSOLIDATED",
+          positions: (inv.positions ?? []).map((p) => ({
+            symbol: p.symbol,
+            quantity: p.quantity,
+            averagePrice: p.averagePrice,
+            currentPrice: p.currentPrice,
+            currency: p.currency,
+            fxRate: p.fxRate ?? 1,
+          })),
+          appliedBRL: inv.appliedBRL ?? inv.applied,
+          currentValueBRL: inv.valueBRL ?? inv.value,
+        }),
+      );
+    }
+    return map;
+  }, [snapshot.investments]);
+
+  // Derived display value: stored totalReturn is treated as legacy fallback
+  // for rows without applied / positions. Anything with invested capital
+  // must use the service result.
+  const displayedTotalReturn = (inv: Investment): number | undefined => {
+    const m = metricsByName.get(inv.name);
+    if (m && m.investedValue > 0) return m.profitPercent;
+    return inv.totalReturn;
+  };
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -41,7 +76,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
         case "value": va = a.value; vb = b.value; break;
         case "percentage": va = a.percentage; vb = b.percentage; break;
         case "applied": va = a.applied ?? 0; vb = b.applied ?? 0; break;
-        case "totalReturn": va = a.totalReturn ?? -Infinity; vb = b.totalReturn ?? -Infinity; break;
+        case "totalReturn": va = displayedTotalReturn(a) ?? -Infinity; vb = displayedTotalReturn(b) ?? -Infinity; break;
         case "annualReturn": va = a.annualReturn ?? -Infinity; vb = b.annualReturn ?? -Infinity; break;
         default: va = a.percentage; vb = b.percentage;
       }
@@ -60,20 +95,33 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   // Map original index for color consistency
   const originalOrder = snapshot.investments.map(i => i.name);
 
-  // Totals
-  const totalApplied = snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
+  // Portfolio totals via PortfolioCalculationService (single source of truth).
+  const portfolio = portfolioCalculationService.calculatePortfolioMetrics(
+    snapshot.investments.map((inv) => ({
+      name: inv.name,
+      mode: inv.mode || "CONSOLIDATED",
+      positions: (inv.positions ?? []).map((p) => ({
+        symbol: p.symbol,
+        quantity: p.quantity,
+        averagePrice: p.averagePrice,
+        currentPrice: p.currentPrice,
+        currency: p.currency,
+        fxRate: p.fxRate ?? 1,
+      })),
+      appliedBRL: inv.appliedBRL ?? inv.applied,
+      currentValueBRL: inv.valueBRL ?? inv.value,
+    })),
+  );
+  const totalApplied = portfolio.investedValue > 0
+    ? portfolio.investedValue
+    : snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
   const totalValue = snapshot.total;
+  const overallTotalReturn = totalApplied > 0 ? portfolio.profitPercent : undefined;
 
-  // Overall total return using oldest yearStarted
   const oldestYear = snapshot.investments
     .filter(i => i.yearStarted)
     .map(i => i.yearStarted!)
     .sort()[0];
-
-  const overallTotalReturn = totalApplied > 0
-    ? ((totalValue - totalApplied) / totalApplied) * 100
-    : undefined;
-
   let overallAnnualReturn: number | undefined;
   if (oldestYear && totalApplied > 0 && totalValue > 0) {
     const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
@@ -152,13 +200,18 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                     <td className="text-right p-4 text-muted-foreground font-mono">
                       {inv.applied !== undefined ? formatBRL(inv.applied) : "—"}
                     </td>
-                    <td className={`text-right p-4 font-mono ${
-                      inv.totalReturn !== undefined
-                        ? inv.totalReturn >= 0 ? "text-positive" : "text-negative"
-                        : "text-muted-foreground"
-                    }`}>
-                      {inv.totalReturn !== undefined ? `${inv.totalReturn >= 0 ? "+" : ""}${inv.totalReturn.toFixed(2)}%` : "—"}
-                    </td>
+                    {(() => {
+                      const tr = displayedTotalReturn(inv);
+                      return (
+                        <td className={`text-right p-4 font-mono ${
+                          tr !== undefined
+                            ? tr >= 0 ? "text-positive" : "text-negative"
+                            : "text-muted-foreground"
+                        }`}>
+                          {tr !== undefined ? `${tr >= 0 ? "+" : ""}${tr.toFixed(2)}%` : "—"}
+                        </td>
+                      );
+                    })()}
                   </>
                 )}
                 {hasAnnualReturn && (
