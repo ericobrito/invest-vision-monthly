@@ -118,6 +118,10 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   const totalValue = snapshot.total;
   const overallTotalReturn = totalApplied > 0 ? portfolio.profitPercent : undefined;
 
+  const oldestYear = snapshot.investments
+    .filter(i => i.yearStarted)
+    .map(i => i.yearStarted!)
+    .sort()[0];
   let overallAnnualReturn: number | undefined;
   if (oldestYear && totalApplied > 0 && totalValue > 0) {
     const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
