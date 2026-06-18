@@ -8,6 +8,7 @@ import { Plus, Trash2, RefreshCw, Loader2 } from "lucide-react";
 import { formatBRL, type Position } from "@/data/investments";
 import { toast } from "sonner";
 import { useFxRates, getFxRate, SUPPORTED_CURRENCIES } from "@/lib/fx";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 interface Props {
   positions: Position[];
