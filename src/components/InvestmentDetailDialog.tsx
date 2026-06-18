@@ -107,15 +107,21 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                   </thead>
                   <tbody>
                     {investment.positions.map((p, i) => {
-                      const r = p.appliedAmount > 0 ? ((p.currentValue - p.appliedAmount) / p.appliedAmount) * 100 : undefined;
                       const cur = (p.currency || "BRL").toUpperCase();
+                      const posMetrics = portfolioCalculationService.calculatePositionMetrics(
+                        p.quantity,
+                        p.averagePrice,
+                        p.currentPrice,
+                        p.symbol,
+                      );
+                      const r = posMetrics.investedValue > 0 ? posMetrics.profitPercent : undefined;
                       const nativeLabel =
-                        cur === "BRL" ? `R$ ${fmtNum(p.currentValue)}` :
-                        cur === "USD" ? `US$ ${fmtNum(p.currentValue)}` :
-                        cur === "EUR" ? `€ ${fmtNum(p.currentValue)}` :
-                        cur === "GBP" ? `£ ${fmtNum(p.currentValue)}` :
-                        `${fmtNum(p.currentValue)} ${cur}`;
-                      const valBRL = p.currentValueBRL ?? (p.currentValue * (p.fxRate ?? 1));
+                        cur === "BRL" ? `R$ ${fmtNum(posMetrics.currentValue)}` :
+                        cur === "USD" ? `US$ ${fmtNum(posMetrics.currentValue)}` :
+                        cur === "EUR" ? `€ ${fmtNum(posMetrics.currentValue)}` :
+                        cur === "GBP" ? `£ ${fmtNum(posMetrics.currentValue)}` :
+                        `${fmtNum(posMetrics.currentValue)} ${cur}`;
+                      const valBRL = posMetrics.currentValue * (p.fxRate ?? 1);
                       return (
                         <tr key={i} className="border-b border-border/50">
                           <td className="p-2">
