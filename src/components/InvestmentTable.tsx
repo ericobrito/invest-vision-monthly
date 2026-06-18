@@ -200,13 +200,18 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                     <td className="text-right p-4 text-muted-foreground font-mono">
                       {inv.applied !== undefined ? formatBRL(inv.applied) : "—"}
                     </td>
-                    <td className={`text-right p-4 font-mono ${
-                      inv.totalReturn !== undefined
-                        ? inv.totalReturn >= 0 ? "text-positive" : "text-negative"
-                        : "text-muted-foreground"
-                    }`}>
-                      {inv.totalReturn !== undefined ? `${inv.totalReturn >= 0 ? "+" : ""}${inv.totalReturn.toFixed(2)}%` : "—"}
-                    </td>
+                    {(() => {
+                      const tr = displayedTotalReturn(inv);
+                      return (
+                        <td className={`text-right p-4 font-mono ${
+                          tr !== undefined
+                            ? tr >= 0 ? "text-positive" : "text-negative"
+                            : "text-muted-foreground"
+                        }`}>
+                          {tr !== undefined ? `${tr >= 0 ? "+" : ""}${tr.toFixed(2)}%` : "—"}
+                        </td>
+                      );
+                    })()}
                   </>
                 )}
                 {hasAnnualReturn && (
