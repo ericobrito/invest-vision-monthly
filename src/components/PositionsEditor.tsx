@@ -142,8 +142,16 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
       <div className="space-y-3">
         {positions.map((p, idx) => {
           const rate = getFxRate(p.currency, fxRates);
-          const valueBRL = p.currentValueBRL ?? (Number(p.currentValue) || 0) * rate;
-          const appliedBRL = p.appliedAmountBRL ?? (Number(p.appliedAmount) || 0) * rate;
+          const m = portfolioCalculationService.calculatePositionMetricsBRL({
+            symbol: p.symbol,
+            quantity: p.quantity,
+            averagePrice: p.averagePrice,
+            currentPrice: p.currentPrice,
+            currency: p.currency,
+            fxRate: rate,
+          });
+          const valueBRL = m.currentValue;
+          const appliedBRL = m.investedValue;
           return (
             <div key={idx} className="rounded-lg border border-border p-3 bg-muted/20 space-y-2">
               <div className="grid grid-cols-12 gap-2">
