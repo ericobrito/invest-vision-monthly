@@ -28,9 +28,24 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
   const Meta = modeMeta[mode];
   const Icon = Meta.icon;
 
-  const invested = investment.applied;
-  const pnl = invested != null ? investment.value - invested : undefined;
-  const pnlPct = invested && invested > 0 ? ((investment.value - invested) / invested) * 100 : undefined;
+  // All performance metrics flow through PortfolioCalculationService.
+  const invMetrics = portfolioCalculationService.calculateInvestmentMetrics({
+    name: investment.name,
+    mode,
+    positions: (investment.positions ?? []).map((p) => ({
+      symbol: p.symbol,
+      quantity: p.quantity,
+      averagePrice: p.averagePrice,
+      currentPrice: p.currentPrice,
+      currency: p.currency,
+      fxRate: p.fxRate ?? 1,
+    })),
+    appliedBRL: investment.appliedBRL ?? investment.applied,
+    currentValueBRL: investment.valueBRL ?? investment.value,
+  });
+  const invested = invMetrics.investedValue > 0 ? invMetrics.investedValue : undefined;
+  const pnl = invested != null ? invMetrics.profit : undefined;
+  const pnlPct = invested != null ? invMetrics.profitPercent : undefined;
   const pnlPositive = (pnl ?? 0) >= 0;
 
   return (
