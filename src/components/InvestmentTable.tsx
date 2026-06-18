@@ -18,6 +18,40 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   const showActions = Boolean(onEditInvestment || onDetailInvestment);
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
   const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
+
+  // Per-investment metrics derived ONCE via the centralized service.
+  const metricsByName = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof portfolioCalculationService.calculateInvestmentMetrics>>();
+    for (const inv of snapshot.investments) {
+      map.set(
+        inv.name,
+        portfolioCalculationService.calculateInvestmentMetrics({
+          name: inv.name,
+          mode: inv.mode || "CONSOLIDATED",
+          positions: (inv.positions ?? []).map((p) => ({
+            symbol: p.symbol,
+            quantity: p.quantity,
+            averagePrice: p.averagePrice,
+            currentPrice: p.currentPrice,
+            currency: p.currency,
+            fxRate: p.fxRate ?? 1,
+          })),
+          appliedBRL: inv.appliedBRL ?? inv.applied,
+          currentValueBRL: inv.valueBRL ?? inv.value,
+        }),
+      );
+    }
+    return map;
+  }, [snapshot.investments]);
+
+  // Derived display value: stored totalReturn is treated as legacy fallback
+  // for rows without applied / positions. Anything with invested capital
+  // must use the service result.
+  const displayedTotalReturn = (inv: Investment): number | undefined => {
+    const m = metricsByName.get(inv.name);
+    if (m && m.investedValue > 0) return m.profitPercent;
+    return inv.totalReturn;
+  };
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
