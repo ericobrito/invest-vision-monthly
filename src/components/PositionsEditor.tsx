@@ -107,15 +107,21 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     }
   };
 
-  // BRL-normalized totals (single source of truth for portfolio aggregation).
-  const totalAppliedBRL = positions.reduce(
-    (s, p) => s + (p.appliedAmountBRL ?? (Number(p.appliedAmount) || 0) * getFxRate(p.currency, fxRates)),
-    0,
-  );
-  const totalValueBRL = positions.reduce(
-    (s, p) => s + (p.currentValueBRL ?? (Number(p.currentValue) || 0) * getFxRate(p.currency, fxRates)),
-    0,
-  );
+  // BRL-normalized totals via the centralized service (single source of truth).
+  const totalsMetric = portfolioCalculationService.calculateInvestmentMetrics({
+    name: "__editor__",
+    mode: "DETAILED",
+    positions: positions.map((p) => ({
+      symbol: p.symbol,
+      quantity: p.quantity,
+      averagePrice: p.averagePrice,
+      currentPrice: p.currentPrice,
+      currency: p.currency,
+      fxRate: getFxRate(p.currency, fxRates),
+    })),
+  });
+  const totalAppliedBRL = totalsMetric.investedValue;
+  const totalValueBRL = totalsMetric.currentValue;
 
   return (
     <div className="space-y-3">
