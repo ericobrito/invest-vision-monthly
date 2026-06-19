@@ -262,7 +262,21 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                 {hasApplied && (
                   <>
                     <td className="text-right p-4 text-muted-foreground font-mono">
-                      {inv.applied !== undefined ? formatBRL(inv.applied) : "—"}
+                      {(() => {
+                        const appliedBRL = brlAppliedOf(inv);
+                        if (appliedBRL === undefined) return "—";
+                        if (isForeign(inv) && inv.applied !== undefined) {
+                          return (
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className="text-xs text-muted-foreground">
+                                {formatCurrency(inv.applied, nativeCurrencyOf(inv))}
+                              </span>
+                              <span className="text-foreground">{formatBRL(appliedBRL)}</span>
+                            </div>
+                          );
+                        }
+                        return formatBRL(appliedBRL);
+                      })()}
                     </td>
                     {(() => {
                       const tr = displayedTotalReturn(inv);
