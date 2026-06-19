@@ -300,7 +300,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
             {/* Total row */}
             <tr className="bg-secondary/20 font-semibold">
               <td className="p-4 text-foreground">Total</td>
-              <td className="text-right p-4 text-foreground font-mono">{formatBRL(snapshot.total)}</td>
+              <td className="text-right p-4 text-foreground font-mono">{formatBRL(totalValue)}</td>
               <td className="text-right p-4 text-muted-foreground">100%</td>
               {hasApplied && (
                 <>
