@@ -59,6 +59,12 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     if (m && m.currentValue > 0) return m.currentValue;
     return inv.valueBRL ?? inv.value;
   };
+  // Single-source-of-truth BRL applied value (from PortfolioCalculationService).
+  const brlAppliedOf = (inv: Investment): number | undefined => {
+    const m = metricsByName.get(inv.name);
+    if (m && m.investedValue > 0) return m.investedValue;
+    return inv.appliedBRL ?? inv.applied;
+  };
   const isForeign = (inv: Investment): boolean => {
     const c = (inv.currency || "BRL").toUpperCase();
     if (c !== "BRL") return true;
@@ -74,16 +80,29 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   for (const inv of snapshot.investments) {
     const nativeCurrency = nativeCurrencyOf(inv);
     const nativeValue = inv.value;
+    const nativeAppliedValue = inv.applied;
     const totalValueBRL = brlValueOf(inv);
+    const appliedValueBRL = brlAppliedOf(inv);
+    const returnPercentage =
+      appliedValueBRL && appliedValueBRL > 0
+        ? ((totalValueBRL - appliedValueBRL) / appliedValueBRL) * 100
+        : undefined;
     const exchangeRate = nativeValue > 0 ? totalValueBRL / nativeValue : 1;
     console.log({
       investmentName: inv.name,
       nativeCurrency,
       nativeValue,
+      nativeAppliedValue,
+      appliedValueBRL,
+      currentValueBRL: totalValueBRL,
+      returnPercentage,
       exchangeRate,
-      totalValueBRL,
     });
-    console.log({ portfolioId: inv.id ?? inv.name, portfolioCurrentValueBRL: totalValueBRL });
+    console.log({
+      portfolioId: inv.id ?? inv.name,
+      portfolioAppliedBRL: appliedValueBRL,
+      portfolioCurrentValueBRL: totalValueBRL,
+    });
   }
 
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
