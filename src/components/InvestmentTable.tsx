@@ -1,4 +1,4 @@
-import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
+import { formatBRL, formatCurrency, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
 import { useState, useMemo } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
