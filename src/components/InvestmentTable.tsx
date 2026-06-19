@@ -227,7 +227,18 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                   </div>
 
                 </td>
-                <td className="text-right p-4 text-foreground font-mono">{formatBRL(inv.value)}</td>
+                <td className="text-right p-4 text-foreground font-mono">
+                  {isForeign(inv) ? (
+                    <div className="flex flex-col items-end leading-tight">
+                      <span className="text-xs text-muted-foreground">
+                        {formatCurrency(inv.value, nativeCurrencyOf(inv))}
+                      </span>
+                      <span>{formatBRL(brlValueOf(inv))}</span>
+                    </div>
+                  ) : (
+                    formatBRL(brlValueOf(inv))
+                  )}
+                </td>
                 <td className="text-right p-4 text-muted-foreground font-mono">{inv.percentage.toFixed(2)}%</td>
                 {hasApplied && (
                   <>
