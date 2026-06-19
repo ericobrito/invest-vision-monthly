@@ -149,7 +149,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   const totalApplied = portfolio.investedValue > 0
     ? portfolio.investedValue
     : snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
-  const totalValue = snapshot.total;
+  const totalValue = portfolio.currentValue > 0 ? portfolio.currentValue : snapshot.total;
   const overallTotalReturn = totalApplied > 0 ? portfolio.profitPercent : undefined;
 
   const oldestYear = snapshot.investments
