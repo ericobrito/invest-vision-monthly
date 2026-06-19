@@ -107,7 +107,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
           const cmp = a.name.localeCompare(b.name);
           return sortDir === "asc" ? cmp : -cmp;
         }
-        case "value": va = a.value; vb = b.value; break;
+        case "value": va = brlValueOf(a); vb = brlValueOf(b); break;
         case "percentage": va = a.percentage; vb = b.percentage; break;
         case "applied": va = a.applied ?? 0; vb = b.applied ?? 0; break;
         case "totalReturn": va = displayedTotalReturn(a) ?? -Infinity; vb = displayedTotalReturn(b) ?? -Infinity; break;
