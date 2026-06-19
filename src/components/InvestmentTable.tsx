@@ -1,4 +1,4 @@
-import { formatBRL, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
+import { formatBRL, formatCurrency, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
 import { useState, useMemo } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,40 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     if (m && m.investedValue > 0) return m.profitPercent;
     return inv.totalReturn;
   };
+
+  // Single-source-of-truth BRL value for each row (from PortfolioCalculationService).
+  const brlValueOf = (inv: Investment): number => {
+    const m = metricsByName.get(inv.name);
+    if (m && m.currentValue > 0) return m.currentValue;
+    return inv.valueBRL ?? inv.value;
+  };
+  const isForeign = (inv: Investment): boolean => {
+    const c = (inv.currency || "BRL").toUpperCase();
+    if (c !== "BRL") return true;
+    return Boolean(inv.positions?.some((p) => (p.currency || "BRL").toUpperCase() !== "BRL"));
+  };
+  const nativeCurrencyOf = (inv: Investment): string => {
+    if (inv.currency && inv.currency.toUpperCase() !== "BRL") return inv.currency.toUpperCase();
+    const fp = inv.positions?.find((p) => (p.currency || "BRL").toUpperCase() !== "BRL");
+    return (fp?.currency || "BRL").toUpperCase();
+  };
+
+  // Mandatory audit log per spec — one entry per row.
+  for (const inv of snapshot.investments) {
+    const nativeCurrency = nativeCurrencyOf(inv);
+    const nativeValue = inv.value;
+    const totalValueBRL = brlValueOf(inv);
+    const exchangeRate = nativeValue > 0 ? totalValueBRL / nativeValue : 1;
+    console.log({
+      investmentName: inv.name,
+      nativeCurrency,
+      nativeValue,
+      exchangeRate,
+      totalValueBRL,
+    });
+    console.log({ portfolioId: inv.id ?? inv.name, portfolioCurrentValueBRL: totalValueBRL });
+  }
+
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -73,7 +107,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
           const cmp = a.name.localeCompare(b.name);
           return sortDir === "asc" ? cmp : -cmp;
         }
-        case "value": va = a.value; vb = b.value; break;
+        case "value": va = brlValueOf(a); vb = brlValueOf(b); break;
         case "percentage": va = a.percentage; vb = b.percentage; break;
         case "applied": va = a.applied ?? 0; vb = b.applied ?? 0; break;
         case "totalReturn": va = displayedTotalReturn(a) ?? -Infinity; vb = displayedTotalReturn(b) ?? -Infinity; break;
@@ -115,7 +149,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   const totalApplied = portfolio.investedValue > 0
     ? portfolio.investedValue
     : snapshot.investments.reduce((s, i) => s + (i.applied ?? 0), 0);
-  const totalValue = snapshot.total;
+  const totalValue = portfolio.currentValue > 0 ? portfolio.currentValue : snapshot.total;
   const overallTotalReturn = totalApplied > 0 ? portfolio.profitPercent : undefined;
 
   const oldestYear = snapshot.investments
@@ -193,7 +227,18 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                   </div>
 
                 </td>
-                <td className="text-right p-4 text-foreground font-mono">{formatBRL(inv.value)}</td>
+                <td className="text-right p-4 text-foreground font-mono">
+                  {isForeign(inv) ? (
+                    <div className="flex flex-col items-end leading-tight">
+                      <span className="text-xs text-muted-foreground">
+                        {formatCurrency(inv.value, nativeCurrencyOf(inv))}
+                      </span>
+                      <span>{formatBRL(brlValueOf(inv))}</span>
+                    </div>
+                  ) : (
+                    formatBRL(brlValueOf(inv))
+                  )}
+                </td>
                 <td className="text-right p-4 text-muted-foreground font-mono">{inv.percentage.toFixed(2)}%</td>
                 {hasApplied && (
                   <>
@@ -255,7 +300,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
             {/* Total row */}
             <tr className="bg-secondary/20 font-semibold">
               <td className="p-4 text-foreground">Total</td>
-              <td className="text-right p-4 text-foreground font-mono">{formatBRL(snapshot.total)}</td>
+              <td className="text-right p-4 text-foreground font-mono">{formatBRL(totalValue)}</td>
               <td className="text-right p-4 text-muted-foreground">100%</td>
               {hasApplied && (
                 <>

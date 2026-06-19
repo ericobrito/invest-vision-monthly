@@ -647,6 +647,16 @@ export function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+export function formatCurrency(value: number, currency?: string): string {
+  const cur = (currency || "BRL").toUpperCase();
+  try {
+    const locale = cur === "BRL" ? "pt-BR" : cur === "EUR" ? "de-DE" : cur === "GBP" ? "en-GB" : "en-US";
+    return value.toLocaleString(locale, { style: "currency", currency: cur });
+  } catch {
+    return `${cur} ${value.toFixed(2)}`;
+  }
+}
+
 export function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
