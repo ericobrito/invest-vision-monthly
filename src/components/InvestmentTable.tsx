@@ -52,6 +52,40 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     if (m && m.investedValue > 0) return m.profitPercent;
     return inv.totalReturn;
   };
+
+  // Single-source-of-truth BRL value for each row (from PortfolioCalculationService).
+  const brlValueOf = (inv: Investment): number => {
+    const m = metricsByName.get(inv.name);
+    if (m && m.currentValue > 0) return m.currentValue;
+    return inv.valueBRL ?? inv.value;
+  };
+  const isForeign = (inv: Investment): boolean => {
+    const c = (inv.currency || "BRL").toUpperCase();
+    if (c !== "BRL") return true;
+    return Boolean(inv.positions?.some((p) => (p.currency || "BRL").toUpperCase() !== "BRL"));
+  };
+  const nativeCurrencyOf = (inv: Investment): string => {
+    if (inv.currency && inv.currency.toUpperCase() !== "BRL") return inv.currency.toUpperCase();
+    const fp = inv.positions?.find((p) => (p.currency || "BRL").toUpperCase() !== "BRL");
+    return (fp?.currency || "BRL").toUpperCase();
+  };
+
+  // Mandatory audit log per spec — one entry per row.
+  for (const inv of snapshot.investments) {
+    const nativeCurrency = nativeCurrencyOf(inv);
+    const nativeValue = inv.value;
+    const totalValueBRL = brlValueOf(inv);
+    const exchangeRate = nativeValue > 0 ? totalValueBRL / nativeValue : 1;
+    console.log({
+      investmentName: inv.name,
+      nativeCurrency,
+      nativeValue,
+      exchangeRate,
+      totalValueBRL,
+    });
+    console.log({ portfolioId: inv.id ?? inv.name, portfolioCurrentValueBRL: totalValueBRL });
+  }
+
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
