@@ -59,6 +59,12 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     if (m && m.currentValue > 0) return m.currentValue;
     return inv.valueBRL ?? inv.value;
   };
+  // Single-source-of-truth BRL applied value (from PortfolioCalculationService).
+  const brlAppliedOf = (inv: Investment): number | undefined => {
+    const m = metricsByName.get(inv.name);
+    if (m && m.investedValue > 0) return m.investedValue;
+    return inv.appliedBRL ?? inv.applied;
+  };
   const isForeign = (inv: Investment): boolean => {
     const c = (inv.currency || "BRL").toUpperCase();
     if (c !== "BRL") return true;
@@ -74,16 +80,29 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   for (const inv of snapshot.investments) {
     const nativeCurrency = nativeCurrencyOf(inv);
     const nativeValue = inv.value;
+    const nativeAppliedValue = inv.applied;
     const totalValueBRL = brlValueOf(inv);
+    const appliedValueBRL = brlAppliedOf(inv);
+    const returnPercentage =
+      appliedValueBRL && appliedValueBRL > 0
+        ? ((totalValueBRL - appliedValueBRL) / appliedValueBRL) * 100
+        : undefined;
     const exchangeRate = nativeValue > 0 ? totalValueBRL / nativeValue : 1;
     console.log({
       investmentName: inv.name,
       nativeCurrency,
       nativeValue,
+      nativeAppliedValue,
+      appliedValueBRL,
+      currentValueBRL: totalValueBRL,
+      returnPercentage,
       exchangeRate,
-      totalValueBRL,
     });
-    console.log({ portfolioId: inv.id ?? inv.name, portfolioCurrentValueBRL: totalValueBRL });
+    console.log({
+      portfolioId: inv.id ?? inv.name,
+      portfolioAppliedBRL: appliedValueBRL,
+      portfolioCurrentValueBRL: totalValueBRL,
+    });
   }
 
   const [sortKey, setSortKey] = useState<SortKey>("percentage");
@@ -109,7 +128,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
         }
         case "value": va = brlValueOf(a); vb = brlValueOf(b); break;
         case "percentage": va = a.percentage; vb = b.percentage; break;
-        case "applied": va = a.applied ?? 0; vb = b.applied ?? 0; break;
+        case "applied": va = brlAppliedOf(a) ?? 0; vb = brlAppliedOf(b) ?? 0; break;
         case "totalReturn": va = displayedTotalReturn(a) ?? -Infinity; vb = displayedTotalReturn(b) ?? -Infinity; break;
         case "annualReturn": va = a.annualReturn ?? -Infinity; vb = b.annualReturn ?? -Infinity; break;
         default: va = a.percentage; vb = b.percentage;
@@ -243,7 +262,21 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                 {hasApplied && (
                   <>
                     <td className="text-right p-4 text-muted-foreground font-mono">
-                      {inv.applied !== undefined ? formatBRL(inv.applied) : "—"}
+                      {(() => {
+                        const appliedBRL = brlAppliedOf(inv);
+                        if (appliedBRL === undefined) return "—";
+                        if (isForeign(inv) && inv.applied !== undefined) {
+                          return (
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className="text-xs text-muted-foreground">
+                                {formatCurrency(inv.applied, nativeCurrencyOf(inv))}
+                              </span>
+                              <span className="text-foreground">{formatBRL(appliedBRL)}</span>
+                            </div>
+                          );
+                        }
+                        return formatBRL(appliedBRL);
+                      })()}
                     </td>
                     {(() => {
                       const tr = displayedTotalReturn(inv);
