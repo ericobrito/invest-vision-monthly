@@ -161,6 +161,11 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                     value={p.symbol}
                     placeholder="BTC, PETR4, GOOGL"
                     onChange={(e) => updatePosition(idx, { symbol: e.target.value.toUpperCase() })}
+                    onBlur={() => {
+                      if (p.symbol && (!p.currentPrice || p.currentPrice === 0)) {
+                        fetchQuote(idx);
+                      }
+                    }}
                   />
                 </div>
                 <div className="col-span-5">
