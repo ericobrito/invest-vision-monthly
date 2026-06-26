@@ -63,7 +63,8 @@ async function fetchCoingecko(symbol: string): Promise<QuoteResult | null> {
 
 async function fetchYahoo(symbol: string): Promise<QuoteResult | null> {
   try {
-    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`, {
+    const yahooSymbol = symbol.replace('.', '-');
+    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
     });
     if (!res.ok) return null;

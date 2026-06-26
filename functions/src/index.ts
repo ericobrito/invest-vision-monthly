@@ -113,7 +113,7 @@ export const getPortfolioMarketData = onRequest(async (req, res) => {
             }
 
             if (!useCachedPrice || !Number.isFinite(price) || price === 0) {
-              const quote = await yahooFinance.quote(sym);
+              const quote = await yahooFinance.quote(sym.replace('.', '-'));
               price = Number(quote?.regularMarketPrice);
               if (Number.isFinite(price) && price > 0) {
                 console.log({
