@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { MonthlySnapshot } from "@/data/investments";
 
@@ -8,6 +9,21 @@ interface MonthSelectorProps {
 }
 
 const MonthSelector = ({ currentIndex, onChange, months }: MonthSelectorProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const activeEl = containerRef.current.children[currentIndex] as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }
+    }
+  }, [currentIndex, months]);
+
   return (
     <div className="flex items-center gap-1">
       <button
@@ -18,7 +34,7 @@ const MonthSelector = ({ currentIndex, onChange, months }: MonthSelectorProps) =
         <ChevronLeft className="w-5 h-5" />
       </button>
 
-      <div className="flex gap-1 overflow-x-auto scrollbar-hide px-1">
+      <div ref={containerRef} className="flex gap-1 overflow-x-auto scrollbar-hide px-1">
         {months.map((m, i) => (
           <button
             key={m.month}
