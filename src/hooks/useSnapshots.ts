@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
 import { resolveInvestmentTotals } from "@/data/investments";
 import { fetchFxRatesToBRL, type FxRates } from "@/lib/fx";
+import { MarketDataService } from "@/services/MarketDataService";
 
 function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>, fxRates: FxRates): MonthlySnapshot {
   const mappedInvestments: Investment[] = investments
@@ -94,32 +95,13 @@ export function useSnapshots() {
 
       const investmentIds = (investments || []).map((i: any) => i.id);
       const positionsByInvestment = new Map<string, Position[]>();
+      let fetchedPositions: any[] = [];
       if (investmentIds.length > 0) {
         const { data: positions } = await (supabase as any)
           .from("investment_positions")
           .select("*")
           .in("investment_id", investmentIds);
-        for (const p of positions || []) {
-          const list = positionsByInvestment.get(p.investment_id) || [];
-          list.push({
-            id: p.id,
-            symbol: p.symbol,
-            name: p.name ?? undefined,
-            quantity: Number(p.quantity),
-            averagePrice: Number(p.average_price),
-            currentPrice: Number(p.current_price),
-            appliedAmount: Number(p.applied_amount),
-            currentValue: Number(p.current_value),
-            currency: p.currency || 'BRL',
-            currentValueBRL: p.current_value_brl != null ? Number(p.current_value_brl) : undefined,
-            appliedAmountBRL: p.applied_amount_brl != null ? Number(p.applied_amount_brl) : undefined,
-            fxRate: p.fx_rate != null ? Number(p.fx_rate) : undefined,
-            fxRateAt: p.fx_rate_at ?? undefined,
-            provider: p.provider ?? undefined,
-            lastPriceAt: p.last_price_at ?? undefined,
-          });
-          positionsByInvestment.set(p.investment_id, list);
-        }
+        fetchedPositions = positions || [];
       }
 
       const invBySnapshot = new Map<string, any[]>();
@@ -129,7 +111,87 @@ export function useSnapshots() {
         invBySnapshot.set(inv.snapshot_id, list);
       }
 
-      return snapshots.map((s) => mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment, fxRates));
+      // Fetch live data for the latest snapshot's symbols and USD/BRL FX rate
+      let liveQuotes: Record<string, number> = {};
+      let liveUsdBrl = 0;
+      const latestDbSnapshot = snapshots && snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+
+      if (latestDbSnapshot) {
+        const latestInvestments = invBySnapshot.get(latestDbSnapshot.id) || [];
+        const latestInvestmentIds = new Set(latestInvestments.map((i: any) => i.id));
+        
+        const latestSymbols = fetchedPositions
+          .filter((p: any) => latestInvestmentIds.has(p.investment_id) && p.symbol)
+          .map((p: any) => p.symbol.toUpperCase());
+          
+        if (latestSymbols.length > 0 || latestInvestments.some((inv: any) => inv.currency === "USD")) {
+          try {
+            const [quotesRes, usdBrlRes] = await Promise.all([
+              MarketDataService.getMultipleQuotes(latestSymbols),
+              MarketDataService.getUsdBrl()
+            ]);
+            liveQuotes = quotesRes;
+            liveUsdBrl = usdBrlRes;
+          } catch (e) {
+            console.error("Failed to load live market data:", e);
+          }
+        }
+      }
+
+      for (const p of fetchedPositions) {
+        const list = positionsByInvestment.get(p.investment_id) || [];
+        const isLatest = latestDbSnapshot && p.investment_id && (() => {
+          const latestInvestments = invBySnapshot.get(latestDbSnapshot.id) || [];
+          return latestInvestments.some((inv: any) => inv.id === p.investment_id);
+        })();
+
+        let currentPrice = Number(p.current_price);
+        let fxRate = p.fx_rate != null ? Number(p.fx_rate) : undefined;
+        let currentValue = Number(p.current_value);
+        let currentValueBRL = p.current_value_brl != null ? Number(p.current_value_brl) : undefined;
+        let appliedAmountBRL = p.applied_amount_brl != null ? Number(p.applied_amount_brl) : undefined;
+
+        if (isLatest) {
+          const sym = (p.symbol || "").toUpperCase();
+          const livePrice = liveQuotes[sym];
+          if (livePrice !== undefined && livePrice > 0) {
+            currentPrice = livePrice;
+            currentValue = Number(p.quantity) * livePrice;
+          }
+          if (p.currency === "USD" && liveUsdBrl > 0) {
+            fxRate = liveUsdBrl;
+            currentValueBRL = currentValue * liveUsdBrl;
+            appliedAmountBRL = Number(p.applied_amount) * liveUsdBrl;
+          }
+        }
+
+        list.push({
+          id: p.id,
+          symbol: p.symbol,
+          name: p.name ?? undefined,
+          quantity: Number(p.quantity),
+          averagePrice: Number(p.average_price),
+          currentPrice,
+          appliedAmount: Number(p.applied_amount),
+          currentValue,
+          currency: p.currency || 'BRL',
+          currentValueBRL,
+          appliedAmountBRL,
+          fxRate,
+          fxRateAt: p.fx_rate_at ?? undefined,
+          provider: p.provider ?? undefined,
+          lastPriceAt: p.last_price_at ?? undefined,
+        });
+        positionsByInvestment.set(p.investment_id, list);
+      }
+
+      return snapshots.map((s) => {
+        const isLatest = latestDbSnapshot && s.id === latestDbSnapshot.id;
+        const currentFxRates = isLatest && liveUsdBrl > 0 
+          ? { ...fxRates, USD: liveUsdBrl } 
+          : fxRates;
+        return mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment, currentFxRates);
+      });
     },
   });
 }

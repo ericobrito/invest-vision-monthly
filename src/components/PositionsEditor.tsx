@@ -9,6 +9,7 @@ import { formatBRL, type Position } from "@/data/investments";
 import { toast } from "sonner";
 import { useFxRates, getFxRate, SUPPORTED_CURRENCIES } from "@/lib/fx";
 import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
+import { MarketDataService } from "@/services/MarketDataService";
 
 interface Props {
   positions: Position[];
@@ -83,23 +84,16 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     }
     setFetching(idx);
     try {
-      const { data, error } = await supabase.functions.invoke("asset-quote", {
-        body: { action: "quote", symbol: p.symbol, provider: p.provider || "auto" },
-      });
-      if (error) throw error;
-      const r = data?.result;
-      if (!r) {
+      const price = await MarketDataService.getQuote(p.symbol);
+      if (!price || price === 0) {
         toast.error("Cotação não encontrada");
         return;
       }
       updatePosition(idx, {
-        currentPrice: Number(r.price),
-        name: p.name || r.name,
-        currency: r.currency || p.currency,
-        provider: r.provider,
+        currentPrice: price,
         lastPriceAt: new Date().toISOString(),
       });
-      toast.success(`${r.symbol}: ${r.price} ${r.currency}`);
+      toast.success(`${p.symbol}: ${price}`);
     } catch (e: any) {
       toast.error("Falha ao buscar cotação: " + (e?.message ?? e));
     } finally {
