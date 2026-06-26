@@ -142,7 +142,32 @@ export class MarketDataService {
     const sym = symbol.trim().toUpperCase();
     if (!sym) return null;
     
-    // First try the Supabase edge function
+    const prov = provider.toLowerCase();
+
+    // If auto or yahoo, try direct Yahoo Finance CORS proxy first to bypass broken/outdated edge functions
+    if (prov === "yahoo" || prov === "auto") {
+      try {
+        const yahooSymbol = sym.replace('.', '-');
+        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const json = await res.json();
+          const meta = json?.chart?.result?.[0]?.meta;
+          if (meta?.regularMarketPrice) {
+            return {
+              price: Number(meta.regularMarketPrice),
+              currency: meta.currency || 'USD',
+              name: meta.longName || meta.shortName || sym,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn(`Direct CORS proxy getQuoteDetails failed for ${sym}, falling back to edge function:`, err);
+      }
+    }
+
+    // Try the Supabase edge function (for brapi, coingecko, or as fallback for auto)
     try {
       const { data, error } = await supabase.functions.invoke("asset-quote", {
         body: { action: "quote", symbol: sym, provider },
@@ -150,37 +175,44 @@ export class MarketDataService {
       if (error) throw error;
       const result = data?.result;
       if (result && result.price && result.price > 0) {
-        // If it returned a wrong name/currency from coingecko fallback for a stock, we might want to bypass it
-        // But if it is successful, return it
-        return {
-          price: Number(result.price) || 0,
-          currency: result.currency,
-          name: result.name,
-        };
+        // If we got a coingecko fallback for a stock symbol in auto mode, ignore it
+        const isCoingeckoFallbackForStock = prov === "auto" && 
+          result.provider === "coingecko" && 
+          (result.name?.toLowerCase().includes("tokenized") || result.currency === "BRL" && !["BTC", "ETH", "USDT", "USDC", "SOL"].includes(sym));
+        
+        if (!isCoingeckoFallbackForStock) {
+          return {
+            price: Number(result.price) || 0,
+            currency: result.currency,
+            name: result.name,
+          };
+        }
       }
     } catch (e) {
       console.warn(`Supabase edge function getQuoteDetails failed for ${sym}:`, e);
     }
 
-    // Direct browser fallback using CORS proxy (if edge function is not deployed or failed)
-    try {
-      const yahooSymbol = sym.replace('.', '-');
-      const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-      const res = await fetch(proxyUrl);
-      if (res.ok) {
-        const json = await res.json();
-        const meta = json?.chart?.result?.[0]?.meta;
-        if (meta?.regularMarketPrice) {
-          return {
-            price: Number(meta.regularMarketPrice),
-            currency: meta.currency || 'USD',
-            name: meta.longName || meta.shortName || sym,
-          };
+    // Direct browser fallback using CORS proxy (if we didn't try it already or if it's the last resort)
+    if (prov !== "yahoo" && prov !== "auto") {
+      try {
+        const yahooSymbol = sym.replace('.', '-');
+        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const json = await res.json();
+          const meta = json?.chart?.result?.[0]?.meta;
+          if (meta?.regularMarketPrice) {
+            return {
+              price: Number(meta.regularMarketPrice),
+              currency: meta.currency || 'USD',
+              name: meta.longName || meta.shortName || sym,
+            };
+          }
         }
+      } catch (err) {
+        console.error(`Direct CORS proxy getQuoteDetails final fallback failed for ${sym}:`, err);
       }
-    } catch (err) {
-      console.error(`Direct CORS proxy getQuoteDetails failed for ${sym}:`, err);
     }
     return null;
   }
