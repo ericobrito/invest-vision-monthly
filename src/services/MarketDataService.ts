@@ -84,7 +84,7 @@ export class MarketDataService {
       console.error("Fallback error fetching USD-BRL:", e);
     }
 
-    // Fetch quotes sequentially/in parallel using Supabase edge function
+    // Fetch quotes sequentially/in parallel using Supabase edge function with CORS proxy direct fallback
     if (symbols.length > 0) {
       await Promise.all(
         symbols.map(async (symbol) => {
@@ -101,9 +101,32 @@ export class MarketDataService {
                 marketPrice: price,
                 source: 'Yahoo Finance'
               });
+              return;
             }
           } catch (e) {
-            console.error(`Fallback error fetching quote for ${symbol}:`, e);
+            console.warn(`Supabase edge function fallback failed for ${symbol}:`, e);
+          }
+
+          // Direct browser fallback via public CORS proxy
+          try {
+            const yahooSymbol = symbol.replace('.', '-');
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(proxyUrl);
+            if (res.ok) {
+              const json = await res.json();
+              const price = Number(json?.chart?.result?.[0]?.meta?.regularMarketPrice);
+              if (Number.isFinite(price) && price > 0) {
+                quotes[symbol.toUpperCase()] = price;
+                console.log({
+                  symbol: symbol.toUpperCase(),
+                  marketPrice: price,
+                  source: 'Yahoo Finance (Direct CORS Proxy)'
+                });
+              }
+            }
+          } catch (err) {
+            console.error(`Direct CORS proxy fallback failed for ${symbol}:`, err);
           }
         })
       );
@@ -118,13 +141,17 @@ export class MarketDataService {
   static async getQuoteDetails(symbol: string, provider: string = "auto"): Promise<QuoteDetails | null> {
     const sym = symbol.trim().toUpperCase();
     if (!sym) return null;
+    
+    // First try the Supabase edge function
     try {
       const { data, error } = await supabase.functions.invoke("asset-quote", {
         body: { action: "quote", symbol: sym, provider },
       });
       if (error) throw error;
       const result = data?.result;
-      if (result) {
+      if (result && result.price && result.price > 0) {
+        // If it returned a wrong name/currency from coingecko fallback for a stock, we might want to bypass it
+        // But if it is successful, return it
         return {
           price: Number(result.price) || 0,
           currency: result.currency,
@@ -132,7 +159,28 @@ export class MarketDataService {
         };
       }
     } catch (e) {
-      console.error(`Error fetching quote details for ${sym}:`, e);
+      console.warn(`Supabase edge function getQuoteDetails failed for ${sym}:`, e);
+    }
+
+    // Direct browser fallback using CORS proxy (if edge function is not deployed or failed)
+    try {
+      const yahooSymbol = sym.replace('.', '-');
+      const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const json = await res.json();
+        const meta = json?.chart?.result?.[0]?.meta;
+        if (meta?.regularMarketPrice) {
+          return {
+            price: Number(meta.regularMarketPrice),
+            currency: meta.currency || 'USD',
+            name: meta.longName || meta.shortName || sym,
+          };
+        }
+      }
+    } catch (err) {
+      console.error(`Direct CORS proxy getQuoteDetails failed for ${sym}:`, err);
     }
     return null;
   }
@@ -147,12 +195,31 @@ export class MarketDataService {
       const { data, error } = await supabase.functions.invoke("asset-quote", {
         body: { action: "search", query: q },
       });
-      if (error) throw error;
-      return data?.results || [];
+      if (!error && data?.results && data.results.length > 0) {
+        return data.results;
+      }
     } catch (e) {
-      console.error(`Error searching symbols for ${q}:`, e);
-      return [];
+      console.warn(`Supabase edge function search failed for ${q}:`, e);
     }
+
+    // Direct browser fallback using CORS proxy for search
+    try {
+      const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=8`;
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const j = await res.json();
+        return (j?.quotes || []).map((q: any) => ({
+          symbol: q.symbol,
+          name: q.shortname || q.longname,
+          exchange: q.exchange,
+          type: q.quoteType,
+        }));
+      }
+    } catch (err) {
+      console.error(`Direct CORS proxy search failed:`, err);
+    }
+    return [];
   }
 
   /**
