@@ -84,16 +84,30 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     }
     setFetching(idx);
     try {
-      const price = await MarketDataService.getQuote(p.symbol);
-      if (!price || price === 0) {
+      const details = await MarketDataService.getQuoteDetails(p.symbol, p.provider || "auto");
+      if (!details || !details.price || details.price === 0) {
         toast.error("Cotação não encontrada");
         return;
       }
-      updatePosition(idx, {
-        currentPrice: price,
+
+      const updates: Partial<Position> = {
+        currentPrice: details.price,
         lastPriceAt: new Date().toISOString(),
-      });
-      toast.success(`${p.symbol}: ${price}`);
+      };
+
+      if (details.name) {
+        updates.name = details.name;
+      }
+
+      if (details.currency) {
+        const upperCur = details.currency.toUpperCase();
+        if (SUPPORTED_CURRENCIES.includes(upperCur as any)) {
+          updates.currency = upperCur;
+        }
+      }
+
+      updatePosition(idx, updates);
+      toast.success(`${p.symbol}: ${details.price} ${updates.currency || p.currency}`);
     } catch (e: any) {
       toast.error("Falha ao buscar cotação: " + (e?.message ?? e));
     } finally {
@@ -160,7 +174,12 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                   <Input
                     value={p.symbol}
                     placeholder="BTC, PETR4, GOOGL"
-                    onChange={(e) => updatePosition(idx, { symbol: e.target.value.toUpperCase() })}
+                    onChange={(e) => updatePosition(idx, { 
+                      symbol: e.target.value.toUpperCase(),
+                      currentPrice: 0,
+                      name: "",
+                      currency: "BRL"
+                    })}
                     onBlur={() => {
                       if (p.symbol && (!p.currentPrice || p.currentPrice === 0)) {
                         fetchQuote(idx);

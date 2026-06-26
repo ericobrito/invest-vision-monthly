@@ -2,6 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 const FIREBASE_FUNCTION_URL = import.meta.env.VITE_FIREBASE_FUNCTION_URL || "";
 
+export interface QuoteDetails {
+  price: number;
+  currency?: string;
+  name?: string;
+}
+
 export class MarketDataService {
   /**
    * Internal helper to retrieve the USD-BRL FX rate and quotes for a set of symbols.
@@ -97,6 +103,31 @@ export class MarketDataService {
     }
 
     return { usdbrl, quotes };
+  }
+
+  /**
+   * Fetches real-time price and details (currency, name) for a single symbol.
+   */
+  static async getQuoteDetails(symbol: string, provider: string = "auto"): Promise<QuoteDetails | null> {
+    const sym = symbol.trim().toUpperCase();
+    if (!sym) return null;
+    try {
+      const { data, error } = await supabase.functions.invoke("asset-quote", {
+        body: { action: "quote", symbol: sym, provider },
+      });
+      if (error) throw error;
+      const result = data?.result;
+      if (result) {
+        return {
+          price: Number(result.price) || 0,
+          currency: result.currency,
+          name: result.name,
+        };
+      }
+    } catch (e) {
+      console.error(`Error fetching quote details for ${sym}:`, e);
+    }
+    return null;
   }
 
   /**
