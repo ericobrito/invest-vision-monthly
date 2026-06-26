@@ -63,19 +63,19 @@ async function fetchCoingecko(symbol: string): Promise<QuoteResult | null> {
 
 async function fetchYahoo(symbol: string): Promise<QuoteResult | null> {
   try {
-    const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`, {
+    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
     });
     if (!res.ok) return null;
     const json = await res.json();
-    const r = json?.quoteResponse?.result?.[0];
-    if (!r?.regularMarketPrice) return null;
+    const meta = json?.chart?.result?.[0]?.meta;
+    if (!meta?.regularMarketPrice) return null;
     return {
-      symbol: r.symbol,
-      name: r.longName || r.shortName,
-      price: Number(r.regularMarketPrice),
-      currency: r.currency || 'USD',
-      changePct: r.regularMarketChangePercent != null ? Number(r.regularMarketChangePercent) : undefined,
+      symbol: meta.symbol,
+      name: meta.longName || meta.shortName || symbol,
+      price: Number(meta.regularMarketPrice),
+      currency: meta.currency || 'USD',
+      changePct: undefined,
       provider: 'yahoo',
     };
   } catch {
