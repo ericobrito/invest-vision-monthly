@@ -29,6 +29,8 @@ const emptyPosition = (): Position => ({
 
 const PositionsEditor = ({ positions, onChange }: Props) => {
   const [fetching, setFetching] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestingIdx, setSuggestingIdx] = useState<number | null>(null);
   const { data: fxRates } = useFxRates();
 
   const recomputeBRL = (p: Position): Position => {
@@ -115,6 +117,53 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
     }
   };
 
+  const selectSuggestion = async (idx: number, suggestion: any) => {
+    setSuggestions([]);
+    setSuggestingIdx(null);
+
+    const targetSymbol = suggestion.symbol.toUpperCase();
+    
+    // Set temporary values and show loading state
+    updatePosition(idx, {
+      symbol: targetSymbol,
+      name: suggestion.name || "",
+      currentPrice: 0,
+      currency: "BRL",
+    });
+
+    setFetching(idx);
+    try {
+      const details = await MarketDataService.getQuoteDetails(targetSymbol, "auto");
+      if (!details || !details.price || details.price === 0) {
+        toast.error("Cotação não encontrada");
+        return;
+      }
+      
+      const updates: Partial<Position> = {
+        currentPrice: details.price,
+        lastPriceAt: new Date().toISOString(),
+      };
+      
+      if (details.name) {
+        updates.name = details.name;
+      }
+      
+      if (details.currency) {
+        const upperCur = details.currency.toUpperCase();
+        if (SUPPORTED_CURRENCIES.includes(upperCur as any)) {
+          updates.currency = upperCur;
+        }
+      }
+      
+      updatePosition(idx, updates);
+      toast.success(`${targetSymbol}: ${details.price} ${updates.currency || "BRL"}`);
+    } catch (e: any) {
+      toast.error("Falha ao buscar cotação: " + (e?.message ?? e));
+    } finally {
+      setFetching(null);
+    }
+  };
+
   // BRL-normalized totals via the centralized service (single source of truth).
   const totalsMetric = portfolioCalculationService.calculateInvestmentMetrics({
     name: "__editor__",
@@ -169,23 +218,56 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
           return (
             <div key={idx} className="rounded-lg border border-border p-3 bg-muted/20 space-y-2">
               <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-4">
+                <div className="col-span-4 relative">
                   <Label className="text-xs">Símbolo</Label>
                   <Input
                     value={p.symbol}
                     placeholder="BTC, PETR4, GOOGL"
-                    onChange={(e) => updatePosition(idx, { 
-                      symbol: e.target.value.toUpperCase(),
-                      currentPrice: 0,
-                      name: "",
-                      currency: "BRL"
-                    })}
+                    onChange={async (e) => {
+                      const val = e.target.value.toUpperCase();
+                      updatePosition(idx, { 
+                        symbol: val,
+                        currentPrice: 0,
+                        name: "",
+                        currency: "BRL"
+                      });
+                      
+                      if (val.length >= 2) {
+                        setSuggestingIdx(idx);
+                        const results = await MarketDataService.searchSymbols(val);
+                        setSuggestions(results);
+                      } else {
+                        setSuggestions([]);
+                        setSuggestingIdx(null);
+                      }
+                    }}
                     onBlur={() => {
+                      setTimeout(() => {
+                        setSuggestions([]);
+                        setSuggestingIdx(null);
+                      }, 250);
+
                       if (p.symbol && (!p.currentPrice || p.currentPrice === 0)) {
                         fetchQuote(idx);
                       }
                     }}
                   />
+                  {suggestingIdx === idx && suggestions.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-popover text-popover-foreground border border-border rounded-md shadow-md p-1 space-y-0.5">
+                      {suggestions.map((s) => (
+                        <button
+                          key={s.symbol}
+                          type="button"
+                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors flex justify-between items-center gap-2"
+                          onClick={() => selectSuggestion(idx, s)}
+                        >
+                          <span className="font-semibold">{s.symbol}</span>
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{s.name}</span>
+                          {s.exchange && <span className="text-[9px] bg-secondary px-1 rounded text-secondary-foreground">{s.exchange}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="col-span-5">
                   <Label className="text-xs">Nome</Label>

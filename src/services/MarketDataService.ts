@@ -8,6 +8,13 @@ export interface QuoteDetails {
   name?: string;
 }
 
+export interface SymbolSearchResult {
+  symbol: string;
+  name?: string;
+  exchange?: string;
+  type?: string;
+}
+
 export class MarketDataService {
   /**
    * Internal helper to retrieve the USD-BRL FX rate and quotes for a set of symbols.
@@ -128,6 +135,24 @@ export class MarketDataService {
       console.error(`Error fetching quote details for ${sym}:`, e);
     }
     return null;
+  }
+
+  /**
+   * Searches symbol suggestions from the edge function.
+   */
+  static async searchSymbols(query: string): Promise<SymbolSearchResult[]> {
+    const q = query.trim();
+    if (!q) return [];
+    try {
+      const { data, error } = await supabase.functions.invoke("asset-quote", {
+        body: { action: "search", query: q },
+      });
+      if (error) throw error;
+      return data?.results || [];
+    } catch (e) {
+      console.error(`Error searching symbols for ${q}:`, e);
+      return [];
+    }
   }
 
   /**
