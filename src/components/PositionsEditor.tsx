@@ -316,7 +316,9 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                     type="number"
                     step="0.01"
                     value={p.currentPrice || ""}
-                    onChange={(e) => updatePosition(idx, { currentPrice: Number(e.target.value) || 0 })}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                    placeholder="Auto"
                   />
                 </div>
                 <div className="col-span-2">
