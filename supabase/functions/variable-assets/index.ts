@@ -929,11 +929,86 @@ async function resolvePrices(
   tickers: string[],
 ): Promise<Map<string, number>> {
   const prices = await getBinancePrices();
-  const usdtBrl = prices.get("USDTBRL") ?? 0;
+  let usdtBrl = 0;
+
+  // Try fetching commercial rate from AwesomeAPI
+  try {
+    const fxRes = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
+    if (fxRes.ok) {
+      const fxData = await fxRes.json();
+      const val = Number(fxData?.USDBRL?.bid || fxData?.USDBRL?.ask);
+      if (Number.isFinite(val) && val > 0) {
+        usdtBrl = val;
+        console.log(`[resolvePrices] Using AwesomeAPI commercial rate for USDT/BRL conversion: ${usdtBrl}`);
+      }
+    }
+  } catch (e) {
+    console.error("[resolvePrices] Error fetching commercial rate from AwesomeAPI:", e);
+  }
+
+  // Fallback to USDTBRL from Binance ticker price
+  if (!usdtBrl) {
+    usdtBrl = prices.get("USDTBRL") ?? 0;
+    if (usdtBrl > 0) {
+      console.log(`[resolvePrices] Falling back to Binance USDTBRL ticker rate: ${usdtBrl}`);
+    }
+  }
+
   if (!usdtBrl) throw new Error("USDTBRL price unavailable");
   const out = new Map<string, number>();
   for (const t of tickers) out.set(t, priceInBRL(t, prices, usdtBrl));
   return out;
+}
+
+async function recalculateSnapshotTotals(snapshotId: string) {
+  try {
+    const { data: invs, error: fetchErr } = await admin
+      .from("investments")
+      .select("id, value, income_type, region")
+      .eq("snapshot_id", snapshotId);
+    if (fetchErr) throw fetchErr;
+    if (!invs || invs.length === 0) return;
+
+    const total = invs.reduce((sum, inv) => sum + safeNumber(inv.value), 0);
+    const fixedTotal = invs.filter(i => i.income_type === 'fixed').reduce((s, i) => s + safeNumber(i.value), 0);
+    const variableTotal = invs.filter(i => i.income_type === 'variable').reduce((s, i) => s + safeNumber(i.value), 0);
+    const brazilTotal = invs.filter(i => i.region === 'brazil').reduce((s, i) => s + safeNumber(i.value), 0);
+    const exteriorTotal = invs.filter(i => i.region === 'exterior').reduce((s, i) => s + safeNumber(i.value), 0);
+
+    const fixedIncome = total > 0 ? Number(((fixedTotal / total) * 100).toFixed(2)) : 0;
+    const variableIncome = total > 0 ? Number(((variableTotal / total) * 100).toFixed(2)) : 0;
+    const brazil = total > 0 ? Number(((brazilTotal / total) * 100).toFixed(2)) : 0;
+    const exterior = total > 0 ? Number(((exteriorTotal / total) * 100).toFixed(2)) : 0;
+
+    // Update percentage weights for each investment in the snapshot
+    for (const inv of invs) {
+      const pct = total > 0 ? Number(((safeNumber(inv.value) / total) * 100).toFixed(2)) : 0;
+      const { error: pctErr } = await admin
+        .from("investments")
+        .update({ percentage: pct })
+        .eq("id", inv.id);
+      if (pctErr) {
+        console.warn(`[sync] Failed to update percentage for investment ${inv.id}:`, pctErr);
+      }
+    }
+
+    // Update monthly snapshot totals
+    const { error: snapErr } = await admin
+      .from("monthly_snapshots")
+      .update({
+        total,
+        fixed_income: fixedIncome,
+        variable_income: variableIncome,
+        brazil: brazil,
+        exterior: exterior,
+      })
+      .eq("id", snapshotId);
+
+    if (snapErr) throw snapErr;
+    console.log(`[sync] Recalculated totals for snapshot ${snapshotId}: Total=${total} BRL`);
+  } catch (e) {
+    console.error("[sync] Error recalculating snapshot totals:", e);
+  }
 }
 
 // ---------- Audit Service ----------
@@ -1100,6 +1175,7 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
 
     const normalizedRows: Array<Record<string, unknown>> = [];
     const anomalies: Array<Record<string, unknown>> = [];
+    let connectionTotalBrl = 0;
 
     if (balances.length > 0) {
       const rows = balances.map((b) => {
@@ -1151,6 +1227,8 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
       await audit.saveNormalized(normalizedRows);
       await audit.log("NORMALIZED_ASSET", { count: normalizedRows.length });
 
+      connectionTotalBrl = rows.reduce((sum, r) => sum + r.current_value, 0);
+
       // Reconciliation: detect duplicates within same wallet_type
       const dupeKey = new Map<string, number>();
       for (const r of normalizedRows) {
@@ -1162,6 +1240,38 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
         .map(([k, c]) => ({ key: k, count: c }));
       if (duplicates.length > 0) anomalies.push({ type: "duplicates", duplicates });
       await audit.log("RECONCILIATION", { duplicates });
+    }
+
+    // Update the linked investments in the investments table for the active month
+    try {
+      const { data: latestSnap, error: snapErr } = await admin
+        .from("monthly_snapshots")
+        .select("id")
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (snapErr) throw snapErr;
+
+      if (latestSnap) {
+        const { error: invErr } = await admin
+          .from("investments")
+          .update({
+            value: connectionTotalBrl,
+            last_price_at: now,
+          })
+          .eq("connection_id", connectionId)
+          .eq("snapshot_id", latestSnap.id);
+
+        if (invErr) {
+          console.warn("[sync] Failed to update investments table:", invErr);
+        } else {
+          console.log(`[sync] Updated linked investments for connection ${connectionId} to ${connectionTotalBrl} BRL`);
+          await recalculateSnapshotTotals(latestSnap.id);
+        }
+      }
+    } catch (e) {
+      console.warn("[sync] Error updating investments/snapshot totals:", e);
     }
 
     // Consolidation

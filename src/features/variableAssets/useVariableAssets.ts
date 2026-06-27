@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Connection, Position, Provider } from "./types";
 
 interface ListResponse {
@@ -39,6 +40,7 @@ async function call<T = Record<string, unknown>>(
 }
 
 export function useVariableAssets() {
+  const qc = useQueryClient();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,12 +98,13 @@ export function useVariableAssets() {
           ...input,
         });
         await refresh();
+        qc.invalidateQueries({ queryKey: ["snapshots"] });
         return res;
       } finally {
         setBusy(null);
       }
     },
-    [refresh],
+    [refresh, qc],
   );
 
   const sync = useCallback(
@@ -110,11 +113,12 @@ export function useVariableAssets() {
       try {
         await call({ action: "sync", connection_id });
         await refresh();
+        qc.invalidateQueries({ queryKey: ["snapshots"] });
       } finally {
         setBusy(null);
       }
     },
-    [refresh],
+    [refresh, qc],
   );
 
   const syncAll = useCallback(async () => {
@@ -122,10 +126,11 @@ export function useVariableAssets() {
     try {
       await call({ action: "sync_all" });
       await refresh();
+      qc.invalidateQueries({ queryKey: ["snapshots"] });
     } finally {
       setBusy(null);
     }
-  }, [refresh]);
+  }, [refresh, qc]);
 
   const disconnect = useCallback(
     async (connection_id: string) => {
@@ -133,11 +138,12 @@ export function useVariableAssets() {
       try {
         await call({ action: "disconnect", connection_id });
         await refresh();
+        qc.invalidateQueries({ queryKey: ["snapshots"] });
       } finally {
         setBusy(null);
       }
     },
-    [refresh],
+    [refresh, qc],
   );
 
   const addManual = useCallback(

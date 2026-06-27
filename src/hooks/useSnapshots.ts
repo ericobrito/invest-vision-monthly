@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
@@ -82,7 +83,8 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 }
 
 export function useSnapshots() {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ["snapshots"],
     queryFn: async (): Promise<MonthlySnapshot[]> => {
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
@@ -194,6 +196,36 @@ export function useSnapshots() {
       });
     },
   });
+
+  const monthlyData = query.data;
+
+  useEffect(() => {
+    if (!monthlyData || monthlyData.length === 0) return;
+    const latest = monthlyData[monthlyData.length - 1];
+    const connectedInvs = latest.investments.filter(
+      (inv) => inv.mode === "CONNECTED" && inv.connectionId
+    );
+
+    const now = Date.now();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+    connectedInvs.forEach(async (inv) => {
+      const lastSync = inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0;
+      if (now - lastSync > FIVE_MINUTES_MS) {
+        console.log(`[useSnapshots] Background syncing connected investment: ${inv.name}`);
+        try {
+          await supabase.functions.invoke("variable-assets", {
+            body: { action: "sync", connection_id: inv.connectionId },
+          });
+          queryClient.invalidateQueries({ queryKey: ["snapshots"] });
+        } catch (e) {
+          console.error(`[useSnapshots] Failed to background sync ${inv.name}:`, e);
+        }
+      }
+    });
+  }, [monthlyData, queryClient]);
+
+  return query;
 }
 
 
