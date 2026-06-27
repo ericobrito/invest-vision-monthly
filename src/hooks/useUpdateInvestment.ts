@@ -60,6 +60,17 @@ export function useUpdateInvestment() {
         };
       });
 
+      let connectionAssets: any[] | undefined = undefined;
+      if (mode === "CONNECTED" && updated.connectionId) {
+        const { data: posRows } = await supabase
+          .from("va_positions")
+          .select("current_value")
+          .eq("connection_id", updated.connectionId);
+        if (posRows) {
+          connectionAssets = posRows.map((r) => ({ currentValue: Number(r.current_value) || 0 }));
+        }
+      }
+
       // Resolve effective totals based on mode (BRL-normalized).
       const totals = resolveInvestmentTotals(
         {
@@ -69,7 +80,7 @@ export function useUpdateInvestment() {
           positions: positionsWithBRL,
           currency: updated.currency || "BRL",
         },
-        undefined,
+        connectionAssets,
         fxRates,
       );
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Connection, Position, Provider } from "./types";
+import { propagateConnectionValues } from "@/hooks/useSnapshots";
 
 interface ListResponse {
   success: boolean;
@@ -112,6 +113,7 @@ export function useVariableAssets() {
       setBusy("sync");
       try {
         await call({ action: "sync", connection_id });
+        await propagateConnectionValues(connection_id);
         await refresh();
         qc.invalidateQueries({ queryKey: ["snapshots"] });
       } finally {
@@ -125,6 +127,12 @@ export function useVariableAssets() {
     setBusy("sync_all");
     try {
       await call({ action: "sync_all" });
+      const { data: conns } = await supabase.from("va_connections").select("id").eq("status", "active");
+      if (conns) {
+        for (const conn of conns) {
+          await propagateConnectionValues(conn.id);
+        }
+      }
       await refresh();
       qc.invalidateQueries({ queryKey: ["snapshots"] });
     } finally {

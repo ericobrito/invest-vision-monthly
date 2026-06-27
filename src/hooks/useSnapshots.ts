@@ -217,6 +217,7 @@ export function useSnapshots() {
           await supabase.functions.invoke("variable-assets", {
             body: { action: "sync", connection_id: inv.connectionId },
           });
+          await propagateConnectionValues(inv.connectionId);
           queryClient.invalidateQueries({ queryKey: ["snapshots"] });
         } catch (e) {
           console.error(`[useSnapshots] Failed to background sync ${inv.name}:`, e);
@@ -415,4 +416,90 @@ export function useDeleteSnapshot() {
       qc.invalidateQueries({ queryKey: ["snapshots"] });
     },
   });
+}
+
+export async function propagateConnectionValues(connectionId: string) {
+  try {
+    const { data: positions, error: pErr } = await supabase
+      .from("va_positions")
+      .select("current_value")
+      .eq("connection_id", connectionId);
+    if (pErr) throw pErr;
+
+    const totalBrl = (positions || []).reduce((sum, p) => sum + (Number(p.current_value) || 0), 0);
+
+    const { data: latestSnap, error: snapErr } = await supabase
+      .from("monthly_snapshots")
+      .select("id, month")
+      .order("month", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (snapErr) throw snapErr;
+    if (!latestSnap) return;
+
+    // Update the investment in the DB
+    const { error: invErr } = await supabase
+      .from("investments")
+      .update({
+        value: totalBrl,
+        last_price_at: new Date().toISOString(),
+      })
+      .eq("connection_id", connectionId)
+      .eq("snapshot_id", latestSnap.id);
+    if (invErr) throw invErr;
+
+    // Recalculate snapshot totals
+    const { data: allInvs, error: allErr } = await supabase
+      .from("investments")
+      .select("*")
+      .eq("snapshot_id", latestSnap.id);
+    if (allErr) throw allErr;
+    if (!allInvs) return;
+
+    const total = allInvs.reduce((s, i) => s + Number(i.value), 0);
+
+    for (const inv of allInvs) {
+      const pct = total > 0 ? Number(((Number(inv.value) / total) * 100).toFixed(2)) : 0;
+      await supabase.from("investments").update({ percentage: pct }).eq("id", inv.id);
+    }
+
+    const { data: allSnapshots, error: snapListErr } = await supabase
+      .from("monthly_snapshots")
+      .select("*")
+      .order("month");
+    if (snapListErr) throw snapListErr;
+
+    // Adapt allInvs for computeDerivedFields
+    const invData = allInvs.map(inv => ({
+      name: inv.name,
+      value: Number(inv.value),
+      percentage: 0,
+      applied: inv.applied != null ? Number(inv.applied) : undefined,
+      totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
+      annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
+      yearStarted: inv.year_started ?? undefined,
+      incomeType: (inv.income_type as any) || "fixed",
+      region: (inv.region as any) || "brazil",
+    }));
+
+    const derived = computeDerivedFields(invData, allSnapshots as any[], latestSnap.month);
+
+    await supabase
+      .from("monthly_snapshots")
+      .update({
+        total: derived.total,
+        change_value: derived.changeValue ?? null,
+        change_percentage: derived.changePercentage ?? null,
+        fixed_income: derived.fixedIncome ?? null,
+        variable_income: derived.variableIncome ?? null,
+        brazil: derived.brazil ?? null,
+        exterior: derived.exterior ?? null,
+        growth_2025: derived.growth2025 ?? null,
+      })
+      .eq("id", latestSnap.id);
+
+    console.log(`[propagate] Successfully updated database for connection ${connectionId}: Total=${totalBrl} BRL`);
+  } catch (e) {
+    console.error("[propagate] Error propagating connection values:", e);
+  }
 }
