@@ -262,6 +262,7 @@ export interface SnapshotFormData {
     currentPrice?: number;
     investedAmount?: number;
     lastPriceAt?: string;
+    currency?: string;
   }[];
 }
 
@@ -365,6 +366,7 @@ export function useSaveSnapshot() {
                 current_price: inv.currentPrice ?? null,
                 invested_amount: inv.investedAmount ?? null,
                 last_price_at: inv.lastPriceAt ?? null,
+                currency: inv.currency ?? 'BRL',
               }))
             )
             .throwOnError();
@@ -415,6 +417,7 @@ export function useSaveSnapshot() {
                 current_price: inv.currentPrice ?? null,
                 invested_amount: inv.investedAmount ?? null,
                 last_price_at: inv.lastPriceAt ?? null,
+                currency: inv.currency ?? 'BRL',
               }))
             )
             .throwOnError();

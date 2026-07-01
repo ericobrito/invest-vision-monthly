@@ -48,6 +48,7 @@ interface InvestmentRow {
   investedAmount?: number;
   lastPriceAt?: string;
   flags?: { includeInVariablePositions?: boolean };
+  currency?: string;
 }
 
 interface SnapshotDialogProps {
@@ -106,6 +107,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           investedAmount: inv.investedAmount,
           lastPriceAt: inv.lastPriceAt,
           flags: inv.flags,
+          currency: inv.currency || "BRL",
         }))
       );
       setCopiedFromPrev(false);
@@ -143,6 +145,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
         investedAmount: inv.investedAmount,
         lastPriceAt: inv.lastPriceAt,
         flags: inv.flags,
+        currency: inv.currency || "BRL",
       }))
     );
     setCopiedFromPrev(true);
@@ -192,6 +195,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           investedAmount: inv.investedAmount,
           lastPriceAt: inv.lastPriceAt,
           flags: inv.flags,
+          currency: inv.currency || "BRL",
         };
       });
     const total = invData.reduce((s, i) => s + i.value, 0);
