@@ -175,9 +175,10 @@ export function useUpdateInvestment() {
         yearStarted: inv.year_started ?? undefined,
         incomeType: (inv.income_type as "fixed" | "variable") || "fixed",
         region: (inv.region as "brazil" | "exterior") || "brazil",
+        currency: inv.currency || "BRL",
       }));
 
-      const derived = computeDerivedFields(invData, allSnapshots, snapshotMonth);
+      const derived = computeDerivedFields(invData, allSnapshots, snapshotMonth, fxRates);
 
       await supabase
         .from("monthly_snapshots")

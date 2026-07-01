@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import type { MonthlySnapshot, IncomeType, Region, Position } from "@/data/investments";
 import { computeDerivedFields } from "@/hooks/useSnapshots";
+import { fetchFxRatesToBRL } from "@/lib/fx";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -69,6 +70,15 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   const [investments, setInvestments] = useState<InvestmentRow[]>([]);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [copiedFromPrev, setCopiedFromPrev] = useState(false);
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ USD: 5.6 });
+
+  useEffect(() => {
+    if (open) {
+      fetchFxRatesToBRL().then(rates => {
+        if (rates) setFxRates(rates);
+      });
+    }
+  }, [open]);
 
   // Get previous month snapshot (the one strictly before the current target month)
   const previousSnapshot = useMemo(() => {
@@ -205,8 +215,8 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
     const total = invData.reduce((s, i) => s + i.value, 0);
     invData.forEach(i => { i.percentage = total > 0 ? Number(((i.value / total) * 100).toFixed(2)) : 0; });
 
-    return { derived: computeDerivedFields(invData, allSnapshots, month), invData };
-  }, [investments, allSnapshots, month]);
+    return { derived: computeDerivedFields(invData, allSnapshots, month, fxRates), invData };
+  }, [investments, allSnapshots, month, fxRates]);
 
   const addInvestment = () => {
     setInvestments([...investments, { name: "", value: "", applied: "", totalReturn: "", annualReturn: "", yearStarted: "", incomeType: "fixed", region: "brazil" }]);

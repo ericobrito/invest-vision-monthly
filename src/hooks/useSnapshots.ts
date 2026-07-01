@@ -271,15 +271,27 @@ export interface SnapshotFormData {
 export function computeDerivedFields(
   investments: SnapshotFormData['investments'],
   allSnapshots: MonthlySnapshot[],
-  currentMonth: string
+  currentMonth: string,
+  fxRates?: Record<string, number>
 ): Pick<SnapshotFormData, 'total' | 'changeValue' | 'changePercentage' | 'fixedIncome' | 'variableIncome' | 'brazil' | 'exterior' | 'growth2025'> {
-  const total = investments.reduce((sum, inv) => sum + inv.value, 0);
+  // Convert each investment to BRL value first before performing any calculations
+  const rates = fxRates || { USD: 5.6 };
+  const invsBRL = investments.map(inv => {
+    const rate = inv.currency === "USD" ? (rates["USD"] || 1) : 1;
+    const valueBRL = inv.value * rate;
+    return {
+      ...inv,
+      valueBRL,
+    };
+  });
+
+  const total = invsBRL.reduce((sum, inv) => sum + inv.valueBRL, 0);
 
   // Percentages by type
-  const fixedTotal = investments.filter(i => i.incomeType === 'fixed').reduce((s, i) => s + i.value, 0);
-  const variableTotal = investments.filter(i => i.incomeType === 'variable').reduce((s, i) => s + i.value, 0);
-  const brazilTotal = investments.filter(i => i.region === 'brazil').reduce((s, i) => s + i.value, 0);
-  const exteriorTotal = investments.filter(i => i.region === 'exterior').reduce((s, i) => s + i.value, 0);
+  const fixedTotal = invsBRL.filter(i => i.incomeType === 'fixed').reduce((s, i) => s + i.valueBRL, 0);
+  const variableTotal = invsBRL.filter(i => i.incomeType === 'variable').reduce((s, i) => s + i.valueBRL, 0);
+  const brazilTotal = invsBRL.filter(i => i.region === 'brazil').reduce((s, i) => s + i.valueBRL, 0);
+  const exteriorTotal = invsBRL.filter(i => i.region === 'exterior').reduce((s, i) => s + i.valueBRL, 0);
 
   const fixedIncome = total > 0 ? Number(((fixedTotal / total) * 100).toFixed(2)) : undefined;
   const variableIncome = total > 0 ? Number(((variableTotal / total) * 100).toFixed(2)) : undefined;
@@ -626,20 +638,19 @@ export async function propagateConnectionValues(connectionId: string) {
       .order("month");
     if (snapListErr) throw snapListErr;
 
-    // Adapt allInvs for computeDerivedFields using BRL values!
+    // Adapt allInvs for computeDerivedFields
     const invData = invsWithBRL.map(inv => {
-      const rate = getFxRate(inv.currency, fxRates);
-      const appliedBRL = inv.applied != null ? Number(inv.applied) * rate : undefined;
       return {
         name: inv.name,
-        value: inv.valBRL, // Must pass BRL-normalized value here!
+        value: Number(inv.value),
         percentage: 0,
-        applied: appliedBRL,
+        applied: inv.applied != null ? Number(inv.applied) : undefined,
         totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
         annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
         yearStarted: inv.year_started ?? undefined,
         incomeType: (inv.income_type as any) || "fixed",
         region: (inv.region as any) || "brazil",
+        currency: inv.currency || "BRL",
       };
     });
 
