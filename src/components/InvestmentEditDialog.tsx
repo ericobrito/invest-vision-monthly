@@ -54,6 +54,7 @@ const InvestmentEditDialog = ({
   const [positions, setPositions] = useState<Position[]>([]);
   const [connectionId, setConnectionId] = useState<string>("");
   const [connections, setConnections] = useState<{ id: string; provider: string; label?: string }[]>([]);
+  const [currency, setCurrency] = useState("BRL");
 
   useEffect(() => {
     if (investment) {
@@ -68,6 +69,7 @@ const InvestmentEditDialog = ({
       setIncludeInVariable(investment.flags?.includeInVariablePositions === true);
       setPositions(investment.positions ?? []);
       setConnectionId(investment.connectionId ?? "");
+      setCurrency(investment.currency || "BRL");
     }
   }, [investment, open]);
 
@@ -128,6 +130,7 @@ const InvestmentEditDialog = ({
       },
       positions: mode === "DETAILED" ? positions : undefined,
       connectionId: mode === "CONNECTED" ? (connectionId || undefined) : undefined,
+      currency: currency || "BRL",
     });
   };
 
@@ -220,7 +223,7 @@ const InvestmentEditDialog = ({
             <Input type="date" value={yearStarted} onChange={(e) => setYearStarted(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Tipo de Renda</Label>
               <Select value={incomeType} onValueChange={(v) => setIncomeType(v as IncomeType)}>
@@ -238,6 +241,16 @@ const InvestmentEditDialog = ({
                 <SelectContent>
                   <SelectItem value="brazil">Brasil</SelectItem>
                   <SelectItem value="exterior">Exterior</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Moeda</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BRL">Real (BRL)</SelectItem>
+                  <SelectItem value="USD">Dólar (USD)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

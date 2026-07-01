@@ -134,7 +134,7 @@ export function resolveInvestmentTotals(
     for (const a of connectionAssets) {
       const cv = Number(a.currentValue) || 0;
       const ap = Number(a.appliedAmount) || 0;
-      const rate = rateFor(a.currency, fxRates);
+      const rate = rateFor(a.currency || inv.currency, fxRates);
       valueNative += cv;
       appliedNative += ap;
       valueBRL += cv * rate;
