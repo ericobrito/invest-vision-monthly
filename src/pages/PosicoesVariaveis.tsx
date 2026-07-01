@@ -11,7 +11,9 @@ import {
   Plus,
   Loader2,
   Info,
+  Network,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,7 @@ const providerLabels: Record<Provider, string> = {
   coinbase: "Coinbase",
   kraken: "Kraken",
   mercado_bitcoin: "Mercado Bitcoin",
+  pluggy: "Open Finance (Bancos)",
 };
 
 const brl = (n: number) =>
@@ -172,6 +175,98 @@ export default function PosicoesVariaveis() {
     }
   };
 
+  const loadPluggyConnect = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).PluggyConnect) {
+        resolve((window as any).PluggyConnect);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://cdn.pluggy.ai/pluggy-connect/v2/pluggy-connect.js";
+      script.async = true;
+      script.onload = () => resolve((window as any).PluggyConnect);
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleOpenFinanceConnect = async () => {
+    setBusy("connect_open_finance" as any);
+    try {
+      const { data, error } = await supabase.functions.invoke("variable-assets", {
+        body: { action: "create_connect_token" },
+      });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Erro ao obter token do Pluggy");
+
+      const token = data.connectToken;
+
+      if (token.startsWith("mock-")) {
+        toast({ title: "Modo de Demonstração Ativo", description: "Simulando conexão de conta bancária..." });
+        setTimeout(async () => {
+          try {
+            await connect({
+              provider: "pluggy",
+              label: "Banco do Brasil (Demo)",
+              api_key: "mock-item-id-98765",
+              api_secret: "dummy",
+            });
+            toast({ title: "Banco (Demo) conectado com sucesso!" });
+          } catch (err) {
+            toast({
+              title: "Erro ao salvar conexão demo",
+              description: err instanceof Error ? err.message : String(err),
+              variant: "destructive",
+            });
+          }
+        }, 1500);
+        return;
+      }
+
+      const PluggyConnect = await loadPluggyConnect();
+      const pluggyConnect = new PluggyConnect({
+        connectToken: token,
+        onSuccess: async (itemData: any) => {
+          toast({ title: "Autenticado com sucesso!", description: "Salvando conexão..." });
+          try {
+            await connect({
+              provider: "pluggy",
+              label: itemData.item.connector?.name || "Banco Conectado",
+              api_key: itemData.item.id,
+              api_secret: "dummy",
+            });
+            toast({ title: "Banco conectado com sucesso!" });
+            pluggyConnect.close();
+          } catch (err) {
+            toast({
+              title: "Erro ao salvar conexão",
+              description: err instanceof Error ? err.message : String(err),
+              variant: "destructive",
+            });
+          }
+        },
+        onError: (err: any) => {
+          console.error("Pluggy Connect Error:", err);
+          toast({
+            title: "Erro no Pluggy Connect",
+            description: err.message || String(err),
+            variant: "destructive",
+          });
+        },
+      });
+
+      pluggyConnect.init();
+    } catch (err) {
+      toast({
+        title: "Falha ao iniciar Open Finance",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleAddManual = async () => {
     const qty = parseFloat(mQty.replace(",", "."));
     if (!mTicker.trim() || !(qty > 0)) {
@@ -285,6 +380,19 @@ export default function PosicoesVariaveis() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleOpenFinanceConnect}
+              disabled={busy === "connect_open_finance"}
+            >
+              {busy === "connect_open_finance" ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Network className="w-4 h-4 mr-1" />
+              )}
+              Conectar Banco
+            </Button>
             <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">

@@ -8,7 +8,8 @@ export type Provider =
   | "bybit"
   | "coinbase"
   | "kraken"
-  | "mercado_bitcoin";
+  | "mercado_bitcoin"
+  | "pluggy";
 
 export type PositionSource = "manual" | "aggregator";
 
