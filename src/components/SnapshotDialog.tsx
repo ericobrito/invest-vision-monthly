@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { MonthlySnapshot, IncomeType, Region } from "@/data/investments";
+import type { MonthlySnapshot, IncomeType, Region, Position } from "@/data/investments";
 import { computeDerivedFields } from "@/hooks/useSnapshots";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,6 +49,7 @@ interface InvestmentRow {
   lastPriceAt?: string;
   flags?: { includeInVariablePositions?: boolean };
   currency?: string;
+  positions?: Position[];
 }
 
 interface SnapshotDialogProps {
@@ -108,6 +109,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           lastPriceAt: inv.lastPriceAt,
           flags: inv.flags,
           currency: inv.currency || "BRL",
+          positions: inv.positions,
         }))
       );
       setCopiedFromPrev(false);
@@ -146,6 +148,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
         lastPriceAt: inv.lastPriceAt,
         flags: inv.flags,
         currency: inv.currency || "BRL",
+        positions: inv.positions,
       }))
     );
     setCopiedFromPrev(true);
@@ -196,6 +199,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           lastPriceAt: inv.lastPriceAt,
           flags: inv.flags,
           currency: inv.currency || "BRL",
+          positions: inv.positions,
         };
       });
     const total = invData.reduce((s, i) => s + i.value, 0);
