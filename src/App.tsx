@@ -23,17 +23,33 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    const safetyTimeout = setTimeout(() => {
+      console.warn("Auth loading safety timeout triggered");
       setLoading(false);
-    });
+    }, 2500);
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch session:", err);
+        setLoading(false);
+        clearTimeout(safetyTimeout);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+      clearTimeout(safetyTimeout);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   if (loading) {
