@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Investment, MonthlySnapshot } from "@/data/investments";
 import { resolveInvestmentTotals } from "@/data/investments";
-import { computeDerivedFields } from "@/hooks/useSnapshots";
+import { computeDerivedFields, recalculateAllSnapshotVariations } from "@/hooks/useSnapshots";
 import { fetchFxRatesToBRL, getFxRate } from "@/lib/fx";
 
 interface UpdateParams {
@@ -193,10 +193,11 @@ export function useUpdateInvestment() {
         })
         .eq("id", snap.id)
         .throwOnError();
+
+      await recalculateAllSnapshotVariations();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["snapshots"] });
     },
   });
-}
 

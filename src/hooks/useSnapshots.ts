@@ -308,6 +308,44 @@ export function computeDerivedFields(
   return { total, changeValue, changePercentage, fixedIncome, variableIncome, brazil, exterior, growth2025 };
 }
 
+export async function recalculateAllSnapshotVariations() {
+  const { data: snapshots, error } = await supabase
+    .from("monthly_snapshots")
+    .select("id, month, total")
+    .order("month", { ascending: true });
+  if (error) throw error;
+  if (!snapshots || snapshots.length === 0) return;
+
+  const sorted = [...snapshots].sort((a, b) => a.month.localeCompare(b.month));
+  const jan2024 = sorted.find(s => s.month === '2024-01');
+
+  for (let i = 0; i < sorted.length; i++) {
+    const current = sorted[i];
+    const prev = i > 0 ? sorted[i - 1] : undefined;
+
+    let changeValue = null;
+    let changePercentage = null;
+    if (prev) {
+      changeValue = Number((current.total - prev.total).toFixed(2));
+      changePercentage = prev.total > 0 ? Number(((changeValue / prev.total) * 100).toFixed(2)) : null;
+    }
+
+    let growth2025 = null;
+    if (jan2024 && current.month >= '2024-01') {
+      growth2025 = Number((current.total - jan2024.total).toFixed(2));
+    }
+
+    await supabase
+      .from("monthly_snapshots")
+      .update({
+        change_value: changeValue,
+        change_percentage: changePercentage,
+        growth_2025: growth2025,
+      })
+      .eq("id", current.id);
+  }
+}
+
 export function useSaveSnapshot() {
   const qc = useQueryClient();
 
@@ -496,6 +534,7 @@ export function useSaveSnapshot() {
           }
         }
       }
+      await recalculateAllSnapshotVariations();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["snapshots"] });
@@ -516,6 +555,7 @@ export function useDeleteSnapshot() {
       if (!existing) throw new Error("Not found");
 
       await supabase.from("monthly_snapshots").delete().eq("id", existing.id).throwOnError();
+      await recalculateAllSnapshotVariations();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["snapshots"] });
@@ -618,6 +658,8 @@ export async function propagateConnectionValues(connectionId: string) {
         growth_2025: derived.growth2025 ?? null,
       })
       .eq("id", latestSnap.id);
+
+    await recalculateAllSnapshotVariations();
 
     console.log(`[propagate] Successfully updated database for connection ${connectionId}: Total=${totalBrl} (Native), BRL Sum=${totalBRLSum}`);
   } catch (e) {
