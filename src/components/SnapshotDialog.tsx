@@ -68,12 +68,19 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [copiedFromPrev, setCopiedFromPrev] = useState(false);
 
-  // Get previous month snapshot (last one sorted by month)
+  // Get previous month snapshot (the one strictly before the current target month)
   const previousSnapshot = useMemo(() => {
     if (allSnapshots.length === 0) return undefined;
-    const sorted = [...allSnapshots].sort((a, b) => a.month.localeCompare(b.month));
+    const targetMonth = month || snapshot?.month;
+    if (!targetMonth) {
+      const sorted = [...allSnapshots].sort((a, b) => a.month.localeCompare(b.month));
+      return sorted[sorted.length - 1];
+    }
+    const filtered = allSnapshots.filter((s) => s.month < targetMonth);
+    if (filtered.length === 0) return undefined;
+    const sorted = filtered.sort((a, b) => a.month.localeCompare(b.month));
     return sorted[sorted.length - 1];
-  }, [allSnapshots]);
+  }, [allSnapshots, month, snapshot]);
 
   useEffect(() => {
     if (snapshot) {
@@ -389,13 +396,23 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
             </div>
           </ScrollArea>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={!month || !label || investments.length === 0 || isSaving}>
-              {isSaving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Mês"}
-            </Button>
+          <div className="flex justify-between items-center pt-4 border-t border-border">
+            <div>
+              {previousSnapshot && (
+                <Button type="button" variant="secondary" size="sm" onClick={handleCopyPrevious}>
+                  <Copy className="w-4 h-4 mr-1.5" />
+                  Copiar de {previousSnapshot.label} ({previousSnapshot.month})
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSubmit} disabled={!month || !label || investments.length === 0 || isSaving}>
+                {isSaving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Mês"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
