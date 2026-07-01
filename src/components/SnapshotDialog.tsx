@@ -176,23 +176,27 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
     const invData = investments
       .filter((inv) => inv.name && inv.value)
       .map((inv) => {
-        const value = Number(inv.value) || 0;
-        const applied = Number(inv.applied) || 0;
-        const totalReturn = applied > 0 ? Number((((value - applied) / applied) * 100).toFixed(2)) : undefined;
+        const val = Number(inv.value) || 0;
+        const app = Number(inv.applied) || 0;
+        const rate = inv.currency === "USD" ? (fxRates["USD"] || 5.60) : 1;
+        const valueBRL = val * rate;
+        const appliedBRL = app * rate;
+        
+        const totalReturn = appliedBRL > 0 ? Number((((valueBRL - appliedBRL) / appliedBRL) * 100).toFixed(2)) : undefined;
         let annualReturn: number | undefined;
         if (totalReturn != null && inv.yearStarted) {
           const startDate = new Date(inv.yearStarted);
           const now = new Date();
           const years = (now.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-          if (years > 0 && applied > 0) {
-            annualReturn = Number(((Math.pow(value / applied, 1 / years) - 1) * 100).toFixed(2));
+          if (years > 0 && appliedBRL > 0) {
+            annualReturn = Number(((Math.pow(valueBRL / appliedBRL, 1 / years) - 1) * 100).toFixed(2));
           }
         }
         return {
           name: inv.name,
-          value,
+          value: valueBRL,
           percentage: 0,
-          applied,
+          applied: appliedBRL,
           totalReturn,
           annualReturn,
           yearStarted: inv.yearStarted || undefined,
@@ -208,7 +212,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           investedAmount: inv.investedAmount,
           lastPriceAt: inv.lastPriceAt,
           flags: inv.flags,
-          currency: inv.currency || "BRL",
+          currency: "BRL",
           positions: inv.positions,
         };
       });

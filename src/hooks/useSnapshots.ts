@@ -87,23 +87,22 @@ export function useSnapshots() {
   const query = useQuery({
     queryKey: ["snapshots"],
     queryFn: async (): Promise<MonthlySnapshot[]> => {
-      // Self-heal: Ensure all investments containing "Avenue" are set to USD currency in the database
+      // Self-heal: Ensure all investments in the database are set to BRL currency since we store everything in BRL
       try {
-        const { data: avenueInvs } = await supabase
+        const { data: nonBrlInvs } = await supabase
           .from("investments")
-          .select("id, currency")
-          .ilike("name", "%Avenue%")
-          .not("currency", "eq", "USD");
+          .select("id")
+          .not("currency", "eq", "BRL");
 
-        if (avenueInvs && avenueInvs.length > 0) {
-          console.log(`[self-heal] Fixing currency to USD for ${avenueInvs.length} Avenue investments`);
-          for (const inv of avenueInvs) {
-            await supabase.from("investments").update({ currency: "USD" }).eq("id", inv.id);
+        if (nonBrlInvs && nonBrlInvs.length > 0) {
+          console.log(`[self-heal] Fixing currency to BRL for ${nonBrlInvs.length} investments`);
+          for (const inv of nonBrlInvs) {
+            await supabase.from("investments").update({ currency: "BRL" }).eq("id", inv.id);
           }
           await recalculateAllSnapshotVariations();
         }
       } catch (e) {
-        console.error("Avenue self-heal failed:", e);
+        console.error("BRL self-heal failed:", e);
       }
 
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
@@ -670,11 +669,35 @@ export async function propagateConnectionValues(connectionId: string) {
     if (snapErr) throw snapErr;
     if (!latestSnap) return;
 
+    let valueToSave = totalBrl;
+    const { data: invRow } = await supabase
+      .from("investments")
+      .select("name, region, currency")
+      .eq("connection_id", connectionId)
+      .eq("snapshot_id", latestSnap.id)
+      .maybeSingle();
+
+    if (invRow) {
+      const isUSD = 
+        invRow.currency === "USD" || 
+        invRow.region === "exterior" || 
+        invRow.name.toLowerCase().includes("avenue") ||
+        invRow.name.toLowerCase().includes("dólar") ||
+        invRow.name.toLowerCase().includes("dolar");
+
+      if (isUSD) {
+        const fxRates = await fetchFxRatesToBRL();
+        const rate = fxRates["USD"] || 5.60;
+        valueToSave = totalBrl * rate;
+      }
+    }
+
     // Update the investment in the DB
     const { error: invErr } = await supabase
       .from("investments")
       .update({
-        value: totalBrl,
+        value: valueToSave,
+        currency: "BRL",
         last_price_at: new Date().toISOString(),
       })
       .eq("connection_id", connectionId)

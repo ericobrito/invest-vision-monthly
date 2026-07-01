@@ -94,9 +94,9 @@ export function useUpdateInvestment() {
         .from("investments")
         .update({
           name: updated.name,
-          value: totals.value,
-          applied: totals.applied ?? null,
-          currency: updated.currency || "BRL",
+          value: totals.valueBRL,
+          applied: totals.appliedBRL ?? null,
+          currency: "BRL",
 
           year_started: updated.yearStarted ?? null,
           total_return: updated.totalReturn ?? null,
