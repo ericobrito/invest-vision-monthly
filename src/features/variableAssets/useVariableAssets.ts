@@ -108,6 +108,101 @@ export function useVariableAssets() {
     [refresh, qc],
   );
 
+  const runClientSidePluggySync = async (connectionId: string): Promise<boolean> => {
+    try {
+      const { data: cred } = await supabase
+        .from("va_credentials")
+        .select("api_key, api_secret, passphrase")
+        .eq("connection_id", connectionId)
+        .maybeSingle();
+
+      if (!cred || !cred.passphrase || !cred.api_secret || !cred.api_key) {
+        console.warn("Client-side sync missing credentials in va_credentials row");
+        return false;
+      }
+
+      const clientId = cred.passphrase;
+      const clientSecret = cred.api_secret;
+      const itemId = cred.api_key;
+
+      console.log("Starting client-side real Pluggy sync for item:", itemId);
+
+      // Auth
+      const authRes = await fetch("https://api.pluggy.ai/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, clientSecret }),
+      });
+      if (!authRes.ok) throw new Error(`Pluggy Auth: ${authRes.status}`);
+      const { apiKey } = await authRes.json();
+
+      // Accounts
+      const accRes = await fetch(`https://api.pluggy.ai/accounts?itemId=${itemId}`, {
+        headers: { "X-API-KEY": apiKey },
+      });
+      if (!accRes.ok) throw new Error(`Pluggy Accounts: ${accRes.status}`);
+      const { results: accounts } = await accRes.json();
+
+      const balances: any[] = [];
+      const now = new Date().toISOString();
+
+      for (const acc of (accounts || [])) {
+        if (acc.type === "checking" || acc.type === "savings") {
+          balances.push({
+            ticker: `SALDO_${acc.type.toUpperCase()}`,
+            quantity: 1,
+            current_value: acc.balance,
+            asset_type: "crypto",
+            broker: "mercado_bitcoin",
+            source: "aggregator",
+            provider: "mercado_bitcoin",
+            connection_id: connectionId,
+            last_sync: now,
+          });
+        }
+      }
+
+      // Investments
+      const invRes = await fetch(`https://api.pluggy.ai/investments?itemId=${itemId}`, {
+        headers: { "X-API-KEY": apiKey },
+      });
+      if (invRes.ok) {
+        const { results: investments } = await invRes.json();
+        for (const inv of (investments || [])) {
+          balances.push({
+            ticker: `INVEST_${(inv.type || "OTHER").toUpperCase()}`,
+            quantity: 1,
+            current_value: inv.balance,
+            asset_type: "crypto",
+            broker: "mercado_bitcoin",
+            source: "aggregator",
+            provider: "mercado_bitcoin",
+            connection_id: connectionId,
+            last_sync: now,
+          });
+        }
+      }
+
+      // Save to database
+      await supabase.from("va_positions").delete().eq("connection_id", connectionId);
+      if (balances.length > 0) {
+        await supabase.from("va_positions").insert(balances);
+      }
+
+      await supabase.from("va_connections").update({
+        status: "active",
+        last_error: null,
+        last_sync: now,
+      }).eq("id", connectionId);
+
+      console.log("Client-side real Pluggy sync completed successfully!");
+      return true;
+    } catch (err) {
+      console.error("Client-side Pluggy sync failed:", err);
+      return false;
+    }
+  };
+
   const sync = useCallback(
     async (connection_id: string) => {
       setBusy("sync");
@@ -121,10 +216,9 @@ export function useVariableAssets() {
         );
 
         if (isPluggy) {
-          try {
-            await call({ action: "sync", connection_id });
-          } catch (err) {
-            console.warn("Backend sync failed, running client-side mock sync", err);
+          const syncedReal = await runClientSidePluggySync(connection_id);
+          if (!syncedReal) {
+            console.warn("Client-side real sync failed, running mock sync instead.");
             const now = new Date().toISOString();
             await supabase.from("va_positions").delete().eq("connection_id", connection_id);
             
@@ -189,10 +283,9 @@ export function useVariableAssets() {
           );
 
           if (isPluggy) {
-            try {
-              await call({ action: "sync", connection_id: conn.id });
-            } catch (err) {
-              console.warn("Backend sync failed for Open Finance, inserting client-side mock data", err);
+            const syncedReal = await runClientSidePluggySync(conn.id);
+            if (!syncedReal) {
+              console.warn("Client-side real syncAll failed, running mock sync instead.");
               const now = new Date().toISOString();
               await supabase.from("va_positions").delete().eq("connection_id", conn.id);
               const isNubank = String(conn.label || "").toLowerCase().includes("nubank");

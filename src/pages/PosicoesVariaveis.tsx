@@ -211,18 +211,50 @@ export default function PosicoesVariaveis() {
     try {
       let token = "";
       if (!isMock) {
-        // Fetch real connect token using user credentials
-        const { data, error } = await supabase.functions.invoke("variable-assets", {
-          body: {
-            action: "create_connect_token",
-            client_id: clientId,
-            client_secret: clientSecret
-          },
-        });
-        if (error || !data?.success || !data?.connectToken) {
-          throw new Error(error?.message || data?.error || "Falha ao gerar Connect Token na Pluggy");
+        // Fetch real connect token directly client-side from the browser!
+        try {
+          const authRes = await fetch("https://api.pluggy.ai/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientId, clientSecret }),
+          });
+          if (!authRes.ok) throw new Error(`Pluggy Auth failed with status ${authRes.status}`);
+          const { apiKey } = await authRes.json();
+
+          const tokenRes = await fetch("https://api.pluggy.ai/connect_token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-API-KEY": apiKey,
+            },
+            body: JSON.stringify({
+              options: {
+                clientUserId: "user-invest-vision",
+              },
+            }),
+          });
+          if (!tokenRes.ok) throw new Error(`Failed to generate Pluggy connect token: ${tokenRes.status}`);
+          const tokenData = await tokenRes.json();
+          token = tokenData.accessToken;
+        } catch (clientErr) {
+          console.warn("Client-side Pluggy token generation failed, trying backend fallback...", clientErr);
+          // Backend fallback
+          const { data, error } = await supabase.functions.invoke("variable-assets", {
+            body: {
+              action: "create_connect_token",
+              client_id: clientId,
+              client_secret: clientSecret
+            },
+          });
+          if (error || !data?.success || !data?.connectToken) {
+            throw new Error(
+              `Falha ao gerar Connect Token na Pluggy: ${
+                clientErr instanceof Error ? clientErr.message : String(clientErr)
+              } (Backend: ${error?.message || data?.error || "desconhecido"})`
+            );
+          }
+          token = data.connectToken;
         }
-        token = data.connectToken;
       } else {
         token = "mock-sandbox-connect-token-12345";
       }
