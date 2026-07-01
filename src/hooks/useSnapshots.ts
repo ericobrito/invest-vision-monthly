@@ -87,6 +87,25 @@ export function useSnapshots() {
   const query = useQuery({
     queryKey: ["snapshots"],
     queryFn: async (): Promise<MonthlySnapshot[]> => {
+      // Self-heal: Ensure all investments containing "Avenue" are set to USD currency in the database
+      try {
+        const { data: avenueInvs } = await supabase
+          .from("investments")
+          .select("id, currency")
+          .ilike("name", "%Avenue%")
+          .not("currency", "eq", "USD");
+
+        if (avenueInvs && avenueInvs.length > 0) {
+          console.log(`[self-heal] Fixing currency to USD for ${avenueInvs.length} Avenue investments`);
+          for (const inv of avenueInvs) {
+            await supabase.from("investments").update({ currency: "USD" }).eq("id", inv.id);
+          }
+          await recalculateAllSnapshotVariations();
+        }
+      } catch (e) {
+        console.error("Avenue self-heal failed:", e);
+      }
+
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
         supabase.from("monthly_snapshots").select("*").order("month"),
         supabase.from("investments").select("*"),
