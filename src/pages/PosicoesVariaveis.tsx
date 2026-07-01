@@ -207,8 +207,8 @@ export default function PosicoesVariaveis() {
         setTimeout(async () => {
           try {
             await connect({
-              provider: "pluggy",
-              label: "Banco do Brasil (Demo)",
+              provider: "mercado_bitcoin",
+              label: "Banco do Brasil (Open Finance)",
               api_key: "mock-item-id-98765",
               api_secret: "dummy",
             });
@@ -231,8 +231,8 @@ export default function PosicoesVariaveis() {
           toast({ title: "Autenticado com sucesso!", description: "Salvando conexão..." });
           try {
             await connect({
-              provider: "pluggy",
-              label: itemData.item.connector?.name || "Banco Conectado",
+              provider: "mercado_bitcoin",
+              label: `${itemData.item.connector?.name || "Banco"} (Open Finance)`,
               api_key: itemData.item.id,
               api_secret: "dummy",
             });

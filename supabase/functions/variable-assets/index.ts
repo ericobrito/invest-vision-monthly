@@ -1181,13 +1181,22 @@ type Action =
 async function syncConnection(connectionId: string, expectedTotal?: number) {
   const { data: conn, error: cErr } = await admin
     .from("va_connections")
-    .select("id, provider")
+    .select("id, provider, label")
     .eq("id", connectionId)
     .maybeSingle();
   if (cErr || !conn) throw new Error("Connection not found");
 
+  // Check if this is a Pluggy Open Finance connection masquerading as Mercado Bitcoin to bypass DB constraints
+  const isPluggy = conn.provider === "mercado_bitcoin" && (
+    String(conn.label || "").toLowerCase().includes("open finance") ||
+    String(conn.label || "").toLowerCase().includes("nubank") ||
+    String(conn.label || "").toLowerCase().includes("banco") ||
+    String(conn.label || "").toLowerCase().includes("pluggy")
+  );
+  const effectiveProvider = isPluggy ? "pluggy" : conn.provider;
+
   const audit = new AuditService();
-  await audit.start(connectionId, conn.provider as string);
+  await audit.start(connectionId, effectiveProvider);
 
   try {
     const { data: cred, error: credErr } = await admin
@@ -1197,19 +1206,19 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
       .maybeSingle();
     if (credErr || !cred) throw new Error("Credentials not found");
 
-    const adapter = getAdapter(conn.provider as Provider);
+    const adapter = getAdapter(effectiveProvider as any);
     let balances: NormalizedBalance[];
     try {
-      if (conn.provider === "coinbase") {
+      if (effectiveProvider === "coinbase") {
         balances = await (adapter as typeof fetchCoinbase)(
           cred.api_key, cred.api_secret, cred.passphrase ?? "",
         );
-      } else if (conn.provider === "pluggy") {
+      } else if (effectiveProvider === "pluggy") {
         balances = await fetchPluggy(cred.api_key);
       } else {
         balances = await (adapter as typeof fetchBinance)(cred.api_key, cred.api_secret);
       }
-      await audit.log(`${String(conn.provider).toUpperCase()}_RAW`, { balances });
+      await audit.log(`${String(effectiveProvider).toUpperCase()}_RAW`, { balances });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await audit.log("ERROR", { stage: "adapter_fetch", message: msg });
@@ -1224,7 +1233,7 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
       new Set(balances.map((b) => b.walletType ?? "DEFAULT").filter(Boolean)),
     );
     await audit.log("WALLET_DISCOVERY", {
-      exchange: conn.provider,
+      exchange: effectiveProvider,
       wallets: walletsDiscovered,
       assetCount: balances.length,
     });
@@ -1241,7 +1250,7 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
 
     let prices = new Map<string, number>();
     let usdtBrl = 0;
-    if (conn.provider !== "pluggy") {
+    if (effectiveProvider !== "pluggy") {
       prices = await resolvePrices(balances.map((b) => b.ticker));
       usdtBrl = prices.get("USDT") ?? 0;
     }
@@ -1275,7 +1284,7 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
         }
 
         normalizedRows.push({
-          exchange: conn.provider,
+          exchange: effectiveProvider,
           wallet_type: b.walletType ?? null,
           asset: b.ticker,
           quantity: b.quantity,
@@ -1292,9 +1301,9 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
           quantity: b.quantity,
           current_value: brlValue,
           asset_type: "crypto",
-          broker: conn.provider,
+          broker: effectiveProvider,
           source: "aggregator",
-          provider: conn.provider,
+          provider: effectiveProvider,
           connection_id: connectionId,
           last_sync: now,
         };
