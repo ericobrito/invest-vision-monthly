@@ -132,6 +132,7 @@ export default function PosicoesVariaveis() {
 
   // Connect dialog
   const [connectOpen, setConnectOpen] = useState(false);
+  const [openFinanceConnecting, setOpenFinanceConnecting] = useState(false);
   const [provider, setProvider] = useState<Provider>("binance");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -191,7 +192,7 @@ export default function PosicoesVariaveis() {
   };
 
   const handleOpenFinanceConnect = async () => {
-    setBusy("connect_open_finance" as any);
+    setOpenFinanceConnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke("variable-assets", {
         body: { action: "create_connect_token" },
@@ -263,7 +264,7 @@ export default function PosicoesVariaveis() {
         variant: "destructive",
       });
     } finally {
-      setBusy(null);
+      setOpenFinanceConnecting(false);
     }
   };
 
@@ -384,9 +385,9 @@ export default function PosicoesVariaveis() {
               size="sm"
               variant="outline"
               onClick={handleOpenFinanceConnect}
-              disabled={busy === "connect_open_finance"}
+              disabled={openFinanceConnecting}
             >
-              {busy === "connect_open_finance" ? (
+              {openFinanceConnecting ? (
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
               ) : (
                 <Network className="w-4 h-4 mr-1" />
