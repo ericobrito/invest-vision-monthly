@@ -70,8 +70,8 @@ const InvestmentEditDialog = ({
       setName(investment.name);
       setInstitution(investment.institution ?? "");
       setMode(investment.mode || "CONSOLIDATED");
-      setValue(String(investment.value));
-      setApplied(investment.applied != null ? String(investment.applied) : "");
+      setValue(String(investment.valueBRL ?? investment.value));
+      setApplied(investment.appliedBRL != null ? String(investment.appliedBRL) : (investment.applied != null ? String(investment.applied) : ""));
       setYearStarted(investment.yearStarted ?? "");
       setIncomeType(investment.incomeType || "fixed");
       setRegion(investment.region || "brazil");

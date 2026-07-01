@@ -101,8 +101,8 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
       setInvestments(
         snapshot.investments.map((inv) => ({
           name: inv.name,
-          value: String(inv.value),
-          applied: inv.applied != null ? String(inv.applied) : "",
+          value: String(inv.valueBRL ?? inv.value),
+          applied: inv.appliedBRL != null ? String(inv.appliedBRL) : (inv.applied != null ? String(inv.applied) : ""),
           totalReturn: inv.totalReturn != null ? String(inv.totalReturn) : "",
           annualReturn: inv.annualReturn != null ? String(inv.annualReturn) : "",
           yearStarted: inv.yearStarted ?? "",
@@ -140,8 +140,8 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
     setInvestments(
       previousSnapshot.investments.map((inv) => ({
         name: inv.name,
-        value: String(inv.value),
-        applied: inv.applied != null ? String(inv.applied) : "",
+        value: String(inv.valueBRL ?? inv.value),
+        applied: inv.appliedBRL != null ? String(inv.appliedBRL) : (inv.applied != null ? String(inv.applied) : ""),
         totalReturn: "",
         annualReturn: "",
         yearStarted: inv.yearStarted ?? "",
