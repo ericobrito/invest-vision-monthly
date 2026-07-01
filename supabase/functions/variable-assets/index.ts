@@ -1545,23 +1545,38 @@ async function handle(body: Action) {
         return { connectToken: "mock-sandbox-connect-token-12345" };
       }
 
-      const authRes = await fetch("https://api.pluggy.ai/connect_token", {
+      // Step 1: Authenticate with Pluggy to get a session apiKey
+      const authRes = await fetch("https://api.pluggy.ai/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, clientSecret }),
+      });
+
+      if (!authRes.ok) {
+        throw new Error(`Pluggy Auth failed with status ${authRes.status}`);
+      }
+
+      const { apiKey } = await authRes.json();
+
+      // Step 2: Request the connect token using the session apiKey
+      const tokenRes = await fetch("https://api.pluggy.ai/connect_token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": apiKey,
+        },
         body: JSON.stringify({
-          clientId,
-          clientSecret,
           options: {
             clientUserId: "user-invest-vision",
           },
         }),
       });
 
-      if (!authRes.ok) {
-        throw new Error(`Failed to generate Pluggy connect token: ${authRes.status}`);
+      if (!tokenRes.ok) {
+        throw new Error(`Failed to generate Pluggy connect token: ${tokenRes.status}`);
       }
 
-      const data = await authRes.json();
+      const data = await tokenRes.json();
       return { connectToken: data.accessToken };
     }
   }
