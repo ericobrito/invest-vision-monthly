@@ -253,6 +253,15 @@ export interface SnapshotFormData {
     incomeType: IncomeType;
     region: Region;
     flags?: { includeInVariablePositions?: boolean };
+    mode?: InvestmentMode;
+    valueMode?: string;
+    connectionId?: string;
+    linkedAsset?: { provider: string; symbol: string };
+    quantity?: number;
+    averagePrice?: number;
+    currentPrice?: number;
+    investedAmount?: number;
+    lastPriceAt?: string;
   }[];
 }
 
@@ -346,6 +355,16 @@ export function useSaveSnapshot() {
                 region: inv.region,
                 include_in_variable_positions: inv.flags?.includeInVariablePositions === true,
                 sort_order: i,
+                connection_id: inv.connectionId ?? null,
+                mode: inv.mode ?? 'CONSOLIDATED',
+                value_mode: inv.valueMode ?? 'MANUAL',
+                linked_provider: inv.linkedAsset?.provider ?? null,
+                linked_symbol: inv.linkedAsset?.symbol ?? null,
+                quantity: inv.quantity ?? null,
+                average_price: inv.averagePrice ?? null,
+                current_price: inv.currentPrice ?? null,
+                invested_amount: inv.investedAmount ?? null,
+                last_price_at: inv.lastPriceAt ?? null,
               }))
             )
             .throwOnError();
@@ -386,6 +405,16 @@ export function useSaveSnapshot() {
                 region: inv.region,
                 include_in_variable_positions: inv.flags?.includeInVariablePositions === true,
                 sort_order: i,
+                connection_id: inv.connectionId ?? null,
+                mode: inv.mode ?? 'CONSOLIDATED',
+                value_mode: inv.value_mode ?? 'MANUAL',
+                linked_provider: inv.linkedAsset?.provider ?? null,
+                linked_symbol: inv.linkedAsset?.symbol ?? null,
+                quantity: inv.quantity ?? null,
+                average_price: inv.averagePrice ?? null,
+                current_price: inv.currentPrice ?? null,
+                invested_amount: inv.investedAmount ?? null,
+                last_price_at: inv.lastPriceAt ?? null,
               }))
             )
             .throwOnError();

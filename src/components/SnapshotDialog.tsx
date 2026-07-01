@@ -38,6 +38,16 @@ interface InvestmentRow {
   yearStarted: string;
   incomeType: IncomeType;
   region: Region;
+  mode?: any;
+  valueMode?: string;
+  connectionId?: string;
+  linkedAsset?: { provider: string; symbol: string };
+  quantity?: number;
+  averagePrice?: number;
+  currentPrice?: number;
+  investedAmount?: number;
+  lastPriceAt?: string;
+  flags?: { includeInVariablePositions?: boolean };
 }
 
 interface SnapshotDialogProps {
@@ -79,6 +89,16 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           yearStarted: inv.yearStarted ?? "",
           incomeType: inv.incomeType || 'fixed',
           region: inv.region || 'brazil',
+          mode: inv.mode,
+          valueMode: inv.valueMode,
+          connectionId: inv.connectionId,
+          linkedAsset: inv.linkedAsset,
+          quantity: inv.quantity,
+          averagePrice: inv.averagePrice,
+          currentPrice: inv.currentPrice,
+          investedAmount: inv.investedAmount,
+          lastPriceAt: inv.lastPriceAt,
+          flags: inv.flags,
         }))
       );
       setCopiedFromPrev(false);
@@ -106,6 +126,16 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
         yearStarted: inv.yearStarted ?? "",
         incomeType: inv.incomeType || 'fixed',
         region: inv.region || 'brazil',
+        mode: inv.mode,
+        valueMode: inv.valueMode,
+        connectionId: inv.connectionId,
+        linkedAsset: inv.linkedAsset,
+        quantity: inv.quantity,
+        averagePrice: inv.averagePrice,
+        currentPrice: inv.currentPrice,
+        investedAmount: inv.investedAmount,
+        lastPriceAt: inv.lastPriceAt,
+        flags: inv.flags,
       }))
     );
     setCopiedFromPrev(true);
@@ -145,6 +175,16 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           yearStarted: inv.yearStarted || undefined,
           incomeType: inv.incomeType,
           region: inv.region,
+          mode: inv.mode,
+          valueMode: inv.valueMode,
+          connectionId: inv.connectionId,
+          linkedAsset: inv.linkedAsset,
+          quantity: inv.quantity,
+          averagePrice: inv.averagePrice,
+          currentPrice: inv.currentPrice,
+          investedAmount: inv.investedAmount,
+          lastPriceAt: inv.lastPriceAt,
+          flags: inv.flags,
         };
       });
     const total = invData.reduce((s, i) => s + i.value, 0);
