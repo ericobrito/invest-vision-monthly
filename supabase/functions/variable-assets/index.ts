@@ -1586,11 +1586,27 @@ async function handle(body: Action) {
       const { data, error } = await admin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true
+        email_confirm: true,
       });
-      if (error) throw error;
+      if (error) {
+        const msg = (error as { message?: string }).message ?? String(error);
+        if (/already/i.test(msg) || /registered/i.test(msg)) {
+          // Idempotent: find existing user, ensure confirmed, update password
+          const { data: list } = await admin.auth.admin.listUsers();
+          const existing = list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+          if (existing) {
+            await admin.auth.admin.updateUserById(existing.id, {
+              password,
+              email_confirm: true,
+            });
+            return { user: existing, existed: true };
+          }
+        }
+        throw error;
+      }
       return { user: data.user };
     }
+
   }
 }
 
