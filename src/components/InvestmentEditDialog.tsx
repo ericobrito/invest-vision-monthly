@@ -80,6 +80,17 @@ const InvestmentEditDialog = ({
     })();
   }, [open]);
 
+  const getConnectionDisplayLabel = (c: { provider: string; label?: string }) => {
+    const isPluggy = c.provider === "mercado_bitcoin" && (
+      String(c.label || "").toLowerCase().includes("open finance") ||
+      String(c.label || "").toLowerCase().includes("nubank") ||
+      String(c.label || "").toLowerCase().includes("banco") ||
+      String(c.label || "").toLowerCase().includes("pluggy")
+    );
+    const providerLabel = isPluggy ? "Open Finance" : c.provider.toUpperCase();
+    return `${providerLabel}${c.label ? ` — ${c.label}` : ""}`;
+  };
+
   const computed = useMemo(() => {
     let v = Number(value) || 0;
     let a = applied ? Number(applied) : undefined;
@@ -192,7 +203,7 @@ const InvestmentEditDialog = ({
                     {connections.length === 0 && <SelectItem value="__none" disabled>Nenhuma conexão ativa</SelectItem>}
                     {connections.map(c => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.provider.toUpperCase()}{c.label ? ` — ${c.label}` : ""}
+                        {getConnectionDisplayLabel(c)}
                       </SelectItem>
                     ))}
                   </SelectContent>

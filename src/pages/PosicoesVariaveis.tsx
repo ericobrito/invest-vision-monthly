@@ -55,6 +55,17 @@ const providerLabels: Record<Provider, string> = {
   pluggy: "Open Finance (Bancos)",
 };
 
+const getConnectionProviderLabel = (provider: Provider, label: string | null) => {
+  const isPluggy = provider === "mercado_bitcoin" && (
+    String(label || "").toLowerCase().includes("open finance") ||
+    String(label || "").toLowerCase().includes("nubank") ||
+    String(label || "").toLowerCase().includes("banco") ||
+    String(label || "").toLowerCase().includes("pluggy")
+  );
+  if (isPluggy) return "Open Finance";
+  return providerLabels[provider];
+};
+
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -583,7 +594,7 @@ export default function PosicoesVariaveis() {
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{providerLabels[c.provider]}</span>
+                      <span className="font-medium">{getConnectionProviderLabel(c.provider, c.label)}</span>
                       {c.label && <span className="text-xs text-muted-foreground">· {c.label}</span>}
                       <Badge
                         className={
