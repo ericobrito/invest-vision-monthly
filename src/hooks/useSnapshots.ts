@@ -321,14 +321,65 @@ export function computeDerivedFields(
 }
 
 export async function recalculateAllSnapshotVariations() {
-  const { data: snapshots, error } = await supabase
+  // 1. Fetch all monthly snapshots sorted by month
+  const { data: snapshots, error: snapErr } = await supabase
     .from("monthly_snapshots")
     .select("id, month, total")
     .order("month", { ascending: true });
-  if (error) throw error;
+  if (snapErr) throw snapErr;
   if (!snapshots || snapshots.length === 0) return;
 
-  const sorted = [...snapshots].sort((a, b) => a.month.localeCompare(b.month));
+  // 2. Fetch all investments of all snapshots
+  const { data: allInvs, error: invsErr } = await supabase
+    .from("investments")
+    .select("*");
+  if (invsErr) throw invsErr;
+
+  // 3. Fetch FX rates
+  const fxRates = await fetchFxRatesToBRL();
+
+  // 4. Group investments by snapshot_id
+  const invsBySnapshot = new Map<string, any[]>();
+  for (const inv of (allInvs || [])) {
+    const list = invBySnapshot.get(inv.snapshot_id) || [];
+    list.push(inv);
+    invBySnapshot.set(inv.snapshot_id, list);
+  }
+
+  // 5. Update BRL-normalized totals for each snapshot
+  const updatedSnapshots = [];
+  for (const snap of snapshots) {
+    const invs = invsBySnapshot.get(snap.id) || [];
+    
+    // Convert to BRL and sum
+    const totalBRL = invs.reduce((sum, inv) => {
+      const rate = getFxRate(inv.currency, fxRates);
+      return sum + (Number(inv.value) || 0) * rate;
+    }, 0);
+
+    const fixedBrl = invs.filter(i => i.income_type === 'fixed').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
+    const variableBrl = invs.filter(i => i.income_type === 'variable').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
+    const brazilBrl = invs.filter(i => i.region === 'brazil').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
+    const exteriorBrl = invs.filter(i => i.region === 'exterior').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
+
+    const fixedIncome = totalBRL > 0 ? Number(((fixedBrl / totalBRL) * 100).toFixed(2)) : null;
+    const variableIncome = totalBRL > 0 ? Number(((variableBrl / totalBRL) * 100).toFixed(2)) : null;
+    const brazil = totalBRL > 0 ? Number(((brazilBrl / totalBRL) * 100).toFixed(2)) : null;
+    const exterior = totalBRL > 0 ? Number(((exteriorBrl / totalBRL) * 100).toFixed(2)) : null;
+
+    updatedSnapshots.push({
+      id: snap.id,
+      month: snap.month,
+      total: totalBRL,
+      fixedIncome,
+      variableIncome,
+      brazil,
+      exterior,
+    });
+  }
+
+  // 6. Chronologically sort and compute variations
+  const sorted = [...updatedSnapshots].sort((a, b) => a.month.localeCompare(b.month));
   const jan2024 = sorted.find(s => s.month === '2024-01');
 
   for (let i = 0; i < sorted.length; i++) {
@@ -347,12 +398,18 @@ export async function recalculateAllSnapshotVariations() {
       growth2025 = Number((current.total - jan2024.total).toFixed(2));
     }
 
+    // Save correct total, class ratios, and variations to DB!
     await supabase
       .from("monthly_snapshots")
       .update({
+        total: current.total,
         change_value: changeValue,
         change_percentage: changePercentage,
         growth_2025: growth2025,
+        fixed_income: current.fixedIncome,
+        variable_income: current.variableIncome,
+        brazil: current.brazil,
+        exterior: current.exterior,
       })
       .eq("id", current.id);
   }
