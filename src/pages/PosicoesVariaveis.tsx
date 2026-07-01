@@ -144,6 +144,10 @@ export default function PosicoesVariaveis() {
   // Connect dialog
   const [connectOpen, setConnectOpen] = useState(false);
   const [openFinanceConnecting, setOpenFinanceConnecting] = useState(false);
+  const [openFinanceDialogOpen, setOpenFinanceDialogOpen] = useState(false);
+  const [mockMode, setMockMode] = useState(false);
+  const [pluggyClientId, setPluggyClientId] = useState("");
+  const [pluggyClientSecret, setPluggyClientSecret] = useState("");
   const [provider, setProvider] = useState<Provider>("binance");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -202,22 +206,24 @@ export default function PosicoesVariaveis() {
     });
   };
 
-  const handleOpenFinanceConnect = async () => {
+  const handleOpenFinanceConnect = async (isMock: boolean, clientId?: string, clientSecret?: string) => {
     setOpenFinanceConnecting(true);
     try {
       let token = "";
-      try {
+      if (!isMock) {
+        // Fetch real connect token using user credentials
         const { data, error } = await supabase.functions.invoke("variable-assets", {
-          body: { action: "create_connect_token" },
+          body: {
+            action: "create_connect_token",
+            client_id: clientId,
+            client_secret: clientSecret
+          },
         });
-        if (!error && data?.success && data?.connectToken) {
-          token = data.connectToken;
+        if (error || !data?.success || !data?.connectToken) {
+          throw new Error(error?.message || data?.error || "Falha ao gerar Connect Token na Pluggy");
         }
-      } catch (e) {
-        console.warn("Backend connect token failed/not deployed, falling back to mock", e);
-      }
-
-      if (!token) {
+        token = data.connectToken;
+      } else {
         token = "mock-sandbox-connect-token-12345";
       }
 
@@ -249,11 +255,13 @@ export default function PosicoesVariaveis() {
         onSuccess: async (itemData: any) => {
           toast({ title: "Autenticado com sucesso!", description: "Salvando conexão..." });
           try {
+            // Save the connect item ID, secret, and client ID
             await connect({
               provider: "mercado_bitcoin",
               label: `${itemData.item.connector?.name || "Banco"} (Open Finance)`,
               api_key: itemData.item.id,
-              api_secret: "dummy",
+              api_secret: clientSecret || "dummy",
+              passphrase: clientId || undefined,
             });
             toast({ title: "Banco conectado com sucesso!" });
             pluggyConnect.close();
@@ -400,19 +408,86 @@ export default function PosicoesVariaveis() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleOpenFinanceConnect}
-              disabled={openFinanceConnecting}
-            >
-              {openFinanceConnecting ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              ) : (
-                <Network className="w-4 h-4 mr-1" />
-              )}
-              Conectar Banco
-            </Button>
+            <Dialog open={openFinanceDialogOpen} onOpenChange={setOpenFinanceDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={openFinanceConnecting}>
+                  {openFinanceConnecting ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <Network className="w-4 h-4 mr-1" />
+                  )}
+                  Conectar Banco
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Conectar Banco via Open Finance</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Insira suas credenciais da API da Pluggy (Client ID e Client Secret) para iniciar uma conexão real com seu banco.
+                    Se não possuir credenciais, ative o Modo de Demonstração.
+                  </p>
+                  
+                  <div className="flex items-center space-x-2 rounded-md border p-3 bg-muted/20">
+                    <input
+                      type="checkbox"
+                      id="mock-mode"
+                      checked={mockMode}
+                      onChange={(e) => setMockMode(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary bg-background"
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <label htmlFor="mock-mode" className="text-sm font-medium leading-none cursor-pointer">
+                        Modo de Demonstração (Mock/Sandbox)
+                      </label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Simula a conexão sem usar credenciais de produção da Pluggy.
+                      </p>
+                    </div>
+                  </div>
+
+                  {!mockMode && (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="pluggy-client-id">Pluggy Client ID</Label>
+                        <Input
+                          id="pluggy-client-id"
+                          value={pluggyClientId}
+                          onChange={(e) => setPluggyClientId(e.target.value)}
+                          placeholder="Cole seu Client ID da Pluggy"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pluggy-client-secret">Pluggy Client Secret</Label>
+                        <Input
+                          id="pluggy-client-secret"
+                          type="password"
+                          value={pluggyClientSecret}
+                          onChange={(e) => setPluggyClientSecret(e.target.value)}
+                          placeholder="Cole seu Client Secret da Pluggy"
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        Suas credenciais serão salvas localmente para realizar as sincronizações futuras.
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={() => {
+                      setOpenFinanceDialogOpen(false);
+                      handleOpenFinanceConnect(mockMode, pluggyClientId, pluggyClientSecret);
+                    }}
+                    disabled={openFinanceConnecting || (!mockMode && (!pluggyClientId || !pluggyClientSecret))}
+                  >
+                    {openFinanceConnecting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                    Iniciar Conexão
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">

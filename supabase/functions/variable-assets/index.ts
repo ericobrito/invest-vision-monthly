@@ -883,9 +883,9 @@ async function fetchMercadoBitcoin(
     .filter((b: NormalizedBalance) => b.quantity > 0);
 }
 
-async function fetchPluggy(itemId: string): Promise<NormalizedBalance[]> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+async function fetchPluggy(itemId: string, customClientId?: string | null, customClientSecret?: string | null): Promise<NormalizedBalance[]> {
+  const clientId = customClientId || Deno.env.get("PLUGGY_CLIENT_ID");
+  const clientSecret = customClientSecret || Deno.env.get("PLUGGY_CLIENT_SECRET");
 
   if (!clientId || !clientSecret) {
     console.log("[fetchPluggy] Credentials missing. Running in Mock Sandbox mode.");
@@ -1176,7 +1176,7 @@ type Action =
   | { action: "remove_position"; id: string }
   | { action: "get_audit_runs"; limit?: number }
   | { action: "get_audit_run"; run_id: string }
-  | { action: "create_connect_token" };
+  | { action: "create_connect_token"; client_id?: string; client_secret?: string };
 
 async function syncConnection(connectionId: string, expectedTotal?: number) {
   const { data: conn, error: cErr } = await admin
@@ -1214,7 +1214,7 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
           cred.api_key, cred.api_secret, cred.passphrase ?? "",
         );
       } else if (effectiveProvider === "pluggy") {
-        balances = await fetchPluggy(cred.api_key);
+        balances = await fetchPluggy(cred.api_key, cred.passphrase, cred.api_secret);
       } else {
         balances = await (adapter as typeof fetchBinance)(cred.api_key, cred.api_secret);
       }
@@ -1537,8 +1537,8 @@ async function handle(body: Action) {
       };
     }
     case "create_connect_token": {
-      const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-      const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+      const clientId = body.client_id || Deno.env.get("PLUGGY_CLIENT_ID");
+      const clientSecret = body.client_secret || Deno.env.get("PLUGGY_CLIENT_SECRET");
 
       if (!clientId || !clientSecret) {
         console.log("[create_connect_token] Credentials missing. Returning mock connect token.");
