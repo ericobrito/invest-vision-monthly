@@ -30,24 +30,48 @@ export default function Login({ onSessionActive }: LoginProps) {
     setLoading(true);
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (error) throw error;
-        
-        // If auto-confirm is enabled or if session is active
-        if (data.session) {
+        try {
+          const { data: createData, error: createErr } = await supabase.functions.invoke("variable-assets", {
+            body: {
+              action: "create_admin_user",
+              email,
+              password,
+            },
+          });
+          if (createErr || !createData?.success) {
+            throw new Error(createErr?.message || createData?.error || "Failed admin creation");
+          }
+          const { error: loginErr } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (loginErr) throw loginErr;
+          
           toast({
             title: "Conta criada com sucesso!",
             description: "Você foi conectado automaticamente.",
           });
           onSessionActive();
-        } else {
-          toast({
-            title: "Verifique seu e-mail",
-            description: "Enviamos um link de confirmação para o seu e-mail.",
+        } catch (adminErr) {
+          console.warn("Admin signup bypassed, trying standard signup:", adminErr);
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
           });
+          if (error) throw error;
+          
+          if (data.session) {
+            toast({
+              title: "Conta criada com sucesso!",
+              description: "Você foi conectado automaticamente.",
+            });
+            onSessionActive();
+          } else {
+            toast({
+              title: "Verifique seu e-mail",
+              description: "Enviamos um link de confirmação para o seu e-mail.",
+            });
+          }
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({

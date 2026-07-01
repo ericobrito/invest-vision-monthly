@@ -1176,7 +1176,8 @@ type Action =
   | { action: "remove_position"; id: string }
   | { action: "get_audit_runs"; limit?: number }
   | { action: "get_audit_run"; run_id: string }
-  | { action: "create_connect_token"; client_id?: string; client_secret?: string };
+  | { action: "create_connect_token"; client_id?: string; client_secret?: string }
+  | { action: "create_admin_user"; email: string; password: string };
 
 async function syncConnection(connectionId: string, expectedTotal?: number) {
   const { data: conn, error: cErr } = await admin
@@ -1578,6 +1579,17 @@ async function handle(body: Action) {
 
       const data = await tokenRes.json();
       return { connectToken: data.accessToken };
+    }
+    case "create_admin_user": {
+      const { email, password } = body;
+      if (!email || !password) throw new Error("Email and password required");
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true
+      });
+      if (error) throw error;
+      return { user: data.user };
     }
   }
 }
