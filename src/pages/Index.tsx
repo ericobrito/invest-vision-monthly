@@ -10,6 +10,7 @@ import InvestmentTable from "@/components/InvestmentTable";
 import AllocationChart from "@/components/AllocationChart";
 import EvolutionChart from "@/components/EvolutionChart";
 import AssetEvolutionChart from "@/components/AssetEvolutionChart";
+import ContributionEvolutionChart from "@/components/ContributionEvolutionChart";
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
@@ -293,6 +294,8 @@ const Index = () => {
                     <AllocationChart snapshot={snapshot} />
                   </div>
                 </div>
+
+                <ContributionEvolutionChart snapshots={monthlyData} />
 
                 <AssetEvolutionChart snapshots={monthlyData} />
 
