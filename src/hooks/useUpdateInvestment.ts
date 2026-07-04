@@ -201,4 +201,6 @@ export function useUpdateInvestment() {
       qc.invalidateQueries({ queryKey: ["snapshots"] });
     },
   });
+}
+
 
