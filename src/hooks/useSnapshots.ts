@@ -359,9 +359,9 @@ export async function recalculateAllSnapshotVariations() {
   // 4. Group investments by snapshot_id
   const invsBySnapshot = new Map<string, any[]>();
   for (const inv of (allInvs || [])) {
-    const list = invBySnapshot.get(inv.snapshot_id) || [];
+    const list = invsBySnapshot.get(inv.snapshot_id) || [];
     list.push(inv);
-    invBySnapshot.set(inv.snapshot_id, list);
+    invsBySnapshot.set(inv.snapshot_id, list);
   }
 
   // 5. Update BRL-normalized totals for each snapshot
