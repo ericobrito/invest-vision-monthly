@@ -672,7 +672,7 @@ export async function propagateConnectionValues(connectionId: string) {
     let valueToSave = totalBrl;
     const { data: invRow } = await supabase
       .from("investments")
-      .select("name, region, currency")
+      .select("name, region, currency, value")
       .eq("connection_id", connectionId)
       .eq("snapshot_id", latestSnap.id)
       .maybeSingle();
@@ -689,6 +689,30 @@ export async function propagateConnectionValues(connectionId: string) {
         const fxRates = await fetchFxRatesToBRL();
         const rate = fxRates["USD"] || 5.60;
         valueToSave = totalBrl * rate;
+      }
+    }
+
+    // Fallback to previous month value if connection returned no data/zero
+    if ((!positions || positions.length === 0 || totalBrl === 0) && latestSnap && invRow) {
+      const { data: prevSnap } = await supabase
+        .from("monthly_snapshots")
+        .select("id")
+        .lt("month", latestSnap.month)
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (prevSnap) {
+        const { data: prevInv } = await supabase
+          .from("investments")
+          .select("value")
+          .eq("snapshot_id", prevSnap.id)
+          .eq("name", invRow.name)
+          .maybeSingle();
+        if (prevInv && Number(prevInv.value) > 0) {
+          console.log(`[propagate] Connection empty/failed. Restoring previous month value for ${invRow.name}: ${prevInv.value}`);
+          valueToSave = Number(prevInv.value);
+        }
       }
     }
 

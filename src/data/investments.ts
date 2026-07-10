@@ -140,11 +140,13 @@ export function resolveInvestmentTotals(
       valueBRL += cv * rate;
       appliedBRL += ap * rate;
     }
+    const finalApplied = appliedNative > 0 ? appliedNative : inv.applied;
+    const finalAppliedBRL = appliedBRL > 0 ? appliedBRL : (inv.applied != null ? Number(inv.applied) * rateFor(inv.currency, fxRates) : undefined);
     return {
       value: valueNative,
-      applied: appliedNative > 0 ? appliedNative : undefined,
+      applied: finalApplied,
       valueBRL,
-      appliedBRL: appliedBRL > 0 ? appliedBRL : undefined,
+      appliedBRL: finalAppliedBRL,
     };
   }
 

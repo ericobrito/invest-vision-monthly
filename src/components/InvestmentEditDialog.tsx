@@ -197,24 +197,30 @@ const InvestmentEditDialog = ({
           )}
 
           {mode === "CONNECTED" && (
-            <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-3">
-              <div>
-                <Label>Conexão</Label>
-                <Select value={connectionId} onValueChange={setConnectionId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione uma conexão ativa" /></SelectTrigger>
-                  <SelectContent>
-                    {connections.length === 0 && <SelectItem value="__none" disabled>Nenhuma conexão ativa</SelectItem>}
-                    {connections.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {getConnectionDisplayLabel(c)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-3">
+                <div>
+                  <Label>Conexão</Label>
+                  <Select value={connectionId} onValueChange={setConnectionId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione uma conexão ativa" /></SelectTrigger>
+                    <SelectContent>
+                      {connections.length === 0 && <SelectItem value="__none" disabled>Nenhuma conexão ativa</SelectItem>}
+                      {connections.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {getConnectionDisplayLabel(c)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Os valores serão atualizados automaticamente a partir da sincronização. Gerencie conexões na página de Posições Variáveis.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Os valores serão atualizados automaticamente a partir da sincronização. Gerencie conexões na página de Posições Variáveis.
-              </p>
+              <div>
+                <Label>Valor Aplicado (R$)</Label>
+                <Input type="number" step="0.01" value={applied} onChange={(e) => setApplied(e.target.value)} />
+              </div>
             </div>
           )}
 
