@@ -764,20 +764,8 @@ export async function propagateConnectionValues(connectionId: string) {
       .eq("snapshot_id", latestSnap.id)
       .maybeSingle();
 
-    if (invRow) {
-      const isUSD = 
-        invRow.currency === "USD" || 
-        invRow.region === "exterior" || 
-        invRow.name.toLowerCase().includes("avenue") ||
-        invRow.name.toLowerCase().includes("dólar") ||
-        invRow.name.toLowerCase().includes("dolar");
-
-      if (isUSD) {
-        const fxRates = await fetchFxRatesToBRL();
-        const rate = fxRates["USD"] || 5.60;
-        valueToSave = totalBrl * rate;
-      }
-    }
+    // va_positions values are already converted to BRL by the edge function / sync client.
+    // No additional conversion is needed.
 
     // Fallback to previous month value if connection returned no data/zero
     if ((!positions || positions.length === 0 || totalBrl === 0) && latestSnap && invRow) {
