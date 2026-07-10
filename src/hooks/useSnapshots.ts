@@ -438,6 +438,82 @@ export function useSaveSnapshot() {
 
   return useMutation({
     mutationFn: async ({ data, existingMonth }: { data: SnapshotFormData; existingMonth?: string }) => {
+      // 1. Fetch previous month's snapshot and its investments and positions
+      const { data: prevSnap } = await supabase
+        .from("monthly_snapshots")
+        .select("id")
+        .lt("month", data.month)
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let prevInvestments: any[] = [];
+      let prevPositions: any[] = [];
+
+      if (prevSnap) {
+        const [{ data: invs }, { data: pos }] = await Promise.all([
+          supabase.from("investments").select("*").eq("snapshot_id", prevSnap.id),
+          supabase.from("investment_positions").select("*")
+        ]);
+        if (invs) prevInvestments = invs;
+        if (pos) {
+          const prevInvIds = new Set(prevInvestments.map(i => i.id));
+          prevPositions = pos.filter(p => prevInvIds.has(p.investment_id));
+        }
+      }
+
+      // Helper to merge current investment with previous month's configuration
+      const mergeWithPrevious = (inv: any) => {
+        const prevInv = prevInvestments.find(p => p.name === inv.name);
+        if (!prevInv) return inv;
+
+        let positions = inv.positions;
+        if (
+          (!positions || positions.length === 0) &&
+          (inv.mode === 'DETAILED' || prevInv.mode === 'DETAILED')
+        ) {
+          const matchPos = prevPositions.filter(p => p.investment_id === prevInv.id);
+          if (matchPos && matchPos.length > 0) {
+            positions = matchPos.map(p => ({
+              symbol: p.symbol,
+              name: p.name ?? undefined,
+              quantity: Number(p.quantity),
+              averagePrice: Number(p.average_price),
+              currentPrice: Number(p.current_price),
+              appliedAmount: Number(p.applied_amount),
+              currentValue: Number(p.current_value),
+              currency: p.currency || 'BRL',
+              currentValueBRL: p.current_value_brl != null ? Number(p.current_value_brl) : undefined,
+              appliedAmountBRL: p.applied_amount_brl != null ? Number(p.applied_amount_brl) : undefined,
+              fxRate: p.fx_rate != null ? Number(p.fx_rate) : undefined,
+              fxRateAt: p.fx_rate_at ?? undefined,
+              provider: p.provider ?? undefined,
+              lastPriceAt: p.last_price_at ?? undefined,
+            }));
+          }
+        }
+
+        return {
+          ...inv,
+          connectionId: inv.connectionId || prevInv.connection_id || undefined,
+          mode: inv.mode && inv.mode !== 'CONSOLIDATED' ? inv.mode : (prevInv.mode || 'CONSOLIDATED'),
+          valueMode: inv.valueMode || prevInv.value_mode || undefined,
+          applied: inv.applied != null && inv.applied > 0 ? inv.applied : (prevInv.applied != null ? Number(prevInv.applied) : undefined),
+          yearStarted: inv.yearStarted || prevInv.year_started || undefined,
+          flags: inv.flags || (prevInv.include_in_variable_positions != null ? { includeInVariablePositions: prevInv.include_in_variable_positions } : undefined),
+          currency: inv.currency || prevInv.currency || 'BRL',
+          linkedAsset: inv.linkedAsset || (prevInv.linked_provider && prevInv.linked_symbol ? { provider: prevInv.linked_provider, symbol: prevInv.linked_symbol } : undefined),
+          quantity: inv.quantity != null ? inv.quantity : (prevInv.quantity != null ? Number(prevInv.quantity) : undefined),
+          averagePrice: inv.averagePrice != null ? inv.averagePrice : (prevInv.average_price != null ? Number(prevInv.average_price) : undefined),
+          currentPrice: inv.currentPrice != null ? inv.currentPrice : (prevInv.current_price != null ? Number(prevInv.current_price) : undefined),
+          investedAmount: inv.investedAmount != null ? inv.investedAmount : (prevInv.invested_amount != null ? Number(prevInv.invested_amount) : undefined),
+          lastPriceAt: inv.lastPriceAt || prevInv.last_price_at || undefined,
+          positions,
+        };
+      };
+
+      const mergedInvs = data.investments.map(mergeWithPrevious);
+
       if (existingMonth) {
         const { data: existing } = await supabase
           .from("monthly_snapshots")
@@ -465,11 +541,11 @@ export function useSaveSnapshot() {
 
         await supabase.from("investments").delete().eq("snapshot_id", existing.id).throwOnError();
 
-        if (data.investments.length > 0) {
+        if (mergedInvs.length > 0) {
           const { data: insertedInvs, error: insErr } = await supabase
             .from("investments")
             .insert(
-              data.investments.map((inv, i) => ({
+              mergedInvs.map((inv, i) => ({
                 snapshot_id: existing.id,
                 name: inv.name,
                 value: inv.value,
@@ -500,7 +576,7 @@ export function useSaveSnapshot() {
 
           // Insert detailed positions for any investments that have them!
           const positionsToInsert: any[] = [];
-          for (const inv of data.investments) {
+          for (const inv of mergedInvs) {
             if (inv.positions && inv.positions.length > 0) {
               const matchedDbInv = insertedInvs?.find((dbInv) => dbInv.name === inv.name);
               if (matchedDbInv) {
@@ -552,11 +628,11 @@ export function useSaveSnapshot() {
           .single();
         if (error) throw error;
 
-        if (data.investments.length > 0) {
+        if (mergedInvs.length > 0) {
           const { data: insertedInvs, error: insErr } = await supabase
             .from("investments")
             .insert(
-              data.investments.map((inv, i) => ({
+              mergedInvs.map((inv, i) => ({
                 snapshot_id: snap.id,
                 name: inv.name,
                 value: inv.value,
@@ -587,7 +663,7 @@ export function useSaveSnapshot() {
 
           // Insert detailed positions for any investments that have them!
           const positionsToInsert: any[] = [];
-          for (const inv of data.investments) {
+          for (const inv of mergedInvs) {
             if (inv.positions && inv.positions.length > 0) {
               const matchedDbInv = insertedInvs?.find((dbInv) => dbInv.name === inv.name);
               if (matchedDbInv) {
