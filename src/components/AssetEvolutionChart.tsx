@@ -328,9 +328,10 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
                 type="monotone"
                 dataKey="__cdi"
                 name="CDI"
-                stroke="hsl(215, 12%, 65%)"
-                strokeWidth={1.5}
-                strokeDasharray="6 4"
+                stroke="hsl(var(--foreground))"
+                strokeWidth={3}
+                strokeDasharray="8 5"
+                strokeOpacity={0.8}
                 dot={false}
                 isAnimationActive={false}
               />
