@@ -53,6 +53,19 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     return inv.totalReturn;
   };
 
+  const displayedAnnualReturn = (inv: Investment): number | undefined => {
+    const currentValue = brlValueOf(inv);
+    const appliedValue = brlAppliedOf(inv);
+    if (inv.yearStarted && appliedValue && appliedValue > 0 && currentValue > 0) {
+      const start = new Date(inv.yearStarted);
+      const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      if (years > 0) {
+        return (Math.pow(currentValue / appliedValue, 1 / years) - 1) * 100;
+      }
+    }
+    return inv.annualReturn;
+  };
+
   // Single-source-of-truth BRL value for each row (from PortfolioCalculationService).
   const brlValueOf = (inv: Investment): number => {
     const m = metricsByName.get(inv.name);
@@ -130,7 +143,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
         case "percentage": va = a.percentage; vb = b.percentage; break;
         case "applied": va = brlAppliedOf(a) ?? 0; vb = brlAppliedOf(b) ?? 0; break;
         case "totalReturn": va = displayedTotalReturn(a) ?? -Infinity; vb = displayedTotalReturn(b) ?? -Infinity; break;
-        case "annualReturn": va = a.annualReturn ?? -Infinity; vb = b.annualReturn ?? -Infinity; break;
+        case "annualReturn": va = displayedAnnualReturn(a) ?? -Infinity; vb = displayedAnnualReturn(b) ?? -Infinity; break;
         default: va = a.percentage; vb = b.percentage;
       }
       return sortDir === "desc" ? vb - va : va - vb;
@@ -292,15 +305,18 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                     })()}
                   </>
                 )}
-                {hasAnnualReturn && (
-                  <td className={`text-right p-4 font-mono ${
-                    inv.annualReturn !== undefined
-                      ? inv.annualReturn >= 0 ? "text-positive" : "text-negative"
-                      : "text-muted-foreground"
-                  }`}>
-                    {inv.annualReturn !== undefined ? `${inv.annualReturn >= 0 ? "+" : ""}${inv.annualReturn.toFixed(2)}%` : "—"}
-                  </td>
-                )}
+                {hasAnnualReturn && (() => {
+                  const ar = displayedAnnualReturn(inv);
+                  return (
+                    <td className={`text-right p-4 font-mono ${
+                      ar !== undefined
+                        ? ar >= 0 ? "text-positive" : "text-negative"
+                        : "text-muted-foreground"
+                    }`}>
+                      {ar !== undefined ? `${ar >= 0 ? "+" : ""}${ar.toFixed(2)}%` : "—"}
+                    </td>
+                  );
+                })()}
                 {showActions && (
                   <td className="p-4 whitespace-nowrap text-right">
                     <div className="inline-flex items-center gap-1">
