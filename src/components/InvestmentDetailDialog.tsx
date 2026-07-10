@@ -133,6 +133,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                             )}
                           </td>
                           <td className="text-right p-2 font-mono">{fmtNum(p.quantity, 6)}</td>
+                          <td className="text-right p-2 font-mono">{fmtNum(p.averagePrice)}</td>
                           <td className="text-right p-2 font-mono">{fmtNum(p.currentPrice)}</td>
                           <td className="text-right p-2 font-mono">{nativeLabel}</td>
                           <td className="text-right p-2 font-mono">{formatBRL(valBRL)}</td>
