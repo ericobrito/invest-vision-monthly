@@ -95,10 +95,11 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
               <p className="text-xs font-semibold text-muted-foreground mb-2">Posições</p>
               <div className="rounded-lg border border-border overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead>
+                    <thead>
                     <tr className="border-b border-border text-muted-foreground bg-muted/30">
                       <th className="text-left p-2 font-medium">Ativo</th>
                       <th className="text-right p-2 font-medium">Qtd</th>
+                      <th className="text-right p-2 font-medium">Preço médio</th>
                       <th className="text-right p-2 font-medium">Preço atual</th>
                       <th className="text-right p-2 font-medium">Valor (nativo)</th>
                       <th className="text-right p-2 font-medium">Valor (BRL)</th>
@@ -132,6 +133,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                             )}
                           </td>
                           <td className="text-right p-2 font-mono">{fmtNum(p.quantity, 6)}</td>
+                          <td className="text-right p-2 font-mono">{fmtNum(p.averagePrice)}</td>
                           <td className="text-right p-2 font-mono">{fmtNum(p.currentPrice)}</td>
                           <td className="text-right p-2 font-mono">{nativeLabel}</td>
                           <td className="text-right p-2 font-mono">{formatBRL(valBRL)}</td>
