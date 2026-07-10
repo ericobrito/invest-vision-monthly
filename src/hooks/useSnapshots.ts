@@ -438,21 +438,32 @@ export function useSaveSnapshot() {
 
   return useMutation({
     mutationFn: async ({ data, existingMonth }: { data: SnapshotFormData; existingMonth?: string }) => {
-      // 1. Fetch previous month's snapshot and its investments and positions
-      const { data: prevSnap } = await supabase
-        .from("monthly_snapshots")
-        .select("id")
-        .lt("month", data.month)
-        .order("month", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // 1. Fetch reference snapshot (current snapshot if editing existing month, or previous month's snapshot if creating new month)
+      let refSnapId: string | null = null;
+      if (existingMonth) {
+        const { data: existing } = await supabase
+          .from("monthly_snapshots")
+          .select("id")
+          .eq("month", existingMonth)
+          .single();
+        if (existing) refSnapId = existing.id;
+      } else {
+        const { data: prevSnap } = await supabase
+          .from("monthly_snapshots")
+          .select("id")
+          .lt("month", data.month)
+          .order("month", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (prevSnap) refSnapId = prevSnap.id;
+      }
 
       let prevInvestments: any[] = [];
       let prevPositions: any[] = [];
 
-      if (prevSnap) {
+      if (refSnapId) {
         const [{ data: invs }, { data: pos }] = await Promise.all([
-          supabase.from("investments").select("*").eq("snapshot_id", prevSnap.id),
+          supabase.from("investments").select("*").eq("snapshot_id", refSnapId),
           supabase.from("investment_positions").select("*")
         ]);
         if (invs) prevInvestments = invs;
