@@ -14,7 +14,8 @@ type Provider =
   | "coinbase"
   | "kraken"
   | "mercado_bitcoin"
-  | "pluggy";
+  | "pluggy"
+  | "investment_bloom";
 
 interface NormalizedBalance {
   ticker: string;
@@ -1442,7 +1443,7 @@ async function handle(body: Action) {
     }
     case "connect": {
       const { provider, label, api_key, api_secret, passphrase } = body;
-      if (!["binance","bybit","coinbase","kraken","mercado_bitcoin","pluggy"].includes(provider)) {
+      if (!["binance","bybit","coinbase","kraken","mercado_bitcoin","pluggy","investment_bloom"].includes(provider)) {
         throw new Error("Unsupported provider");
       }
       if (!api_key || !api_secret) throw new Error("Missing credentials");

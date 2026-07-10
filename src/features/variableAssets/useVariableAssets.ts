@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Connection, Position, Provider } from "./types";
 import { propagateConnectionValues } from "@/hooks/useSnapshots";
+import { createClient } from "@supabase/supabase-js";
 
 interface ListResponse {
   success: boolean;
@@ -203,6 +204,89 @@ export function useVariableAssets() {
     }
   };
 
+  const runClientSideInvestmentBloomSync = async (connectionId: string): Promise<boolean> => {
+    try {
+      const { data: cred } = await supabase
+        .from("va_credentials")
+        .select("api_key, api_secret")
+        .eq("connection_id", connectionId)
+        .maybeSingle();
+
+      if (!cred || !cred.api_key || !cred.api_secret) {
+        console.warn("Client-side sync missing credentials for Investment Bloom connection");
+        return false;
+      }
+
+      const bloomUrl = cred.api_key;
+      const bloomAnonKey = cred.api_secret;
+
+      console.log("Starting client-side sync for Investment Bloom:", bloomUrl);
+
+      const bloomClient = createClient(bloomUrl, bloomAnonKey);
+
+      // Fetch the latest snapshot
+      const { data: latestSnap, error: snapErr } = await bloomClient
+        .from("monthly_snapshots")
+        .select("id")
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (snapErr) throw snapErr;
+      if (!latestSnap) {
+        console.warn("No snapshots found in Investment Bloom");
+        await supabase.from("va_positions").delete().eq("connection_id", connectionId);
+        return true;
+      }
+
+      // Fetch investments
+      const { data: investments, error: invErr } = await bloomClient
+        .from("investments")
+        .select("id, name, value, applied, income_type, region")
+        .eq("snapshot_id", latestSnap.id);
+
+      if (invErr) throw invErr;
+
+      const now = new Date().toISOString();
+      const mappedPositions = (investments || []).map((inv) => ({
+        ticker: inv.name,
+        quantity: 1,
+        current_value: Number(inv.value),
+        asset_type: inv.income_type === "variable" ? "equity" : "crypto",
+        broker: "Investment Bloom",
+        source: "aggregator",
+        provider: "investment_bloom",
+        connection_id: connectionId,
+        external_id: inv.id,
+        last_sync: now,
+      }));
+
+      // Update local database positions
+      await supabase.from("va_positions").delete().eq("connection_id", connectionId);
+      if (mappedPositions.length > 0) {
+        const { error: insErr } = await supabase.from("va_positions").insert(mappedPositions);
+        if (insErr) throw insErr;
+      }
+
+      // Update connection status
+      await supabase.from("va_connections").update({
+        status: "active",
+        last_error: null,
+        last_sync: now,
+      }).eq("id", connectionId);
+
+      console.log("Investment Bloom sync completed successfully!");
+      return true;
+    } catch (err) {
+      console.error("Investment Bloom sync failed:", err);
+      await supabase.from("va_connections").update({
+        status: "error",
+        last_error: err instanceof Error ? err.message : String(err),
+      }).eq("id", connectionId);
+      return false;
+    }
+  };
+
   const sync = useCallback(
     async (connection_id: string) => {
       setBusy("sync");
@@ -214,6 +298,7 @@ export function useVariableAssets() {
           String(conn.label || "").toLowerCase().includes("banco") ||
           String(conn.label || "").toLowerCase().includes("pluggy")
         );
+        const isInvestmentBloom = conn && conn.provider === "investment_bloom";
 
         if (isPluggy) {
           const syncedReal = await runClientSidePluggySync(connection_id);
@@ -255,6 +340,8 @@ export function useVariableAssets() {
               last_sync: now,
             }).eq("id", connection_id);
           }
+        } else if (isInvestmentBloom) {
+          await runClientSideInvestmentBloomSync(connection_id);
         } else {
           await call({ action: "sync", connection_id });
         }
@@ -321,6 +408,8 @@ export function useVariableAssets() {
                 last_sync: now,
               }).eq("id", conn.id);
             }
+          } else if (conn.provider === "investment_bloom") {
+            await runClientSideInvestmentBloomSync(conn.id);
           } else {
             try {
               await call({ action: "sync", connection_id: conn.id });

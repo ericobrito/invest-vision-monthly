@@ -20,6 +20,8 @@ import { Wallet, Layers, Zap } from "lucide-react";
 import type { Investment, IncomeType, Region, InvestmentMode, Position } from "@/data/investments";
 import { supabase } from "@/integrations/supabase/client";
 import PositionsEditor from "@/components/PositionsEditor";
+import { useVariableAssets } from "@/features/variableAssets/useVariableAssets";
+import type { Provider } from "@/features/variableAssets/types";
 
 interface InvestmentEditDialogProps {
   open: boolean;
@@ -53,8 +55,15 @@ const InvestmentEditDialog = ({
   const [includeInVariable, setIncludeInVariable] = useState(false);
   const [positions, setPositions] = useState<Position[]>([]);
   const [connectionId, setConnectionId] = useState<string>("");
-  const [connections, setConnections] = useState<{ id: string; provider: string; label?: string }[]>([]);
+  const { connections, sync } = useVariableAssets();
   const [currency, setCurrency] = useState("BRL");
+
+  const [showConnectForm, setShowConnectForm] = useState(false);
+  const [newConnProvider, setNewConnProvider] = useState<Provider>("investment_bloom");
+  const [newConnLabel, setNewConnLabel] = useState("");
+  const [newConnKey, setNewConnKey] = useState("");
+  const [newConnSecret, setNewConnSecret] = useState("");
+  const [isConnectingNew, setIsConnectingNew] = useState(false);
 
   useEffect(() => {
     if (investment) {
@@ -72,15 +81,6 @@ const InvestmentEditDialog = ({
       setCurrency(investment.currency || "BRL");
     }
   }, [investment, open]);
-
-  // Load connections for CONNECTED mode
-  useEffect(() => {
-    if (!open) return;
-    (async () => {
-      const { data } = await supabase.from("va_connections").select("id, provider, label").eq("status", "active");
-      if (data) setConnections(data as any);
-    })();
-  }, [open]);
 
   const getConnectionDisplayLabel = (c: { provider: string; label?: string }) => {
     const isPluggy = c.provider === "mercado_bitcoin" && (
@@ -198,9 +198,121 @@ const InvestmentEditDialog = ({
 
           {mode === "CONNECTED" && (
             <div className="space-y-3">
-              <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-3">
-                <div>
-                  <Label>Conexão</Label>
+              {showConnectForm ? (
+                <div className="rounded-lg border border-primary/30 p-3 bg-primary/5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-primary">Nova Conexão</span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowConnectForm(false)} className="h-7 text-xs">
+                      Voltar para seleção
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Provedor</Label>
+                      <Select value={newConnProvider} onValueChange={(v) => setNewConnProvider(v as Provider)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="investment_bloom">Investment Bloom</SelectItem>
+                          <SelectItem value="binance">Binance</SelectItem>
+                          <SelectItem value="bybit">Bybit</SelectItem>
+                          <SelectItem value="coinbase">Coinbase</SelectItem>
+                          <SelectItem value="kraken">Kraken</SelectItem>
+                          <SelectItem value="mercado_bitcoin">Mercado Bitcoin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Rótulo / Nome</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        value={newConnLabel}
+                        onChange={(e) => setNewConnLabel(e.target.value)}
+                        placeholder="Ex: Minha carteira"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">
+                        {newConnProvider === "investment_bloom" ? "Supabase URL" : newConnProvider === "coinbase" ? "Key Name" : "API Key"}
+                      </Label>
+                      <Input
+                        className="h-8 text-xs"
+                        value={newConnKey}
+                        onChange={(e) => setNewConnKey(e.target.value)}
+                        placeholder={newConnProvider === "investment_bloom" ? "https://..." : ""}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">
+                        {newConnProvider === "investment_bloom" ? "Supabase Anon Key" : newConnProvider === "coinbase" ? "EC Private Key" : "API Secret"}
+                      </Label>
+                      <Input
+                        className="h-8 text-xs"
+                        type="password"
+                        value={newConnSecret}
+                        onChange={(e) => setNewConnSecret(e.target.value)}
+                        placeholder={newConnProvider === "investment_bloom" ? "eyJhbGci..." : ""}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full text-xs animate-fade-in"
+                    onClick={async () => {
+                      if (!newConnKey || !newConnSecret) {
+                        alert("URL/Chave e Anon Key/Secret são obrigatórias");
+                        return;
+                      }
+                      setIsConnectingNew(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("variable-assets", {
+                          body: {
+                            action: "connect",
+                            provider: newConnProvider,
+                            label: newConnLabel || undefined,
+                            api_key: newConnKey,
+                            api_secret: newConnSecret
+                          }
+                        });
+                        if (error || !data?.success) throw new Error(error?.message || data?.error || "Falha na conexão");
+                        
+                        const connId = data.connection_id;
+                        
+                        // Execute client-side sync immediately
+                        await sync(connId);
+                        
+                        // Select this connection automatically
+                        setConnectionId(connId);
+                        setShowConnectForm(false);
+                        
+                        // Reset form fields
+                        setNewConnLabel("");
+                        setNewConnKey("");
+                        setNewConnSecret("");
+                      } catch (err) {
+                        alert("Falha ao conectar: " + (err instanceof Error ? err.message : String(err)));
+                      } finally {
+                        setIsConnectingNew(false);
+                      }
+                    }}
+                    disabled={isConnectingNew}
+                  >
+                    {isConnectingNew ? "Conectando e sincronizando..." : "Conectar e Importar Ativos"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border p-3 bg-muted/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Conexão</Label>
+                    <Button type="button" variant="link" size="sm" onClick={() => setShowConnectForm(true)} className="h-auto p-0 text-xs text-primary">
+                      + Conectar nova conta / projeto
+                    </Button>
+                  </div>
                   <Select value={connectionId} onValueChange={setConnectionId}>
                     <SelectTrigger><SelectValue placeholder="Selecione uma conexão ativa" /></SelectTrigger>
                     <SelectContent>
@@ -212,11 +324,11 @@ const InvestmentEditDialog = ({
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Os valores serão atualizados automaticamente a partir da sincronização.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Os valores serão atualizados automaticamente a partir da sincronização. Gerencie conexões na página de Posições Variáveis.
-                </p>
-              </div>
+              )}
               <div>
                 <Label>Valor Aplicado (R$)</Label>
                 <Input type="number" step="0.01" value={applied} onChange={(e) => setApplied(e.target.value)} />

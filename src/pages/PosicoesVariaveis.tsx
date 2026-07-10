@@ -53,6 +53,7 @@ const providerLabels: Record<Provider, string> = {
   kraken: "Kraken",
   mercado_bitcoin: "Mercado Bitcoin",
   pluggy: "Open Finance (Bancos)",
+  investment_bloom: "Investment Bloom",
 };
 
 const getConnectionProviderLabel = (provider: Provider, label: string | null) => {
@@ -548,7 +549,11 @@ export default function PosicoesVariaveis() {
                   </div>
                   <div>
                     <Label>
-                      {provider === "coinbase" ? "Key Name" : "API Key"}
+                      {provider === "coinbase"
+                        ? "Key Name"
+                        : provider === "investment_bloom"
+                          ? "Supabase URL"
+                          : "API Key"}
                     </Label>
                     <Input
                       value={apiKey}
@@ -557,7 +562,9 @@ export default function PosicoesVariaveis() {
                       placeholder={
                         provider === "coinbase"
                           ? "organizations/{org_id}/apiKeys/{key_id}"
-                          : ""
+                          : provider === "investment_bloom"
+                            ? "https://your-project.supabase.co"
+                            : ""
                       }
                     />
                   </div>
@@ -565,7 +572,9 @@ export default function PosicoesVariaveis() {
                     <Label>
                       {provider === "coinbase"
                         ? "EC Private Key (PEM)"
-                        : "API Secret"}
+                        : provider === "investment_bloom"
+                          ? "Supabase Anon Key"
+                          : "API Secret"}
                     </Label>
                     {provider === "coinbase" ? (
                       <textarea
@@ -582,11 +591,16 @@ export default function PosicoesVariaveis() {
                         value={apiSecret}
                         onChange={(e) => setApiSecret(e.target.value)}
                         autoComplete="off"
+                        placeholder={provider === "investment_bloom" ? "eyJhbGciOi..." : ""}
                       />
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Use apenas chaves <strong>somente leitura</strong>. As credenciais ficam armazenadas no backend.
+                    {provider === "investment_bloom" ? (
+                      <>Insira a URL e a Anon Key do Supabase do seu projeto Investment Bloom para importar seus dados.</>
+                    ) : (
+                      <>Use apenas chaves <strong>somente leitura</strong>. As credenciais ficam armazenadas no backend.</>
+                    )}
                     {provider === "coinbase" && (
                       <> Coinbase usa autenticação JWT (ES256): cole o Key Name como identificador e a EC Private Key em formato PEM.</>
                     )}

@@ -9,7 +9,8 @@ export type Provider =
   | "coinbase"
   | "kraken"
   | "mercado_bitcoin"
-  | "pluggy";
+  | "pluggy"
+  | "investment_bloom";
 
 export type PositionSource = "manual" | "aggregator";
 
