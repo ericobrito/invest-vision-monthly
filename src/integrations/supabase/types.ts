@@ -22,6 +22,7 @@ export type Database = {
           run_id: string
           stage: string
           timestamp: string
+          user_id: string
         }
         Insert: {
           data?: Json | null
@@ -30,6 +31,7 @@ export type Database = {
           run_id: string
           stage: string
           timestamp?: string
+          user_id?: string
         }
         Update: {
           data?: Json | null
@@ -38,6 +40,7 @@ export type Database = {
           run_id?: string
           stage?: string
           timestamp?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -68,6 +71,7 @@ export type Database = {
           status: string
           summary: Json | null
           triggered_by: string | null
+          user_id: string
         }
         Insert: {
           anomalies_count?: number
@@ -87,6 +91,7 @@ export type Database = {
           status?: string
           summary?: Json | null
           triggered_by?: string | null
+          user_id?: string
         }
         Update: {
           anomalies_count?: number
@@ -106,6 +111,7 @@ export type Database = {
           status?: string
           summary?: Json | null
           triggered_by?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -130,6 +136,7 @@ export type Database = {
           sort_order: number
           symbol: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           applied_amount?: number
@@ -151,6 +158,7 @@ export type Database = {
           sort_order?: number
           symbol: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           applied_amount?: number
@@ -172,6 +180,7 @@ export type Database = {
           sort_order?: number
           symbol?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -208,6 +217,7 @@ export type Database = {
           snapshot_id: string
           sort_order: number
           total_return: number | null
+          user_id: string
           value: number
           value_mode: string
           year_started: string | null
@@ -236,6 +246,7 @@ export type Database = {
           snapshot_id: string
           sort_order?: number
           total_return?: number | null
+          user_id?: string
           value?: number
           value_mode?: string
           year_started?: string | null
@@ -264,6 +275,7 @@ export type Database = {
           snapshot_id?: string
           sort_order?: number
           total_return?: number | null
+          user_id?: string
           value?: number
           value_mode?: string
           year_started?: string | null
@@ -299,6 +311,7 @@ export type Database = {
           month: string
           total: number
           updated_at: string
+          user_id: string
           variable_income: number | null
         }
         Insert: {
@@ -314,6 +327,7 @@ export type Database = {
           month: string
           total?: number
           updated_at?: string
+          user_id?: string
           variable_income?: number | null
         }
         Update: {
@@ -329,6 +343,7 @@ export type Database = {
           month?: string
           total?: number
           updated_at?: string
+          user_id?: string
           variable_income?: number | null
         }
         Relationships: []
@@ -346,6 +361,7 @@ export type Database = {
           source_field: string | null
           usd_to_brl: number | null
           usd_value: number | null
+          user_id: string
           wallet_type: string | null
           wallets: Json | null
         }
@@ -361,6 +377,7 @@ export type Database = {
           source_field?: string | null
           usd_to_brl?: number | null
           usd_value?: number | null
+          user_id?: string
           wallet_type?: string | null
           wallets?: Json | null
         }
@@ -376,6 +393,7 @@ export type Database = {
           source_field?: string | null
           usd_to_brl?: number | null
           usd_value?: number | null
+          user_id?: string
           wallet_type?: string | null
           wallets?: Json | null
         }
@@ -399,6 +417,7 @@ export type Database = {
           provider: string
           status: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -409,6 +428,7 @@ export type Database = {
           provider: string
           status?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -419,6 +439,7 @@ export type Database = {
           provider?: string
           status?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -430,6 +451,7 @@ export type Database = {
           created_at: string
           passphrase: string | null
           updated_at: string
+          user_id: string
         }
         Insert: {
           api_key: string
@@ -438,6 +460,7 @@ export type Database = {
           created_at?: string
           passphrase?: string | null
           updated_at?: string
+          user_id?: string
         }
         Update: {
           api_key?: string
@@ -446,6 +469,7 @@ export type Database = {
           created_at?: string
           passphrase?: string | null
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -472,6 +496,7 @@ export type Database = {
           source: string
           ticker: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           asset_type?: string
@@ -487,6 +512,7 @@ export type Database = {
           source: string
           ticker: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           asset_type?: string
@@ -502,6 +528,7 @@ export type Database = {
           source?: string
           ticker?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
