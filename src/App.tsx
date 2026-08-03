@@ -19,8 +19,8 @@ import Login from "./pages/Login";
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [session, setSession] = useState<any>({ user: { id: 'e52bc405-6d70-42e3-8360-5e06ff0d4c66' } });
-  const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const safetyTimeout = setTimeout(() => {
