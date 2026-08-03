@@ -290,17 +290,25 @@ const Index = () => {
               />
             </div>
 
-            {snapshot && (
-              <div className="text-[11px] text-muted-foreground/80 flex flex-wrap gap-x-4 justify-end mt-1 px-1">
-                <span>Ref. de Fechamento: {getLastDayOfMonth(snapshot.month)}</span>
-                {snapshot.createdAt && (
-                  <span>Salvo no sistema em: {new Date(snapshot.createdAt).toLocaleString("pt-BR")}</span>
-                )}
-                {snapshot.updatedAt && snapshot.updatedAt !== snapshot.createdAt && (
-                  <span>Última atualização: {new Date(snapshot.updatedAt).toLocaleString("pt-BR")}</span>
-                )}
-              </div>
-            )}
+            {snapshot && (() => {
+              const latestSnap = monthlyData[monthlyData.length - 1];
+              const isPastMonth = snapshot.month < (latestSnap?.month || "");
+              return (
+                <div className="text-[11px] text-muted-foreground/80 flex flex-wrap gap-x-4 justify-end mt-1 px-1">
+                  {snapshot.createdAt && (
+                    <span>Criado no sistema em: {new Date(snapshot.createdAt).toLocaleString("pt-BR")}</span>
+                  )}
+                  {isPastMonth ? (
+                    <span>Cotação de Fechamento: {getLastDayOfMonth(snapshot.month)}</span>
+                  ) : (
+                    <span>
+                      Última Atualização da Cotação:{" "}
+                      {snapshot.updatedAt ? new Date(snapshot.updatedAt).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR")}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             {snapshot && (
               <>
