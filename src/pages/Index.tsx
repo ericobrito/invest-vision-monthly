@@ -265,6 +265,58 @@ const Index = () => {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {(() => {
+          const jul = monthlyData.find(s => s.month === "2026-07");
+          const ago = monthlyData.find(s => s.month === "2026-08");
+          if (!jul || !ago) return null;
+
+          const julInvs = jul.investments;
+          const agoInvs = ago.investments;
+
+          // Group investments by name and find differences
+          const allNames = Array.from(new Set([...julInvs.map(i => i.name), ...agoInvs.map(i => i.name)]));
+          const diffTable = allNames.map(name => {
+            const jVal = julInvs.find(i => i.name === name)?.valueBRL ?? 0;
+            const aVal = agoInvs.find(i => i.name === name)?.valueBRL ?? 0;
+            const diff = aVal - jVal;
+            return { name, jVal, aVal, diff };
+          }).filter(row => Math.abs(row.diff) > 0.01);
+
+          if (diffTable.length === 0) return null;
+
+          return (
+            <div className="bg-destructive/10 border border-destructive/30 text-foreground p-4 rounded-lg space-y-3">
+              <h3 className="font-bold text-sm text-red-500">🔍 Debug: Diferenças de Valores entre Jul 2026 e Ago 2026</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-2 pr-4 font-semibold text-muted-foreground">Investimento</th>
+                      <th className="py-2 pr-4 font-semibold text-muted-foreground">Jul 2026 (BRL)</th>
+                      <th className="py-2 pr-4 font-semibold text-muted-foreground">Ago 2026 (BRL)</th>
+                      <th className="py-2 font-semibold text-red-500">Diferença (BRL)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diffTable.map(r => (
+                      <tr key={r.name} className="border-b border-border/50 hover:bg-muted/30">
+                        <td className="py-2 pr-4 font-medium">{r.name}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">R$ {r.jVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">R$ {r.aVal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 font-bold text-red-500">
+                          {r.diff > 0 ? "+" : ""}
+                          R$ {r.diff.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Nota: Esse painel é temporário para investigarmos quais ativos estão mudando de valor após a cópia.</p>
+            </div>
+          );
+        })()}
+
         {monthlyData.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-muted-foreground mb-4">{t("index.empty")}</p>
