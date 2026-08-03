@@ -257,6 +257,24 @@ export function useSnapshots() {
         });
       }
     }
+
+    // 3. Temporary force sync for July 2026 detailed investments to correct their stale database values
+    const julSnap = monthlyData.find(s => s.month === "2026-07");
+    if (julSnap && julSnap.id !== latest.id) {
+      const julDetailedInvs = julSnap.investments.filter(
+        (inv) => inv.mode === "DETAILED"
+      );
+      if (julDetailedInvs.length > 0) {
+        const oldestJulSync = Math.min(...julDetailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
+        const TODAY_MS = new Date("2026-08-03T00:00:00").getTime();
+        if (oldestJulSync < TODAY_MS) {
+          console.log(`[useSnapshots] Temporarily force syncing July 2026 to align database values`);
+          propagateDetailedValues(julSnap.id, julDetailedInvs).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["snapshots"] });
+          });
+        }
+      }
+    }
   }, [monthlyData, queryClient]);
 
   return query;
