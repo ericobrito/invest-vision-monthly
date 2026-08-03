@@ -178,10 +178,14 @@ export function useSnapshots() {
             currentPrice = livePrice;
             currentValue = Number(p.quantity) * livePrice;
           }
-          if (p.currency === "USD" && liveUsdBrl > 0) {
-            fxRate = liveUsdBrl;
-            currentValueBRL = currentValue * liveUsdBrl;
-            appliedAmountBRL = Number(p.applied_amount) * liveUsdBrl;
+          if (p.currency === "USD") {
+            const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
+            fxRate = usdRate;
+            currentValueBRL = currentValue * usdRate;
+            appliedAmountBRL = Number(p.applied_amount) * usdRate;
+          } else {
+            currentValueBRL = currentValue;
+            appliedAmountBRL = Number(p.applied_amount);
           }
         }
 
@@ -206,11 +210,7 @@ export function useSnapshots() {
       }
 
       return snapshots.map((s) => {
-        const isLatest = latestDbSnapshot && s.id === latestDbSnapshot.id;
-        const currentFxRates = isLatest && liveUsdBrl > 0 
-          ? { ...fxRates, USD: liveUsdBrl } 
-          : fxRates;
-        return mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment, currentFxRates);
+        return mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment, fxRates);
       });
     },
   });
