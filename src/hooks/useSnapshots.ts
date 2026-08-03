@@ -220,12 +220,13 @@ export function useSnapshots() {
   useEffect(() => {
     if (!monthlyData || monthlyData.length === 0) return;
     const latest = monthlyData[monthlyData.length - 1];
+    const now = Date.now();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+    // 1. Background sync connected investments
     const connectedInvs = latest.investments.filter(
       (inv) => inv.mode === "CONNECTED" && inv.connectionId
     );
-
-    const now = Date.now();
-    const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
     connectedInvs.forEach(async (inv) => {
       const lastSync = inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0;
@@ -242,6 +243,20 @@ export function useSnapshots() {
         }
       }
     });
+
+    // 2. Background sync detailed investments to persist their live quotes to the database
+    const detailedInvs = latest.investments.filter(
+      (inv) => inv.mode === "DETAILED"
+    );
+    if (detailedInvs.length > 0) {
+      const oldestSync = Math.min(...detailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
+      if (now - oldestSync > FIVE_MINUTES_MS) {
+        console.log(`[useSnapshots] Background syncing detailed investments`);
+        propagateDetailedValues(latest.id, detailedInvs).then(() => {
+          queryClient.invalidateQueries({ queryKey: ["snapshots"] });
+        });
+      }
+    }
   }, [monthlyData, queryClient]);
 
   return query;
@@ -873,5 +888,150 @@ export async function propagateConnectionValues(connectionId: string) {
     console.log(`[propagate] Successfully updated database for connection ${connectionId}: Total=${totalBrl} (Native), BRL Sum=${totalBRLSum}`);
   } catch (e) {
     console.error("[propagate] Error propagating connection values:", e);
+  }
+}
+
+export async function propagateDetailedValues(latestSnapId: string, detailedInvs: any[]) {
+  try {
+    const allSymbols: string[] = [];
+    const positionsByInvId = new Map<string, any[]>();
+
+    // 1. Fetch positions for these investments from DB
+    const invIds = detailedInvs.map(i => i.id);
+    const { data: dbPositions, error: posErr } = await supabase
+      .from("investment_positions")
+      .select("*")
+      .in("investment_id", invIds);
+    if (posErr) throw posErr;
+    if (!dbPositions || dbPositions.length === 0) return;
+
+    for (const p of dbPositions) {
+      if (p.symbol) allSymbols.push(p.symbol.toUpperCase());
+      const list = positionsByInvId.get(p.investment_id) || [];
+      list.push(p);
+      positionsByInvId.set(p.investment_id, list);
+    }
+
+    // 2. Fetch live quotes and USD/BRL rate
+    const [liveQuotes, liveUsdBrl] = await Promise.all([
+      MarketDataService.getMultipleQuotes(allSymbols),
+      MarketDataService.getUsdBrl()
+    ]);
+
+    const nowIso = new Date().toISOString();
+
+    // 3. For each investment, update positions and compute investment BRL total
+    for (const inv of detailedInvs) {
+      const positions = positionsByInvId.get(inv.id) || [];
+      let totalBRL = 0;
+
+      for (const p of positions) {
+        const sym = (p.symbol || "").toUpperCase();
+        let currentPrice = Number(p.current_price);
+        const livePrice = liveQuotes[sym];
+        if (livePrice !== undefined && livePrice > 0) {
+          currentPrice = livePrice;
+        }
+
+        let currentValue = Number(p.quantity) * currentPrice;
+        let currentValueBRL = currentValue;
+        let appliedAmountBRL = Number(p.applied_amount);
+        let fxRate = p.fx_rate != null ? Number(p.fx_rate) : 1;
+        let fxRateAt = p.fx_rate_at;
+
+        if (p.currency === "USD" && liveUsdBrl > 0) {
+          fxRate = liveUsdBrl;
+          fxRateAt = nowIso;
+          currentValueBRL = currentValue * liveUsdBrl;
+          appliedAmountBRL = Number(p.applied_amount) * liveUsdBrl;
+        }
+
+        totalBRL += currentValueBRL;
+
+        // Update position in DB
+        await supabase
+          .from("investment_positions")
+          .update({
+            current_price: currentPrice,
+            current_value: currentValue,
+            current_value_brl: currentValueBRL,
+            applied_amount_brl: appliedAmountBRL,
+            fx_rate: fxRate,
+            fx_rate_at: fxRateAt,
+            last_price_at: nowIso,
+          })
+          .eq("id", p.id);
+      }
+
+      // Update investment total value in BRL
+      await supabase
+        .from("investments")
+        .update({
+          value: totalBRL,
+          currency: "BRL",
+          last_price_at: nowIso,
+        })
+        .eq("id", inv.id);
+    }
+
+    // 4. Recalculate snapshot totals and weights
+    const { data: allInvs, error: allErr } = await supabase
+      .from("investments")
+      .select("*")
+      .eq("snapshot_id", latestSnapId);
+    if (allErr) throw allErr;
+    if (!allInvs) return;
+
+    const fxRates = await fetchFxRatesToBRL();
+    const invsWithBRL = allInvs.map(inv => {
+      const rate = getFxRate(inv.currency, fxRates);
+      return { ...inv, valBRL: Number(inv.value) * rate };
+    });
+
+    const totalBRLSum = invsWithBRL.reduce((s, i) => s + i.valBRL, 0);
+
+    for (const inv of invsWithBRL) {
+      const pct = totalBRLSum > 0 ? Number(((inv.valBRL / totalBRLSum) * 100).toFixed(2)) : 0;
+      await supabase.from("investments").update({ percentage: pct }).eq("id", inv.id);
+    }
+
+    const { data: allSnapshots, error: snapListErr } = await supabase
+      .from("monthly_snapshots")
+      .select("*")
+      .order("month");
+    if (snapListErr) throw snapListErr;
+
+    const invData = invsWithBRL.map(inv => ({
+      name: inv.name,
+      value: Number(inv.value),
+      percentage: 0,
+      applied: inv.applied != null ? Number(inv.applied) : undefined,
+      totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
+      annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
+      yearStarted: inv.year_started ?? undefined,
+      incomeType: (inv.income_type as any) || "fixed",
+      region: (inv.region as any) || "brazil",
+      currency: inv.currency || "BRL",
+    }));
+
+    const derived = computeDerivedFields(invData, allSnapshots as any[], allSnapshots[allSnapshots.length - 1].month);
+
+    await supabase
+      .from("monthly_snapshots")
+      .update({
+        total: derived.total,
+        change_value: derived.changeValue ?? null,
+        change_percentage: derived.changePercentage ?? null,
+        fixed_income: derived.fixedIncome ?? null,
+        variable_income: derived.variableIncome ?? null,
+        brazil: derived.brazil ?? null,
+        exterior: derived.exterior ?? null,
+        growth_2025: derived.growth2025 ?? null,
+      })
+      .eq("id", latestSnapId);
+
+    await recalculateAllSnapshotVariations();
+  } catch (e) {
+    console.error("[propagateDetailedValues] Error propagating detailed values:", e);
   }
 }
