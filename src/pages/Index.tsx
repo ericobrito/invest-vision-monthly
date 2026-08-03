@@ -312,7 +312,53 @@ const Index = () => {
                   </tbody>
                 </table>
               </div>
-              <p className="text-[10px] text-muted-foreground">Nota: Esse painel é temporário para investigarmos quais ativos estão mudando de valor após a cópia.</p>
+
+              {(() => {
+                const julAvenue = julInvs.find(i => i.name === "Avenue - Dólar");
+                const agoAvenue = agoInvs.find(i => i.name === "Avenue - Dólar");
+                const julPos = julAvenue?.positions || [];
+                const agoPos = agoAvenue?.positions || [];
+
+                return (
+                  <div className="mt-4 pt-4 border-t border-border space-y-2">
+                    <h4 className="font-bold text-xs text-primary">Detalhamento de Posições (Avenue - Dólar)</h4>
+                    <div className="grid md:grid-cols-2 gap-4 text-xs">
+                      <div className="bg-background/40 p-3 rounded border border-border">
+                        <h5 className="font-semibold text-muted-foreground mb-2">Julho 2026 ({julPos.length} posições):</h5>
+                        <ul className="space-y-1 divide-y divide-border/30 max-h-60 overflow-y-auto">
+                          {julPos.length === 0 ? <li className="text-muted-foreground py-1">Nenhuma posição</li> : 
+                            julPos.map((p, idx) => (
+                              <li key={idx} className="py-1 flex justify-between gap-2">
+                                <span className="font-medium">{p.symbol || "CASH"}</span>
+                                <span className="text-muted-foreground">
+                                  qtd: {p.quantity} | preço: {p.currentPrice} | BRL: R$ {p.currentValueBRL?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                </span>
+                              </li>
+                            ))
+                          }
+                        </ul>
+                      </div>
+                      <div className="bg-background/40 p-3 rounded border border-border">
+                        <h5 className="font-semibold text-muted-foreground mb-2">Agosto 2026 ({agoPos.length} posições):</h5>
+                        <ul className="space-y-1 divide-y divide-border/30 max-h-60 overflow-y-auto">
+                          {agoPos.length === 0 ? <li className="text-muted-foreground py-1">Nenhuma posição</li> : 
+                            agoPos.map((p, idx) => (
+                              <li key={idx} className="py-1 flex justify-between gap-2">
+                                <span className="font-medium">{p.symbol || "CASH"}</span>
+                                <span className="text-muted-foreground">
+                                  qtd: {p.quantity} | preço: {p.currentPrice} | BRL: R$ {p.currentValueBRL?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                </span>
+                              </li>
+                            ))
+                          }
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <p className="text-[10px] text-muted-foreground mt-3">Nota: Esse painel é temporário para investigarmos quais ativos estão mudando de valor após a cópia.</p>
             </div>
           );
         })()}
