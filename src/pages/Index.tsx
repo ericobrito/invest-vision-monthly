@@ -51,6 +51,12 @@ const Index = () => {
   const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
   const snapshot = monthlyData[effectiveIndex];
 
+  const getLastDayOfMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split("-").map(Number);
+    const date = new Date(year, month, 0);
+    return date.toLocaleDateString("pt-BR");
+  };
+
   const handleSave = (data: SnapshotFormData, existingMonth?: string) => {
     saveSnapshot.mutate(
       { data, existingMonth },
@@ -284,10 +290,11 @@ const Index = () => {
               />
             </div>
 
-            {snapshot && (snapshot.createdAt || snapshot.updatedAt) && (
+            {snapshot && (
               <div className="text-[11px] text-muted-foreground/80 flex flex-wrap gap-x-4 justify-end mt-1 px-1">
+                <span>Ref. de Fechamento: {getLastDayOfMonth(snapshot.month)}</span>
                 {snapshot.createdAt && (
-                  <span>Fechado/Criado em: {new Date(snapshot.createdAt).toLocaleString("pt-BR")}</span>
+                  <span>Salvo no sistema em: {new Date(snapshot.createdAt).toLocaleString("pt-BR")}</span>
                 )}
                 {snapshot.updatedAt && snapshot.updatedAt !== snapshot.createdAt && (
                   <span>Última atualização: {new Date(snapshot.updatedAt).toLocaleString("pt-BR")}</span>
