@@ -74,6 +74,8 @@ export interface MonthlySnapshot {
   brazil?: number;
   exterior?: number;
   growth2025?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Internal FX helper (avoid importing the hook to keep this file framework-agnostic). */

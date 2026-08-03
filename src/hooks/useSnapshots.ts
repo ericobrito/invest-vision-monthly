@@ -79,6 +79,8 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
     exterior: row.exterior != null ? Number(row.exterior) : undefined,
     growth2025: row.growth_2025 != null ? Number(row.growth_2025) : undefined,
     investments: mappedInvestments,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 

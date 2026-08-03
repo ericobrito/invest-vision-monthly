@@ -284,6 +284,17 @@ const Index = () => {
               />
             </div>
 
+            {snapshot && (snapshot.createdAt || snapshot.updatedAt) && (
+              <div className="text-[11px] text-muted-foreground/80 flex flex-wrap gap-x-4 justify-end mt-1 px-1">
+                {snapshot.createdAt && (
+                  <span>Fechado/Criado em: {new Date(snapshot.createdAt).toLocaleString("pt-BR")}</span>
+                )}
+                {snapshot.updatedAt && snapshot.updatedAt !== snapshot.createdAt && (
+                  <span>Última atualização: {new Date(snapshot.updatedAt).toLocaleString("pt-BR")}</span>
+                )}
+              </div>
+            )}
+
             {snapshot && (
               <>
                 <SummaryCards snapshot={snapshot} />
