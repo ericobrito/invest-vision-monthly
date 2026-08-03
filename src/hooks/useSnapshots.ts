@@ -266,8 +266,7 @@ export function useSnapshots() {
       );
       if (julDetailedInvs.length > 0) {
         const oldestJulSync = Math.min(...julDetailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
-        const TODAY_MS = new Date("2026-08-03T00:00:00").getTime();
-        if (oldestJulSync < TODAY_MS) {
+        if (now - oldestJulSync > FIVE_MINUTES_MS) {
           console.log(`[useSnapshots] Temporarily force syncing July 2026 to align database values`);
           propagateDetailedValues(julSnap.id, julDetailedInvs).then(() => {
             queryClient.invalidateQueries({ queryKey: ["snapshots"] });
