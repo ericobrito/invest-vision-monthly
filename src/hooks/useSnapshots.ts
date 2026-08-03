@@ -266,7 +266,7 @@ export function useSnapshots() {
       );
       if (julDetailedInvs.length > 0) {
         const oldestJulSync = Math.min(...julDetailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
-        if (now - oldestJulSync > FIVE_MINUTES_MS) {
+        if (now - oldestJulSync > 15 * 1000) {
           console.log(`[useSnapshots] Temporarily force syncing July 2026 to align database values`);
           propagateDetailedValues(julSnap.id, julDetailedInvs).then(() => {
             queryClient.invalidateQueries({ queryKey: ["snapshots"] });
@@ -929,10 +929,11 @@ export async function propagateDetailedValues(latestSnapId: string, detailedInvs
       positionsByInvId.set(p.investment_id, list);
     }
 
-    // 2. Fetch live quotes and USD/BRL rate
-    const [liveQuotes, liveUsdBrl] = await Promise.all([
+    // 2. Fetch live quotes, USD/BRL rate, and global FX rates in parallel
+    const [liveQuotes, liveUsdBrl, fxRates] = await Promise.all([
       MarketDataService.getMultipleQuotes(allSymbols),
-      MarketDataService.getUsdBrl()
+      MarketDataService.getUsdBrl(),
+      fetchFxRatesToBRL()
     ]);
 
     const nowIso = new Date().toISOString();
@@ -956,11 +957,12 @@ export async function propagateDetailedValues(latestSnapId: string, detailedInvs
         let fxRate = p.fx_rate != null ? Number(p.fx_rate) : 1;
         let fxRateAt = p.fx_rate_at;
 
-        if (p.currency === "USD" && liveUsdBrl > 0) {
-          fxRate = liveUsdBrl;
+        if (p.currency === "USD") {
+          const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
+          fxRate = usdRate;
           fxRateAt = nowIso;
-          currentValueBRL = currentValue * liveUsdBrl;
-          appliedAmountBRL = Number(p.applied_amount) * liveUsdBrl;
+          currentValueBRL = currentValue * usdRate;
+          appliedAmountBRL = Number(p.applied_amount) * usdRate;
         }
 
         totalBRL += currentValueBRL;
@@ -999,7 +1001,6 @@ export async function propagateDetailedValues(latestSnapId: string, detailedInvs
     if (allErr) throw allErr;
     if (!allInvs) return;
 
-    const fxRates = await fetchFxRatesToBRL();
     const invsWithBRL = allInvs.map(inv => {
       const rate = getFxRate(inv.currency, fxRates);
       return { ...inv, valBRL: Number(inv.value) * rate };
