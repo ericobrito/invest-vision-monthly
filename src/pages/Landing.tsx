@@ -72,9 +72,8 @@ const Landing = () => {
     }
   ];
 
-  // Video scene timer
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (isPlaying) {
       interval = setInterval(() => {
         setProgress((prev) => {

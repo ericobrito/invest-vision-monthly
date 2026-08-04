@@ -61,11 +61,12 @@ const App = () => {
     );
   }
 
+  const normalizedPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
   const isPublicPath = 
-    window.location.pathname === "/" || 
-    window.location.pathname === "/landing" || 
-    window.location.pathname === "/vendas" || 
-    window.location.pathname === "/login";
+    normalizedPath === "" || 
+    normalizedPath === "/landing" || 
+    normalizedPath === "/vendas" || 
+    normalizedPath === "/login";
 
   if (!session && !isPublicPath) {
     // Force redirect to the public login page to keep browser URL correct
