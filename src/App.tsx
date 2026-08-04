@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
@@ -61,14 +61,16 @@ const App = () => {
     );
   }
 
-  const isPublicPath = window.location.pathname === "/landing" || window.location.pathname === "/vendas";
+  const isPublicPath = 
+    window.location.pathname === "/" || 
+    window.location.pathname === "/landing" || 
+    window.location.pathname === "/vendas" || 
+    window.location.pathname === "/login";
 
   if (!session && !isPublicPath) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <Login onSessionActive={() => {}} />
-      </QueryClientProvider>
-    );
+    // Force redirect to the public login page to keep browser URL correct
+    window.location.href = "/login";
+    return null;
   }
 
   return (
@@ -79,7 +81,8 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={session ? <Index /> : <Landing />} />
+              <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login onSessionActive={() => {}} />} />
               <Route path="/vendas" element={<Landing />} />
               <Route path="/landing" element={<Landing />} />
               <Route path="/radar" element={<RadarAssimetria />} />
