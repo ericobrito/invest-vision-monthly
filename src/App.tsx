@@ -15,6 +15,7 @@ import PosicoesVariaveis from "./pages/PosicoesVariaveis";
 import AdminAuditCenter from "./pages/AdminAuditCenter";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -60,7 +61,9 @@ const App = () => {
     );
   }
 
-  if (!session) {
+  const isPublicPath = window.location.pathname === "/landing" || window.location.pathname === "/vendas";
+
+  if (!session && !isPublicPath) {
     return (
       <QueryClientProvider client={queryClient}>
         <Login onSessionActive={() => {}} />
@@ -77,6 +80,8 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/vendas" element={<Landing />} />
+              <Route path="/landing" element={<Landing />} />
               <Route path="/radar" element={<RadarAssimetria />} />
               <Route path="/radar-tesouro" element={<RadarTesouro />} />
               <Route path="/plano-acao" element={<PlanoAcao />} />
