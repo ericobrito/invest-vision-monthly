@@ -51,23 +51,23 @@ const Landing = () => {
     },
     {
       title: "O Poder da Assimetria",
-      subtitle: "Maximizando Ganhos com Riscos Controlados",
+      subtitle: "Gaps em Relação ao Topo Histórico (ATH)",
       duration: 7,
-      description: "Identifique assimetrias positivas no mercado através de ferramentas visuais avançadas. Encontre ativos subvalorizados onde o potencial de valorização é infinitamente maior do que o risco de queda.",
+      description: "Identifique assimetrias brutais rastreando a distância atual dos ativos em relação ao seu topo histórico (All-Time High). Descubra ações premium, Bitcoin e Ethereum que estão com grandes descontos em relação às suas máximas, garantindo uma relação risco/retorno altamente favorável.",
       mockupType: "assimetria"
     },
     {
       title: "Pivotagem Inteligente",
       subtitle: "Rebalanceamento Preciso e Estratégico",
       duration: 6,
-      description: "Tome decisões rápidas para pivotar seus investimentos. O aplicativo calcula a distância exata da sua alocação ideal e gera um plano de ação automatizado com o valor exato a aportar ou resgatar.",
+      description: "Tome decisões rápidas para pivotar seus investimentos. O aplicativo calcula a distância exata da sua alocação ideal e gera um plano de ação automatizado com o valor exato a aportar ou resgatar baseando-se no desconto dos ativos.",
       mockupType: "pivotagem"
     },
     {
       title: "Indicadores Adotados pelo Mercado",
       subtitle: "Decisões Guiadas por Dados, Não Emoção",
       duration: 7,
-      description: "Monitore taxas reais do Tesouro Direto, prêmios de inflação (IPCA+), taxas de juros (Selic), cotações do dólar e valuations. Proteja seu dinheiro contra a inflação com recomendações baseadas nos principais indicadores de mercado.",
+      description: "Monitore o percentual de queda desde a máxima histórica (Drawdown do Topo), além de múltiplos e indexadores macroeconômicos (Selic, IPCA+). Saiba exatamente se o BTC/ETH e as principais ações estão em zona de acumulação assimétrica ou topo esticado.",
       mockupType: "indicadores"
     }
   ];
@@ -156,11 +156,11 @@ const Landing = () => {
           </div>
           
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white leading-tight">
-            Seu patrimônio global na <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500 bg-clip-text text-transparent">palma da mão</span>. Decisões guiadas por <span className="underline decoration-emerald-400 underline-offset-8">assimetria</span>.
+            Seu patrimônio global na <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500 bg-clip-text text-transparent">palma da mão</span>. Decisões por <span className="underline decoration-emerald-400 underline-offset-8">assimetria histórica</span>.
           </h1>
           
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed">
-            Consolide todos os seus ativos em tempo real, identifique assimetrias de retorno que o mercado não vê e pivote seus investimentos estrategicamente usando indicadores automatizados.
+            Consolide todos os seus ativos e monitore a distância exata das principais ações, do Bitcoin e do Ethereum em relação aos seus topos históricos (ATH) para pivotar nos momentos de máximo desconto.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -334,51 +334,53 @@ const Landing = () => {
 
               {/* Scene 2: Assimetria Mockup */}
               {scenes[currentScene].mockupType === "assimetria" && (
-                <div className="space-y-6 w-full animate-fade-in">
+                <div className="space-y-4 w-full animate-fade-in text-xs">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Radar de Assimetria de Ativos</h4>
-                    <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded">Risk/Reward</span>
+                    <h4 className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Radar de Assimetria (Distância do Topo Histórico)</h4>
+                    <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded">All-Time High (ATH)</span>
                   </div>
 
-                  {/* Simulated Bubble Chart of Asymmetry */}
-                  <div className="h-[180px] bg-slate-950/40 rounded-xl border border-slate-850 p-4 flex flex-col justify-between relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
-                    
-                    <div className="flex justify-between text-[8px] text-slate-600">
-                      <span>ALTO RISCO / BAIXO RETORNO</span>
-                      <span className="text-emerald-400 font-bold">ALTO RETORNO / BAIXO RISCO (ASSIMETRIA POSITIVA)</span>
+                  <div className="space-y-2 bg-slate-950/40 p-4 rounded-xl border border-slate-850">
+                    <div className="grid grid-cols-4 text-[10px] text-slate-500 font-bold border-b border-slate-900 pb-1.5 mb-1.5 font-mono">
+                      <span>Ativo</span>
+                      <span>Preço Atual</span>
+                      <span>Topo Histórico</span>
+                      <span className="text-right">Distância (Desconto)</span>
                     </div>
 
-                    <div className="relative flex-1 flex items-center justify-around">
-                      {/* Bubble 1: Low Asymmetry */}
-                      <div className="w-10 h-10 rounded-full bg-red-500/20 border border-red-500/40 flex flex-col items-center justify-center text-[8px] absolute left-12 bottom-6 animate-pulse">
-                        <span className="font-bold">Ação X</span>
-                        <span>Baixa Ass.</span>
-                      </div>
-
-                      {/* Bubble 2: Target Premium Asymmetric Asset */}
-                      <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500 flex flex-col items-center justify-center text-[10px] text-emerald-300 absolute right-16 top-4 animate-bounce">
-                        <span className="font-extrabold tracking-tight">IPCA + 7.5%</span>
-                        <span className="text-[8px] text-emerald-400 font-medium">Assimetria Máxima</span>
-                      </div>
-
-                      {/* Bubble 3: Fixed Income */}
-                      <div className="w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/45 flex flex-col items-center justify-center text-[9px] absolute left-1/2 bottom-8">
-                        <span className="font-semibold">FIIs</span>
-                        <span>Med. Ass.</span>
-                      </div>
+                    <div className="grid grid-cols-4 py-1 items-center font-mono">
+                      <span className="font-bold text-slate-200 font-sans">BTC (Bitcoin)</span>
+                      <span>$ 59.450</span>
+                      <span className="text-slate-400">$ 73.750</span>
+                      <span className="text-right text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">-19.39% (Assimetria)</span>
                     </div>
 
-                    <div className="flex justify-between text-[8px] text-slate-600 border-t border-slate-900 pt-1">
-                      <span>Risco Inicial Mínimo</span>
-                      <span>Potencial de Ganho Assimétrico</span>
+                    <div className="grid grid-cols-4 py-1 items-center font-mono">
+                      <span className="font-bold text-slate-200 font-sans">ETH (Ethereum)</span>
+                      <span>$ 2.680</span>
+                      <span className="text-slate-400">$ 4.891</span>
+                      <span className="text-right text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">-45.21% (Alta Ass.)</span>
+                    </div>
+
+                    <div className="grid grid-cols-4 py-1 items-center font-mono">
+                      <span className="font-bold text-slate-200 font-sans">TSLA (Tesla)</span>
+                      <span>$ 322,08</span>
+                      <span className="text-slate-400">$ 429,19</span>
+                      <span className="text-right text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">-24.95% (Assimetria)</span>
+                    </div>
+
+                    <div className="grid grid-cols-4 py-1 items-center font-mono">
+                      <span className="font-bold text-slate-200 font-sans">AMD</span>
+                      <span>$ 141,50</span>
+                      <span className="text-slate-400">$ 227,30</span>
+                      <span className="text-right text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">-37.75% (Alta Ass.)</span>
                     </div>
                   </div>
 
                   <div className="bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-lg flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     <p className="text-[11px] text-slate-300">
-                      <strong>Recomendação do Radar:</strong> O título público atrelado ao IPCA fechou com taxa acima do histórico. Momento ideal para alocar e travar ganhos reais acima da inflação.
+                      <strong>Raciocínio Assimétrico:</strong> Comprar ativos líderes (BTC, ETH, e ações premium) com altos descontos em relação ao seu topo histórico oferece um enorme espaço para valorização até a máxima anterior, com menor risco de queda.
                     </p>
                   </div>
                 </div>
@@ -498,17 +500,17 @@ const Landing = () => {
               <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-emerald-400" />
               </div>
-              <h3 className="text-xl font-bold text-white">Assimetria de Retorno</h3>
+              <h3 className="text-xl font-bold text-white">Assimetria de Topo (ATH)</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Pare de seguir a manada. O InvestVision analisa dezenas de títulos públicos e indexadores de inflação em tempo real para apontar exatamente onde você pode travar os maiores juros reais da história com risco baixíssimo.
+                Pare de seguir a manada. O InvestVision mapeia a distância exata em que ações consolidadas e as maiores criptomoedas (Bitcoin/Ethereum) estão de suas máximas históricas para você comprar com desconto e segurança.
               </p>
             </div>
             <ul className="space-y-2 text-xs text-slate-500 border-t border-slate-900/60 pt-4">
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Comparador de prêmio IPCA+
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Rastreamento de ATH de BTC e ETH
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Sinalizador de patamar Selic
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Drawdown de Ações BR/EUA
               </li>
             </ul>
           </div>
@@ -697,7 +699,7 @@ const Landing = () => {
               O que é a "assimetria de retorno" na prática?
             </h4>
             <p className="text-slate-400 text-sm leading-relaxed pl-7">
-              No mercado financeiro, assimetria de retorno ocorre quando a perda máxima potencial de um investimento é muito pequena (ex: título público garantido pelo tesouro), enquanto o ganho potencial é extremamente alto (ex: prêmio real de IPCA elevado ou ações muito baratas em relação ao seu valor intrínseco). O InvestVision mapeia esses ativos automaticamente.
+              Na nossa plataforma, focamos na assimetria em relação ao **topo histórico (ATH)** de ações de alta liquidez e criptoativos líderes (BTC e ETH). Quando um ativo com excelentes fundamentos apresenta uma grande correção (ex: 20% a 50% de queda desde a máxima histórica), o espaço potencial para valorização de volta ao topo histórico é enorme (alta assimetria de retorno), enquanto o risco de queda residual é minimizado. O InvestVision rastreia esses desvios em tempo real.
             </p>
           </div>
 
