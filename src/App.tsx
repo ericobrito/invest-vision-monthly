@@ -13,6 +13,7 @@ import RadarTesouro from "./pages/RadarTesouro";
 import PlanoAcao from "./pages/PlanoAcao";
 import PosicoesVariaveis from "./pages/PosicoesVariaveis";
 import AdminAuditCenter from "./pages/AdminAuditCenter";
+import PassiveIncomeSimulator from "./pages/PassiveIncomeSimulator";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
@@ -91,6 +92,7 @@ const App = () => {
               <Route path="/plano-acao" element={<PlanoAcao />} />
               <Route path="/posicoes-variaveis" element={<PosicoesVariaveis />} />
               <Route path="/admin/audit" element={<AdminAuditCenter />} />
+              <Route path="/simulador-renda" element={<PassiveIncomeSimulator />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
