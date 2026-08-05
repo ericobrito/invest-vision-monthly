@@ -298,8 +298,8 @@ const PassiveIncomeSimulator = () => {
               </p>
               <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
                 {diffMonthlyIncome >= 0 
-                  ? "Excelente! Seu portfólio diversificado está superando o CDI básico, gerando um ganho adicional recorrente pelo risco assumido." 
-                  : "Seu portfólio está com retorno abaixo do CDI de risco zero. Considere rebalancear investimentos de baixa rentabilidade."}
+                  ? "Compensa! Sua carteira está gerando um retorno adicional em relação ao CDI de liquidez diária. Isso compensa o risco e a falta de liquidez dos ativos travados." 
+                  : "Não compensa! Sua carteira está rendendo menos do que o CDI de liquidez diária. Você está assumindo risco e travando liquidez sem receber um prêmio de retorno que justifique."}
               </p>
             </CardContent>
           </Card>
