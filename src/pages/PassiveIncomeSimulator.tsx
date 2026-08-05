@@ -19,7 +19,8 @@ import {
   CheckCircle2, 
   Sparkles,
   Info,
-  DollarSign
+  DollarSign,
+  Scale
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ChartTooltip, Legend } from "recharts";
@@ -29,7 +30,6 @@ const PassiveIncomeSimulator = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [capitalMode, setCapitalMode] = useState<"actual" | "custom">("actual");
   const [customCapital, setCustomCapital] = useState<number>(100000);
-  const [simulatedYields, setSimulatedYields] = useState<Record<string, number>>({});
 
   // Select latest month as default
   useEffect(() => {
@@ -39,33 +39,6 @@ const PassiveIncomeSimulator = () => {
   }, [monthlyData, selectedMonth]);
 
   const snapshot = monthlyData.find((s) => s.month === selectedMonth) || monthlyData[monthlyData.length - 1];
-
-  // Initialize simulated yields when snapshot changes
-  useEffect(() => {
-    if (!snapshot) return;
-    const initialYields: Record<string, number> = {};
-    snapshot.investments.forEach((inv) => {
-      if (inv.annualReturn && inv.annualReturn > 0) {
-        initialYields[inv.name] = inv.annualReturn;
-      } else {
-        // Defaults based on asset naming or type
-        const nameLower = inv.name.toLowerCase();
-        if (
-          inv.incomeType === "fixed" || 
-          nameLower.includes("prev") || 
-          nameLower.includes("reserva") || 
-          nameLower.includes("nubank") ||
-          nameLower.includes("ipca") ||
-          nameLower.includes("allu")
-        ) {
-          initialYields[inv.name] = 12.0; // CDI/Selic reference
-        } else {
-          initialYields[inv.name] = 18.0; // Variable income reference
-        }
-      }
-    });
-    setSimulatedYields(initialYields);
-  }, [snapshot]);
 
   if (isLoading || !snapshot) {
     return (
@@ -77,13 +50,15 @@ const PassiveIncomeSimulator = () => {
 
   const simulatedCapital = capitalMode === "actual" ? (snapshot.total || 0) : customCapital;
   const totalRealWealth = snapshot.total || 1;
+  const CDI_RATE = 10.65; // 100% CDI Nubank
 
-  // Process investments with simulated calculations
+  // Process investments with calculations based on registered annualReturn
   const simulatedInvestments = snapshot.investments.map((inv) => {
     const realValue = inv.valueBRL ?? inv.value;
     const allocationRatio = realValue / totalRealWealth;
     const allocatedCapital = simulatedCapital * allocationRatio;
-    const annualYield = simulatedYields[inv.name] ?? (inv.incomeType === "fixed" ? 12 : 18);
+    // Fallback to 10.65% (CDI) if annualReturn is missing or zero
+    const annualYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
     const monthlyYield = annualYield / 12;
     const monthlyPassiveIncome = allocatedCapital * (monthlyYield / 100);
 
@@ -101,6 +76,10 @@ const PassiveIncomeSimulator = () => {
   const totalMonthlyPassiveIncome = simulatedInvestments.reduce((sum, inv) => sum + inv.monthlyPassiveIncome, 0);
   const weightedAverageMonthlyYield = simulatedCapital > 0 ? (totalMonthlyPassiveIncome / simulatedCapital) * 100 : 0;
   const weightedAverageAnnualYield = weightedAverageMonthlyYield * 12;
+
+  // CDI Risco Zero calculations
+  const riskFreeMonthlyIncome = simulatedCapital * ((CDI_RATE / 12) / 100);
+  const diffMonthlyIncome = totalMonthlyPassiveIncome - riskFreeMonthlyIncome;
 
   // Pie chart data
   const chartData = simulatedInvestments
@@ -121,12 +100,6 @@ const PassiveIncomeSimulator = () => {
     { id: 6, label: "Liberdade Plena / Aposentadoria", value: 15000, desc: "Parabéns! Estilo de vida premium garantido por investimentos. O trabalho agora é 100% opcional.", icon: "✈️" }
   ];
 
-  const handleYieldChange = (name: string, val: number) => {
-    setSimulatedYields((prev) => ({
-      ...prev,
-      [name]: Math.min(100, Math.max(0, val)),
-    }));
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -279,6 +252,59 @@ const PassiveIncomeSimulator = () => {
           </Card>
         </div>
 
+        {/* Risk-Free Comparison Panel */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          <Card className="md:col-span-2 border-border bg-gradient-to-r from-card/30 to-card/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                <Scale className="w-4 h-4 text-primary" />
+                Comparativo de Risco: Carteira vs Risco Zero (100% CDI Nubank)
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Veja quanto seu portfólio gera a mais (ou a menos) em relação ao rendimento estável de 100% do CDI atual de {CDI_RATE}% a.a.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-3 bg-background/50 border border-border rounded-lg flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase">Risco Zero (100% CDI)</p>
+                  <p className="text-lg font-black text-foreground mt-1">
+                    {formatBRL(riskFreeMonthlyIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                  </p>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">Rentabilidade fixa sem volatilidade de {CDI_RATE}% a.a.</p>
+              </div>
+
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] text-primary font-semibold uppercase">Seu Portfólio Projetado</p>
+                  <p className="text-lg font-black text-primary mt-1">
+                    {formatBRL(totalMonthlyPassiveIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                  </p>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">Rentabilidade média ponderada real de {weightedAverageAnnualYield.toFixed(2)}% a.a.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`border-border flex flex-col justify-between ${diffMonthlyIncome >= 0 ? "bg-emerald-500/5 border-emerald-500/30" : "bg-destructive/5 border-destructive/30"}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Prêmio de Risco Mensal</CardTitle>
+              <CardDescription className="text-[10px]">Diferença líquida de rendimento no seu bolso.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col justify-center py-2">
+              <p className={`text-2xl md:text-3xl font-black ${diffMonthlyIncome >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                {diffMonthlyIncome >= 0 ? "+" : ""}{formatBRL(diffMonthlyIncome)}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                {diffMonthlyIncome >= 0 
+                  ? "Excelente! Seu portfólio diversificado está superando o CDI básico, gerando um ganho adicional recorrente pelo risco assumido." 
+                  : "Seu portfólio está com retorno abaixo do CDI de risco zero. Considere rebalancear investimentos de baixa rentabilidade."}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Assets table & Visual chart */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* List & Edit */}
@@ -286,10 +312,10 @@ const PassiveIncomeSimulator = () => {
             <CardHeader className="border-b border-border bg-card/20">
               <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
                 <PiggyBank className="w-4 h-4 text-primary" />
-                Ativos de Portfólio e Ajuste de Rentabilidade
+                Ativos de Portfólio e Rentabilidades Cadastradas
               </CardTitle>
               <CardDescription className="text-xs">
-                Ajuste a taxa de rentabilidade anual (%) simulada para cada ativo. A alocação em R$ e a renda gerada refletirão proporcionalmente.
+                Rendimento baseado nas taxas de rentabilidade real cadastradas em cada ativo no banco de dados. Ativos sem taxa cadastrada usam o CDI ({CDI_RATE}% a.a.) como referência.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -300,7 +326,7 @@ const PassiveIncomeSimulator = () => {
                       <TableHead>Ativo</TableHead>
                       <TableHead className="text-right">Alocação</TableHead>
                       <TableHead className="text-center w-[120px]">Classe/Região</TableHead>
-                      <TableHead className="w-[180px]">Rentabilidade Anual (Simulada)</TableHead>
+                      <TableHead className="text-center w-[150px]">Rentabilidade Anual</TableHead>
                       <TableHead className="text-right">Renda Mensal</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -328,31 +354,8 @@ const PassiveIncomeSimulator = () => {
                             {inv.region === "brazil" ? "BR" : "Int"}
                           </span>
                         </TableCell>
-                        <TableCell className="py-2">
-                          <div className="space-y-1.5">
-                            <div className="flex justify-between items-center gap-1">
-                              <Slider
-                                min={0}
-                                max={50}
-                                step={0.5}
-                                value={[inv.annualYield]}
-                                onValueChange={([val]) => handleYieldChange(inv.name, val)}
-                                className="w-full flex-grow cursor-pointer"
-                              />
-                              <div className="relative w-16 shrink-0">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  step={0.5}
-                                  value={inv.annualYield}
-                                  onChange={(e) => handleYieldChange(inv.name, Number(e.target.value))}
-                                  className="h-7 text-xs text-right pr-4 font-semibold"
-                                />
-                                <span className="absolute right-1 top-1.5 text-[9px] font-semibold text-muted-foreground">%</span>
-                              </div>
-                            </div>
-                          </div>
+                        <TableCell className="text-center font-bold text-sm text-foreground">
+                          {inv.annualYield.toFixed(2)}% a.a.
                         </TableCell>
                         <TableCell className="text-right font-semibold text-emerald-500">
                           {formatBRL(inv.monthlyPassiveIncome)}
