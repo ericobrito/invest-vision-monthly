@@ -57,8 +57,15 @@ const PassiveIncomeSimulator = () => {
     const realValue = inv.valueBRL ?? inv.value;
     const allocationRatio = realValue / totalRealWealth;
     const allocatedCapital = simulatedCapital * allocationRatio;
+    
     // Fallback to 10.65% (CDI) if annualReturn is missing or zero
-    const annualYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
+    const rawYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
+    
+    // Cap yields to realistic limits for long-term passive income projection to avoid astronomical calculation bugs
+    const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
+    const isCapped = rawYield > maxYield;
+    const annualYield = isCapped ? maxYield : rawYield;
+
     const monthlyYield = annualYield / 12;
     const monthlyPassiveIncome = allocatedCapital * (monthlyYield / 100);
 
@@ -67,6 +74,8 @@ const PassiveIncomeSimulator = () => {
       realValue,
       allocationRatio,
       allocatedCapital,
+      rawYield,
+      isCapped,
       annualYield,
       monthlyYield,
       monthlyPassiveIncome,
@@ -355,7 +364,23 @@ const PassiveIncomeSimulator = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-center font-bold text-sm text-foreground">
-                          {inv.annualYield.toFixed(2)}% a.a.
+                          <div className="flex items-center justify-center gap-1">
+                            <span>{inv.annualYield.toFixed(2)}% a.a.</span>
+                            {inv.isCapped && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="w-3.5 h-3.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center cursor-help text-[9px] font-bold">!</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="w-56 text-xs leading-normal font-normal text-left">
+                                      A taxa anualizada calculada de <strong>{inv.rawYield.toFixed(2)}% a.a.</strong> foi limitada a {inv.annualYield}% a.a. para simulação conservadora de renda passiva de longo prazo.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right font-semibold text-emerald-500">
                           {formatBRL(inv.monthlyPassiveIncome)}
@@ -381,7 +406,7 @@ const PassiveIncomeSimulator = () => {
             <CardContent className="pt-4 flex flex-col items-center justify-center min-h-[300px]">
               {chartData.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground text-xs">
-                  Ajuste a rentabilidade dos ativos acima de 0% para gerar renda passiva.
+                  Sem ativos gerando renda passiva no portfólio deste mês.
                 </div>
               ) : (
                 <>
