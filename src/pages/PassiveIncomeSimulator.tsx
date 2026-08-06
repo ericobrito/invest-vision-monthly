@@ -86,6 +86,40 @@ const PassiveIncomeSimulator = () => {
   const weightedAverageMonthlyYield = simulatedCapital > 0 ? (totalMonthlyPassiveIncome / simulatedCapital) * 100 : 0;
   const weightedAverageAnnualYield = weightedAverageMonthlyYield * 12;
 
+  // Pre-calculate passive incomes for all months to find the record holder
+  const monthlyIncomes = monthlyData.map((snap) => {
+    const totalRealWealth = snap.total || 1;
+    const income = snap.investments.reduce((sum, inv) => {
+      const realValue = inv.valueBRL ?? inv.value;
+      const rawYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
+      const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
+      const annualYield = rawYield > maxYield ? maxYield : rawYield;
+      const monthlyYield = annualYield / 12;
+      const monthlyPassiveIncome = realValue * (monthlyYield / 100);
+      return sum + monthlyPassiveIncome;
+    }, 0);
+    return {
+      month: snap.month,
+      label: snap.label,
+      income,
+    };
+  });
+
+  // Default baseline historical record (Jul/2026)
+  let maxIncomeValue = 6167.08;
+  let maxIncomeLabel = "Jul/2026";
+  let maxIncomeMonth = "2026-07";
+
+  if (monthlyIncomes.length > 0) {
+    const sortedIncomes = [...monthlyIncomes].sort((a, b) => b.income - a.income);
+    const highestCalculated = sortedIncomes[0];
+    if (highestCalculated.income > maxIncomeValue) {
+      maxIncomeValue = highestCalculated.income;
+      maxIncomeLabel = highestCalculated.label;
+      maxIncomeMonth = highestCalculated.month;
+    }
+  }
+
   // CDI Risco Zero calculations
   const riskFreeMonthlyIncome = simulatedCapital * ((CDI_RATE / 12) / 100);
   const diffMonthlyIncome = totalMonthlyPassiveIncome - riskFreeMonthlyIncome;
@@ -303,16 +337,16 @@ const PassiveIncomeSimulator = () => {
             <Card className="border-amber-500/25 bg-amber-500/5">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
-                  <CardDescription className="text-[10px] font-semibold text-amber-500 uppercase">Recorde Histórico (Real)</CardDescription>
+                  <CardDescription className="text-[10px] font-semibold text-amber-500 uppercase">Recorde ({maxIncomeLabel})</CardDescription>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-bold text-[8px] border border-amber-500/20">🏆 Recorde</span>
                 </div>
                 <CardTitle className="text-xl font-black text-amber-500 mt-1">
-                  {formatBRL(6167.08)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                  {formatBRL(maxIncomeValue)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-[10px] text-muted-foreground leading-normal">
-                  Maior geração de renda passiva mensal real registrada no seu histórico de portfólios (atingida em <span className="font-semibold text-foreground">Jul/2026</span>).
+                  Maior geração de renda passiva mensal real registrada no seu histórico de portfólios (atingida em <span className="font-semibold text-foreground">{maxIncomeLabel}</span>).
                 </p>
               </CardContent>
             </Card>
