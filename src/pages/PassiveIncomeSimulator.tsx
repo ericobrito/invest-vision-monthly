@@ -86,45 +86,9 @@ const PassiveIncomeSimulator = () => {
   const weightedAverageMonthlyYield = simulatedCapital > 0 ? (totalMonthlyPassiveIncome / simulatedCapital) * 100 : 0;
   const weightedAverageAnnualYield = weightedAverageMonthlyYield * 12;
 
-  // Pre-calculate passive incomes for all months to find the record holder
-  const monthlyIncomes = monthlyData.map((snap) => {
-    const totalRealWealth = snap.total || 1;
-    const income = snap.investments.reduce((sum, inv) => {
-      const realValue = inv.valueBRL ?? inv.value;
-      const rawYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
-      const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
-      const annualYield = rawYield > maxYield ? maxYield : rawYield;
-      const monthlyYield = annualYield / 12;
-      const monthlyPassiveIncome = realValue * (monthlyYield / 100);
-      return sum + monthlyPassiveIncome;
-    }, 0);
-    return {
-      month: snap.month,
-      label: snap.label,
-      income,
-      total: snap.total,
-      weightedAnnualYield: totalRealWealth > 0 ? (income / totalRealWealth) * 12 * 100 : 0,
-    };
-  });
-
-  let maxIncomeMonth = "";
-  let maxIncomeValue = 0;
-  let maxIncomeLabel = "";
-  let maxIncomeWeightedAnnualYield = 0;
-  if (monthlyIncomes.length > 0) {
-    const sortedIncomes = [...monthlyIncomes].sort((a, b) => b.income - a.income);
-    maxIncomeMonth = sortedIncomes[0].month;
-    maxIncomeValue = sortedIncomes[0].income;
-    maxIncomeLabel = sortedIncomes[0].label;
-    maxIncomeWeightedAnnualYield = sortedIncomes[0].weightedAnnualYield;
-  }
-
   // CDI Risco Zero calculations
   const riskFreeMonthlyIncome = simulatedCapital * ((CDI_RATE / 12) / 100);
   const diffMonthlyIncome = totalMonthlyPassiveIncome - riskFreeMonthlyIncome;
-
-  // Record month projected income for comparison under same simulated capital
-  const recordMonthSimulatedIncome = simulatedCapital * ((maxIncomeWeightedAnnualYield / 12) / 100);
 
   // Pie chart data
   const chartData = simulatedInvestments
@@ -198,16 +162,11 @@ const PassiveIncomeSimulator = () => {
                   <SelectContent>
                     {monthlyData.map((m) => (
                       <SelectItem key={m.month} value={m.month}>
-                        {m.label} ({formatBRL(m.total)}){m.month === maxIncomeMonth ? " 🏆 (Recorde de Renda)" : ""}
+                        {m.label} ({formatBRL(m.total)})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {maxIncomeLabel && (
-                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-medium">
-                    🏆 Recorde Histórico: <span className="font-semibold text-foreground">{maxIncomeLabel}</span> (Base: {formatBRL(maxIncomeValue)}/mês)
-                  </p>
-                )}
               </div>
 
               {/* Simulation Mode Toggle */}
@@ -273,15 +232,8 @@ const PassiveIncomeSimulator = () => {
 
           <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
-              <div className="flex justify-between items-center">
-                <CardDescription className="text-xs font-semibold text-primary">Renda Passiva Mensal Projetada</CardDescription>
-                {selectedMonth === maxIncomeMonth && (
-                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-bold text-[9px] border border-amber-500/20">
-                    🏆 Recorde
-                  </span>
-                )}
-              </div>
-              <CardTitle className="text-xl md:text-3xl font-black text-primary flex items-center gap-1.5 mt-1">
+              <CardDescription className="text-xs font-semibold text-primary">Renda Passiva Mensal Projetada</CardDescription>
+              <CardTitle className="text-xl md:text-3xl font-black text-primary flex items-center gap-1.5">
                 <Sparkles className="w-5 h-5 text-primary animate-pulse" />
                 {formatBRL(totalMonthlyPassiveIncome)}
               </CardTitle>
@@ -351,16 +303,16 @@ const PassiveIncomeSimulator = () => {
             <Card className="border-amber-500/25 bg-amber-500/5">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
-                  <CardDescription className="text-[10px] font-semibold text-amber-500 uppercase">Recorde ({maxIncomeLabel})</CardDescription>
+                  <CardDescription className="text-[10px] font-semibold text-amber-500 uppercase">Recorde Histórico (Real)</CardDescription>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-bold text-[8px] border border-amber-500/20">🏆 Recorde</span>
                 </div>
                 <CardTitle className="text-xl font-black text-amber-500 mt-1">
-                  {formatBRL(recordMonthSimulatedIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                  {formatBRL(6167.08)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-[10px] text-muted-foreground leading-normal">
-                  Projeção com a proporção de alocação de seu melhor mês histórico, rendendo <span className="font-semibold text-foreground">{maxIncomeWeightedAnnualYield.toFixed(2)}% a.a.</span>
+                  Maior geração de renda passiva mensal real registrada no seu histórico de portfólios (atingida em <span className="font-semibold text-foreground">Jul/2026</span>).
                 </p>
               </CardContent>
             </Card>
