@@ -102,22 +102,29 @@ const PassiveIncomeSimulator = () => {
       month: snap.month,
       label: snap.label,
       income,
+      total: snap.total,
+      weightedAnnualYield: totalRealWealth > 0 ? (income / totalRealWealth) * 12 * 100 : 0,
     };
   });
 
   let maxIncomeMonth = "";
   let maxIncomeValue = 0;
   let maxIncomeLabel = "";
+  let maxIncomeWeightedAnnualYield = 0;
   if (monthlyIncomes.length > 0) {
     const sortedIncomes = [...monthlyIncomes].sort((a, b) => b.income - a.income);
     maxIncomeMonth = sortedIncomes[0].month;
     maxIncomeValue = sortedIncomes[0].income;
     maxIncomeLabel = sortedIncomes[0].label;
+    maxIncomeWeightedAnnualYield = sortedIncomes[0].weightedAnnualYield;
   }
 
   // CDI Risco Zero calculations
   const riskFreeMonthlyIncome = simulatedCapital * ((CDI_RATE / 12) / 100);
   const diffMonthlyIncome = totalMonthlyPassiveIncome - riskFreeMonthlyIncome;
+
+  // Record month projected income for comparison under same simulated capital
+  const recordMonthSimulatedIncome = simulatedCapital * ((maxIncomeWeightedAnnualYield / 12) / 100);
 
   // Pie chart data
   const chartData = simulatedInvestments
@@ -302,56 +309,83 @@ const PassiveIncomeSimulator = () => {
           </Card>
         </div>
 
-        {/* Risk-Free Comparison Panel */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-          <Card className="md:col-span-2 border-border bg-gradient-to-r from-card/30 to-card/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                <Scale className="w-4 h-4 text-primary" />
-                Comparativo de Risco: Carteira vs Risco Zero (100% CDI Nubank)
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Veja quanto seu portfólio gera a mais (ou a menos) em relação ao rendimento estável de 100% do CDI atual de {CDI_RATE}% a.a.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3 bg-background/50 border border-border rounded-lg flex flex-col justify-between">
-                <div>
-                  <p className="text-[10px] text-muted-foreground font-semibold uppercase">Risco Zero (100% CDI)</p>
-                  <p className="text-lg font-black text-foreground mt-1">
-                    {formatBRL(riskFreeMonthlyIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+        {/* Risk-Free & Performance Comparison Panel */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Scale className="w-5 h-5 text-primary" />
+            <h3 className="text-sm font-bold text-foreground">Comparativo de Risco e Rentabilidade</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card 1: Risco Zero */}
+            <Card className="border-border bg-card/45 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-[10px] font-semibold text-muted-foreground uppercase">Risco Zero (100% CDI)</CardDescription>
+                <CardTitle className="text-xl font-black text-foreground mt-1">
+                  {formatBRL(riskFreeMonthlyIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Rendimento estável em conta com liquidez diária a <span className="font-semibold text-foreground">{CDI_RATE}% a.a.</span>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Card 2: Seu Portfólio */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-[10px] font-semibold text-primary uppercase">Seu Portfólio ({snapshot.label})</CardDescription>
+                <CardTitle className="text-xl font-black text-primary mt-1">
+                  {formatBRL(totalMonthlyPassiveIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Rentabilidade média ponderada real de <span className="font-semibold text-foreground">{weightedAverageAnnualYield.toFixed(2)}% a.a.</span> baseada nas taxas cadastradas.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Card 3: Recorde Histórico */}
+            <Card className="border-amber-500/25 bg-amber-500/5">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-center">
+                  <CardDescription className="text-[10px] font-semibold text-amber-500 uppercase">Recorde ({maxIncomeLabel})</CardDescription>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 font-bold text-[8px] border border-amber-500/20">🏆 Recorde</span>
+                </div>
+                <CardTitle className="text-xl font-black text-amber-500 mt-1">
+                  {formatBRL(recordMonthSimulatedIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  Projeção com a proporção de alocação de seu melhor mês histórico, rendendo <span className="font-semibold text-foreground">{maxIncomeWeightedAnnualYield.toFixed(2)}% a.a.</span>
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Analysis Banner */}
+          <Card className={`border-border p-4 ${diffMonthlyIncome >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-destructive/5 border-destructive/20"}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Prêmio de Risco e Liquidez Mensal</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Diferença líquida de fluxo de caixa em relação a deixar tudo no CDI.</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <p className={`text-2xl font-black ${diffMonthlyIncome >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                  {diffMonthlyIncome >= 0 ? "+" : ""}{formatBRL(diffMonthlyIncome)}
+                </p>
+                <div className="text-left max-w-sm">
+                  <p className="text-[10px] font-medium leading-relaxed">
+                    {diffMonthlyIncome >= 0 
+                      ? "Compensa! Sua carteira está gerando um retorno adicional em relação ao CDI de liquidez diária. Isso compensa o risco e a falta de liquidez dos ativos travados." 
+                      : "Não compensa! Sua carteira está rendendo menos do que o CDI de liquidez diária. Você está assumindo risco e travando liquidez sem receber um prêmio de retorno que justifique."}
                   </p>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-2">Rentabilidade fixa sem volatilidade de {CDI_RATE}% a.a.</p>
               </div>
-
-              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg flex flex-col justify-between">
-                <div>
-                  <p className="text-[10px] text-primary font-semibold uppercase">Seu Portfólio Projetado</p>
-                  <p className="text-lg font-black text-primary mt-1">
-                    {formatBRL(totalMonthlyPassiveIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
-                  </p>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2">Rentabilidade média ponderada real de {weightedAverageAnnualYield.toFixed(2)}% a.a.</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className={`border-border flex flex-col justify-between ${diffMonthlyIncome >= 0 ? "bg-emerald-500/5 border-emerald-500/30" : "bg-destructive/5 border-destructive/30"}`}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Prêmio de Risco Mensal</CardTitle>
-              <CardDescription className="text-[10px]">Diferença líquida de rendimento no seu bolso.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col justify-center py-2">
-              <p className={`text-2xl md:text-3xl font-black ${diffMonthlyIncome >= 0 ? "text-emerald-500" : "text-destructive"}`}>
-                {diffMonthlyIncome >= 0 ? "+" : ""}{formatBRL(diffMonthlyIncome)}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                {diffMonthlyIncome >= 0 
-                  ? "Compensa! Sua carteira está gerando um retorno adicional em relação ao CDI de liquidez diária. Isso compensa o risco e a falta de liquidez dos ativos travados." 
-                  : "Não compensa! Sua carteira está rendendo menos do que o CDI de liquidez diária. Você está assumindo risco e travando liquidez sem receber um prêmio de retorno que justifique."}
-              </p>
-            </CardContent>
+            </div>
           </Card>
         </div>
 
