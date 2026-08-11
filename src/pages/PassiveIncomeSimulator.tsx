@@ -64,7 +64,8 @@ const PassiveIncomeSimulator = () => {
     // Cap yields to realistic limits for long-term passive income projection to avoid astronomical calculation bugs
     const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
     const isCapped = rawYield > maxYield;
-    const annualYield = isCapped ? maxYield : rawYield;
+    const isNegative = rawYield < 0;
+    const annualYield = isCapped ? maxYield : (isNegative ? 0.0 : rawYield);
 
     const monthlyYield = annualYield / 12;
     const monthlyPassiveIncome = allocatedCapital * (monthlyYield / 100);
@@ -76,6 +77,7 @@ const PassiveIncomeSimulator = () => {
       allocatedCapital,
       rawYield,
       isCapped,
+      isNegative,
       annualYield,
       monthlyYield,
       monthlyPassiveIncome,
@@ -426,7 +428,23 @@ const PassiveIncomeSimulator = () => {
                         </TableCell>
                         <TableCell className="text-center font-bold text-sm text-foreground">
                           <div className="flex items-center justify-center gap-1">
-                            <span>{inv.annualYield.toFixed(2)}% a.a.</span>
+                            <span className={inv.isNegative ? "text-muted-foreground line-through font-normal" : ""}>
+                              {inv.annualYield.toFixed(2)}% a.a.
+                            </span>
+                            {inv.isNegative && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="w-3.5 h-3.5 rounded-full bg-destructive/10 text-destructive flex items-center justify-center cursor-help text-[9px] font-bold">?</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="w-56 text-xs leading-normal font-normal text-left">
+                                      A rentabilidade anual calculada foi negativa (<strong>{inv.rawYield.toFixed(2)}% a.a.</strong>). Em simulações de fluxo de caixa (renda passiva), a taxa é zerada para refletir que ativos em desvalorização não drenam caixa da sua conta.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                             {inv.isCapped && (
                               <TooltipProvider>
                                 <Tooltip>
