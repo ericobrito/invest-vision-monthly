@@ -82,8 +82,10 @@ export interface Investment {
 }
 
 export interface MonthlySnapshot {
+  id?: string;
   month: string;
   label: string;
+
   total: number;
   investments: Investment[];
   change?: { value: number; percentage: number };
