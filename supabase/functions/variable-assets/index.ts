@@ -86,13 +86,48 @@ function fromBase64(b64: string): Uint8Array {
 }
 
 // ---------- Adapters ----------
+// Binance geo-blocks some datacenter regions with HTTP 451.
+// Rotate through mirror hosts until one answers.
+const BINANCE_HOSTS = [
+  "https://data-api.binance.vision",
+  "https://api-gcp.binance.com",
+  "https://api1.binance.com",
+  "https://api2.binance.com",
+  "https://api3.binance.com",
+  "https://api4.binance.com",
+  "https://api.binance.com",
+];
+
+async function binanceFetch(
+  path: string,
+  init?: RequestInit,
+  hosts: string[] = BINANCE_HOSTS,
+): Promise<Response> {
+  let last: Response | null = null;
+  for (const host of hosts) {
+    try {
+      const res = await fetch(`${host}${path}`, init);
+      if (res.ok) return res;
+      last = res;
+      if (res.status !== 451 && res.status !== 403 && res.status < 500) return res;
+      console.log(`[binance] ${host} returned ${res.status}, trying next host`);
+    } catch (e) {
+      console.log(`[binance] ${host} failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (last) return last;
+  throw new Error("Binance: all hosts unreachable");
+}
+
 async function fetchBinance(key: string, secret: string): Promise<NormalizedBalance[]> {
   const ts = Date.now();
   const query = `timestamp=${ts}&recvWindow=10000`;
   const sig = toHex(await hmac("SHA-256", secret, query));
-  const res = await fetch(
-    `https://api.binance.com/api/v3/account?${query}&signature=${sig}`,
+  // data-api.binance.vision has no signed endpoints; skip it here.
+  const res = await binanceFetch(
+    `/api/v3/account?${query}&signature=${sig}`,
     { headers: { "X-MBX-APIKEY": key } },
+    BINANCE_HOSTS.filter((h) => !h.includes("binance.vision")),
   );
   if (!res.ok) throw new Error(`Binance: ${res.status} ${await res.text()}`);
   const data = await res.json();
@@ -103,6 +138,7 @@ async function fetchBinance(key: string, secret: string): Promise<NormalizedBala
     }))
     .filter((b: NormalizedBalance) => b.quantity > 0);
 }
+
 
 async function bybitSignedGet(
   key: string,
