@@ -30,6 +30,7 @@ const PassiveIncomeSimulator = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [capitalMode, setCapitalMode] = useState<"actual" | "custom">("actual");
   const [customCapital, setCustomCapital] = useState<number>(100000);
+  const [monthlyContribution, setMonthlyContribution] = useState<number>(2000);
 
   // Select latest month as default
   useEffect(() => {
@@ -175,7 +176,7 @@ const PassiveIncomeSimulator = () => {
         {/* Top Control Panel */}
         <Card className="border-border">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-end">
               {/* Select Active Month */}
               <div className="space-y-2">
                 <Label htmlFor="month-select" className="text-sm font-semibold flex items-center gap-1">
@@ -243,6 +244,36 @@ const PassiveIncomeSimulator = () => {
                     onChange={(e) => setCustomCapital(Math.max(0, Number(e.target.value)))}
                     className="pl-9 font-medium"
                     placeholder="Digite o capital..."
+                  />
+                </div>
+              </div>
+
+              {/* Planned Monthly Contribution Input */}
+              <div className="space-y-2">
+                <Label htmlFor="monthly-contribution" className="text-sm font-semibold flex items-center gap-1">
+                  Aporte Mensal Planejado
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="w-60 text-xs">
+                          A quantia em dinheiro que você planeja economizar e aportar todos os meses para atingir as metas.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">R$</span>
+                  <Input
+                    id="monthly-contribution"
+                    type="number"
+                    value={monthlyContribution}
+                    onChange={(e) => setMonthlyContribution(Math.max(0, Number(e.target.value)))}
+                    className="pl-9 font-medium"
+                    placeholder="Ex: 2000"
                   />
                 </div>
               </div>
@@ -555,6 +586,44 @@ const PassiveIncomeSimulator = () => {
                 const percentMet = Math.min(100, (totalMonthlyPassiveIncome / ms.value) * 100);
                 const isMet = percentMet === 100;
 
+                // Target capital calculation based on current portfolio's weighted annual yield
+                const r = (weightedAverageAnnualYield / 12) / 100;
+                const A = monthlyContribution;
+                const C0 = simulatedCapital;
+                const annualYieldRate = weightedAverageAnnualYield > 0 ? weightedAverageAnnualYield : CDI_RATE;
+                const targetCapital = ms.value / ((annualYieldRate / 12) / 100);
+
+                let yearsNeeded: number | null = null;
+                if (C0 >= targetCapital) {
+                  yearsNeeded = 0;
+                } else if (r > 0 || A > 0) {
+                  if (r > 0) {
+                    // n = ln( (C + A/r) / (C0 + A/r) ) / ln(1 + r)
+                    const nom = targetCapital + A / r;
+                    const den = C0 + A / r;
+                    const months = Math.log(nom / den) / Math.log(1 + r);
+                    yearsNeeded = months / 12;
+                  } else {
+                    // No yield, linear growth
+                    const months = (targetCapital - C0) / A;
+                    yearsNeeded = months / 12;
+                  }
+                }
+
+                let yearsText = "";
+                if (isMet) {
+                  yearsText = "Meta Atingida";
+                } else if (yearsNeeded === null) {
+                  yearsText = "Aporte/Rentabilidade zero";
+                } else if (yearsNeeded < 0.083) {
+                  yearsText = "menos de 1 mês";
+                } else if (yearsNeeded < 1) {
+                  const months = Math.round(yearsNeeded * 12);
+                  yearsText = `${months} ${months === 1 ? "mês" : "meses"}`;
+                } else {
+                  yearsText = `${yearsNeeded.toFixed(1)} ${yearsNeeded >= 2.0 ? "anos" : "ano"}`;
+                }
+
                 return (
                   <div 
                     key={ms.id} 
@@ -572,23 +641,31 @@ const PassiveIncomeSimulator = () => {
                             {ms.label}
                           </h4>
                           <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
-                            Meta: {formatBRL(ms.value)}
+                            Meta: {formatBRL(ms.value)}/mês
                           </span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed mb-3 line-clamp-2">
+                        <p className="text-[10px] text-muted-foreground leading-relaxed mb-2 line-clamp-2">
                           {ms.desc}
                         </p>
+                        
+                        {/* Target capital badge */}
+                        <div className="flex justify-between items-center text-[9px] text-muted-foreground mb-3 bg-muted/40 p-1.5 rounded border border-border/30">
+                          <span>Patrimônio Alvo: <strong className="text-foreground">{formatBRL(targetCapital)}</strong></span>
+                          {!isMet && (
+                            <span>Aporte: <strong className="text-foreground">{formatBRL(monthlyContribution)}/mês</strong></span>
+                          )}
+                        </div>
+
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-[9px] font-bold">
                             <span className={isMet ? "text-emerald-500" : "text-muted-foreground"}>
-                              {isMet ? "Alcançada! 🎉" : "Progresso"}
+                              {isMet ? "Alcançada! 🎉" : `Tempo Estimado: ${yearsText}`}
                             </span>
                             <span>{percentMet.toFixed(0)}%</span>
                           </div>
                           <Progress 
                             value={percentMet} 
                             className={`h-1.5 ${isMet ? "bg-emerald-950" : ""}`}
-                            // Note: Tailwind style for progress-bar color injection if supported
                           />
                         </div>
                       </div>
