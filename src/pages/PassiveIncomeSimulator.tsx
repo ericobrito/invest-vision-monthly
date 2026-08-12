@@ -59,18 +59,24 @@ const PassiveIncomeSimulator = () => {
     const allocationRatio = realValue / totalRealWealth;
     const allocatedCapital = simulatedCapital * allocationRatio;
     
-    // Projection rate (registered annual rate or annualReturn, fallback to CDI_RATE)
-    const registeredRate = inv.annualRate ?? inv.annualReturn;
-    const rawYield = registeredRate && registeredRate !== 0 ? registeredRate : CDI_RATE;
+    // Projection rate MUST only be explicit annualRate (ignore multi-year return since 2024)
+    const registeredRate = inv.annualRate;
+    const hasProjectionRate = registeredRate != null && Number.isFinite(Number(registeredRate)) && Number(registeredRate) > 0;
     
-    // Cap yields to realistic limits for long-term passive income projection
-    const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
-    const isCapped = rawYield > maxYield;
-    const isNegative = rawYield < 0;
-    const annualYield = isCapped ? maxYield : (isNegative ? 0.0 : rawYield);
+    let rawYield = hasProjectionRate ? Number(registeredRate) : 0;
+    let annualYield = 0;
+    let isCapped = false;
+    let isNegative = false;
+    let projectedMonthlyIncome: number | undefined = undefined;
 
-    const monthlyYield = annualYield / 12;
-    const projectedMonthlyIncome = allocatedCapital * (monthlyYield / 100);
+    if (hasProjectionRate) {
+      const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
+      isCapped = rawYield > maxYield;
+      isNegative = rawYield < 0;
+      annualYield = isCapped ? maxYield : (isNegative ? 0.0 : rawYield);
+      const monthlyYield = annualYield / 12;
+      projectedMonthlyIncome = allocatedCapital * (monthlyYield / 100);
+    }
 
     // Realized income: historical actual income registered for the asset
     const realizedIncome = inv.realizedIncome != null && Number.isFinite(Number(inv.realizedIncome))
@@ -86,14 +92,17 @@ const PassiveIncomeSimulator = () => {
       isCapped,
       isNegative,
       annualYield,
-      monthlyYield,
+      hasProjectionRate,
       projectedMonthlyIncome,
       realizedIncome,
-      monthlyPassiveIncome: projectedMonthlyIncome,
+      monthlyPassiveIncome: projectedMonthlyIncome ?? 0,
     };
   });
 
-  const totalProjectedMonthlyIncome = simulatedInvestments.reduce((sum, inv) => sum + inv.projectedMonthlyIncome, 0);
+  const totalProjectedMonthlyIncome = simulatedInvestments.reduce(
+    (sum, inv) => sum + (inv.projectedMonthlyIncome ?? 0),
+    0
+  );
   
   const hasAnyRealizedIncome = simulatedInvestments.some((inv) => inv.realizedIncome != null);
   const totalRealizedMonthlyIncome = hasAnyRealizedIncome
@@ -109,12 +118,12 @@ const PassiveIncomeSimulator = () => {
     const totalRealWealth = snap.total || 1;
     const income = snap.investments.reduce((sum, inv) => {
       const realValue = inv.valueBRL ?? inv.value;
-      const rawYield = (inv.annualRate ?? inv.annualReturn) && (inv.annualRate ?? inv.annualReturn) !== 0 ? (inv.annualRate ?? inv.annualReturn!) : CDI_RATE;
+      const registeredRate = inv.annualRate;
+      if (!registeredRate || registeredRate <= 0) return sum;
       const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
-      const annualYield = rawYield > maxYield ? maxYield : rawYield;
+      const annualYield = registeredRate > maxYield ? maxYield : registeredRate;
       const monthlyYield = annualYield / 12;
-      const monthlyPassiveIncome = realValue * (monthlyYield / 100);
-      return sum + monthlyPassiveIncome;
+      return sum + realValue * (monthlyYield / 100);
     }, 0);
     return {
       month: snap.month,
@@ -506,39 +515,43 @@ const PassiveIncomeSimulator = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-center font-bold text-xs text-foreground">
-                          <div className="flex items-center justify-center gap-1">
-                            <span className={inv.isNegative ? "text-muted-foreground line-through font-normal" : ""}>
-                              {inv.annualYield.toFixed(2)}% a.a.
-                            </span>
-                            {inv.isNegative && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="w-3.5 h-3.5 rounded-full bg-destructive/10 text-destructive flex items-center justify-center cursor-help text-[9px] font-bold">?</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="w-56 text-xs leading-normal font-normal text-left">
-                                      A rentabilidade anual calculada foi negativa (<strong>{inv.rawYield.toFixed(2)}% a.a.</strong>). Em simulações de fluxo de caixa (renda passiva), a taxa é zerada para refletir que ativos em desvalorização não drenam caixa da sua conta.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                            {inv.isCapped && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="w-3.5 h-3.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center cursor-help text-[9px] font-bold">!</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="w-56 text-xs leading-normal font-normal text-left">
-                                      A taxa anualizada calculada de <strong>{inv.rawYield.toFixed(2)}% a.a.</strong> foi limitada a {inv.annualYield}% a.a. para simulação conservadora de renda passiva de longo prazo.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </div>
+                          {inv.hasProjectionRate ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className={inv.isNegative ? "text-muted-foreground line-through font-normal" : ""}>
+                                {inv.annualYield.toFixed(2)}% a.a.
+                              </span>
+                              {inv.isNegative && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="w-3.5 h-3.5 rounded-full bg-destructive/10 text-destructive flex items-center justify-center cursor-help text-[9px] font-bold">?</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="w-56 text-xs leading-normal font-normal text-left">
+                                        A rentabilidade anual calculada foi negativa (<strong>{inv.rawYield.toFixed(2)}% a.a.</strong>). Em simulações de fluxo de caixa (renda passiva), a taxa é zerada para refletir que ativos em desvalorização não drenam caixa da sua conta.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {inv.isCapped && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="w-3.5 h-3.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center cursor-help text-[9px] font-bold">!</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="w-56 text-xs leading-normal font-normal text-left">
+                                        A taxa anualizada calculada de <strong>{inv.rawYield.toFixed(2)}% a.a.</strong> foi limitada a {inv.annualYield}% a.a. para simulação conservadora de renda passiva de longo prazo.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs font-normal text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-emerald-400 text-sm">
                           {inv.realizedIncome != null ? (
@@ -548,7 +561,11 @@ const PassiveIncomeSimulator = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-primary text-sm">
-                          {formatBRL(inv.projectedMonthlyIncome)}
+                          {inv.projectedMonthlyIncome != null ? (
+                            formatBRL(inv.projectedMonthlyIncome)
+                          ) : (
+                            <span className="text-xs font-normal text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

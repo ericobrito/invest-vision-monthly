@@ -105,14 +105,8 @@ const InvestmentEditDialog = ({
       a = positions.reduce((s, p) => s + p.appliedAmount, 0);
     }
     const totalReturn = a && a > 0 ? ((v - a) / a) * 100 : undefined;
-    let annualReturn: number | undefined;
-    if (yearStarted && a && a > 0 && v > 0) {
-      const start = new Date(yearStarted.length === 4 ? `${yearStarted}-01-01` : yearStarted);
-      const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      if (years > 0) annualReturn = (Math.pow(v / a, 1 / years) - 1) * 100;
-    }
-    return { value: v, applied: a, totalReturn, annualReturn };
-  }, [mode, value, applied, positions, yearStarted]);
+    return { value: v, applied: a, totalReturn };
+  }, [mode, value, applied, positions]);
 
   const handleSave = () => {
     if (!investment) return;
@@ -125,7 +119,7 @@ const InvestmentEditDialog = ({
       applied: computed.applied,
       yearStarted: yearStarted || undefined,
       totalReturn: computed.totalReturn != null ? Number(computed.totalReturn.toFixed(2)) : undefined,
-      annualReturn: annualRate ? Number(annualRate) : (computed.annualReturn != null ? Number(computed.annualReturn.toFixed(2)) : undefined),
+      annualReturn: annualRate ? Number(annualRate) : undefined,
       annualRate: annualRate ? Number(annualRate) : undefined,
       realizedIncome: realizedIncome ? Number(realizedIncome) : undefined,
       incomeType,
