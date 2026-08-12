@@ -104,6 +104,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                       <th className="text-right p-2 font-medium">Valor (nativo)</th>
                       <th className="text-right p-2 font-medium">Valor (BRL)</th>
                       <th className="text-right p-2 font-medium">Resultado</th>
+                      <th className="text-right p-2 font-medium">Rent. Anual</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -116,6 +117,14 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                         p.symbol,
                       );
                       const r = posMetrics.investedValue > 0 ? posMetrics.profitPercent : undefined;
+                      let annualReturnPos: number | undefined = undefined;
+                      if (investment.yearStarted && posMetrics.investedValue > 0 && posMetrics.currentValue > 0) {
+                        const start = new Date(investment.yearStarted.length === 4 ? `${investment.yearStarted}-01-01` : investment.yearStarted);
+                        const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+                        if (years > 0) {
+                          annualReturnPos = (Math.pow(posMetrics.currentValue / posMetrics.investedValue, 1 / years) - 1) * 100;
+                        }
+                      }
                       const nativeLabel =
                         cur === "BRL" ? `R$ ${fmtNum(posMetrics.currentValue)}` :
                         cur === "USD" ? `US$ ${fmtNum(posMetrics.currentValue)}` :
@@ -139,6 +148,9 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                           <td className="text-right p-2 font-mono">{formatBRL(valBRL)}</td>
                           <td className={`text-right p-2 font-mono ${r != null ? (r >= 0 ? "text-positive" : "text-negative") : ""}`}>
                             {r != null ? `${r >= 0 ? "+" : ""}${r.toFixed(2)}%` : "—"}
+                          </td>
+                          <td className={`text-right p-2 font-mono text-xs ${annualReturnPos != null ? (annualReturnPos >= 0 ? "text-positive" : "text-negative") : ""}`}>
+                            {annualReturnPos != null ? `${annualReturnPos >= 0 ? "+" : ""}${annualReturnPos.toFixed(2)}% a.a.` : "—"}
                           </td>
                         </tr>
                       );
