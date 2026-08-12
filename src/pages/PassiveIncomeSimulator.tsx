@@ -53,23 +53,29 @@ const PassiveIncomeSimulator = () => {
   const totalRealWealth = snapshot.total || 1;
   const CDI_RATE = 10.65; // 100% CDI Nubank
 
-  // Process investments with calculations based on registered annualReturn
+  // Process investments with explicit separation of Realized Income vs Projected Income
   const simulatedInvestments = snapshot.investments.map((inv) => {
     const realValue = inv.valueBRL ?? inv.value;
     const allocationRatio = realValue / totalRealWealth;
     const allocatedCapital = simulatedCapital * allocationRatio;
     
-    // Fallback to 10.65% (CDI) if annualReturn is missing or zero
-    const rawYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
+    // Projection rate (registered annual rate or annualReturn, fallback to CDI_RATE)
+    const registeredRate = inv.annualRate ?? inv.annualReturn;
+    const rawYield = registeredRate && registeredRate !== 0 ? registeredRate : CDI_RATE;
     
-    // Cap yields to realistic limits for long-term passive income projection to avoid astronomical calculation bugs
+    // Cap yields to realistic limits for long-term passive income projection
     const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
     const isCapped = rawYield > maxYield;
     const isNegative = rawYield < 0;
     const annualYield = isCapped ? maxYield : (isNegative ? 0.0 : rawYield);
 
     const monthlyYield = annualYield / 12;
-    const monthlyPassiveIncome = allocatedCapital * (monthlyYield / 100);
+    const projectedMonthlyIncome = allocatedCapital * (monthlyYield / 100);
+
+    // Realized income: historical actual income registered for the asset
+    const realizedIncome = inv.realizedIncome != null && Number.isFinite(Number(inv.realizedIncome))
+      ? Number(inv.realizedIncome)
+      : undefined;
 
     return {
       ...inv,
@@ -81,12 +87,21 @@ const PassiveIncomeSimulator = () => {
       isNegative,
       annualYield,
       monthlyYield,
-      monthlyPassiveIncome,
+      projectedMonthlyIncome,
+      realizedIncome,
+      monthlyPassiveIncome: projectedMonthlyIncome,
     };
   });
 
-  const totalMonthlyPassiveIncome = simulatedInvestments.reduce((sum, inv) => sum + inv.monthlyPassiveIncome, 0);
-  const weightedAverageMonthlyYield = simulatedCapital > 0 ? (totalMonthlyPassiveIncome / simulatedCapital) * 100 : 0;
+  const totalProjectedMonthlyIncome = simulatedInvestments.reduce((sum, inv) => sum + inv.projectedMonthlyIncome, 0);
+  
+  const hasAnyRealizedIncome = simulatedInvestments.some((inv) => inv.realizedIncome != null);
+  const totalRealizedMonthlyIncome = hasAnyRealizedIncome
+    ? simulatedInvestments.reduce((sum, inv) => sum + (inv.realizedIncome ?? 0), 0)
+    : undefined;
+
+  const totalMonthlyPassiveIncome = totalProjectedMonthlyIncome;
+  const weightedAverageMonthlyYield = simulatedCapital > 0 ? (totalProjectedMonthlyIncome / simulatedCapital) * 100 : 0;
   const weightedAverageAnnualYield = weightedAverageMonthlyYield * 12;
 
   // Pre-calculate passive incomes for all months to find the record holder
@@ -94,7 +109,7 @@ const PassiveIncomeSimulator = () => {
     const totalRealWealth = snap.total || 1;
     const income = snap.investments.reduce((sum, inv) => {
       const realValue = inv.valueBRL ?? inv.value;
-      const rawYield = inv.annualReturn && inv.annualReturn !== 0 ? inv.annualReturn : CDI_RATE;
+      const rawYield = (inv.annualRate ?? inv.annualReturn) && (inv.annualRate ?? inv.annualReturn) !== 0 ? (inv.annualRate ?? inv.annualReturn!) : CDI_RATE;
       const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
       const annualYield = rawYield > maxYield ? maxYield : rawYield;
       const monthlyYield = annualYield / 12;
@@ -125,7 +140,10 @@ const PassiveIncomeSimulator = () => {
 
   // CDI Risco Zero calculations
   const riskFreeMonthlyIncome = simulatedCapital * ((CDI_RATE / 12) / 100);
-  const diffMonthlyIncome = totalMonthlyPassiveIncome - riskFreeMonthlyIncome;
+  const effectivePortfolioIncome = capitalMode === "actual" && totalRealizedMonthlyIncome != null
+    ? totalRealizedMonthlyIncome
+    : totalProjectedMonthlyIncome;
+  const diffMonthlyIncome = effectivePortfolioIncome - riskFreeMonthlyIncome;
 
   // Pie chart data
   const chartData = simulatedInvestments
@@ -354,14 +372,39 @@ const PassiveIncomeSimulator = () => {
             {/* Card 2: Seu Portfólio */}
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader className="pb-2">
-                <CardDescription className="text-[10px] font-semibold text-primary uppercase">Seu Portfólio ({snapshot.label})</CardDescription>
+                <CardDescription className="text-[10px] font-semibold text-primary uppercase">
+                  Seu Portfólio ({snapshot.label})
+                </CardDescription>
                 <CardTitle className="text-xl font-black text-primary mt-1">
-                  {formatBRL(totalMonthlyPassiveIncome)} <span className="text-[10px] font-normal text-muted-foreground">/mês</span>
+                  {totalRealizedMonthlyIncome != null ? (
+                    <>
+                      {formatBRL(totalRealizedMonthlyIncome)}{" "}
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-1 uppercase">
+                        Realizada
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {formatBRL(totalProjectedMonthlyIncome)}{" "}
+                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded ml-1 uppercase">
+                        Projetada
+                      </span>
+                    </>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-[10px] text-muted-foreground leading-normal">
-                  Rentabilidade média ponderada real de <span className="font-semibold text-foreground">{weightedAverageAnnualYield.toFixed(2)}% a.a.</span> baseada nas taxas cadastradas.
+                  {totalRealizedMonthlyIncome != null ? (
+                    <>
+                      Renda passiva real registrada no histórico. Projeção anual cadastrada:{" "}
+                      <span className="font-semibold text-foreground">{formatBRL(totalProjectedMonthlyIncome)}/mês</span> ({weightedAverageAnnualYield.toFixed(2)}% a.a.).
+                    </>
+                  ) : (
+                    <>
+                      Renda projetada baseada nas taxas cadastradas ({weightedAverageAnnualYield.toFixed(2)}% a.a.). Renda realizada: <span className="font-semibold text-muted-foreground">Dados históricos insuficientes</span>.
+                    </>
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -389,8 +432,12 @@ const PassiveIncomeSimulator = () => {
           <Card className={`border-border p-4 ${diffMonthlyIncome >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-destructive/5 border-destructive/20"}`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Prêmio de Risco e Liquidez Mensal</h4>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Diferença líquida de fluxo de caixa em relação a deixar tudo no CDI.</p>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Prêmio de Risco e Liquidez Mensal {capitalMode === "actual" && totalRealizedMonthlyIncome != null ? "(Renda Realizada vs CDI)" : "(Renda Projetada vs CDI)"}
+                </h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Diferença líquida de fluxo de caixa ({capitalMode === "actual" && totalRealizedMonthlyIncome != null ? "Renda Realizada" : "Renda Projetada"}) em relação ao CDI.
+                </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <p className={`text-2xl font-black ${diffMonthlyIncome >= 0 ? "text-emerald-500" : "text-destructive"}`}>
@@ -418,7 +465,7 @@ const PassiveIncomeSimulator = () => {
                 Ativos de Portfólio e Rentabilidades Cadastradas
               </CardTitle>
               <CardDescription className="text-xs">
-                Rendimento baseado nas taxas de rentabilidade real cadastradas em cada ativo no banco de dados. Ativos sem taxa cadastrada usam o CDI ({CDI_RATE}% a.a.) como referência.
+                Separação entre Renda Realizada (histórica) e Renda Projetada (baseada na taxa anual cadastrada). Ativos sem taxa cadastrada usam o CDI ({CDI_RATE}% a.a.) como referência de projeção.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -428,9 +475,10 @@ const PassiveIncomeSimulator = () => {
                     <TableRow>
                       <TableHead>Ativo</TableHead>
                       <TableHead className="text-right">Alocação</TableHead>
-                      <TableHead className="text-center w-[120px]">Classe/Região</TableHead>
-                      <TableHead className="text-center w-[150px]">Rentabilidade Anual</TableHead>
-                      <TableHead className="text-right">Renda Mensal</TableHead>
+                      <TableHead className="text-center w-[90px]">Classe/Região</TableHead>
+                      <TableHead className="text-center w-[120px]">Taxa Projetada</TableHead>
+                      <TableHead className="text-right">Renda Realizada</TableHead>
+                      <TableHead className="text-right">Renda Projetada</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -457,7 +505,7 @@ const PassiveIncomeSimulator = () => {
                             {inv.region === "brazil" ? "BR" : "Int"}
                           </span>
                         </TableCell>
-                        <TableCell className="text-center font-bold text-sm text-foreground">
+                        <TableCell className="text-center font-bold text-xs text-foreground">
                           <div className="flex items-center justify-center gap-1">
                             <span className={inv.isNegative ? "text-muted-foreground line-through font-normal" : ""}>
                               {inv.annualYield.toFixed(2)}% a.a.
@@ -492,8 +540,15 @@ const PassiveIncomeSimulator = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-emerald-500">
-                          {formatBRL(inv.monthlyPassiveIncome)}
+                        <TableCell className="text-right font-semibold text-emerald-400 text-sm">
+                          {inv.realizedIncome != null ? (
+                            formatBRL(inv.realizedIncome)
+                          ) : (
+                            <span className="text-[10px] font-normal text-muted-foreground">Dados históricos insuficientes</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-primary text-sm">
+                          {formatBRL(inv.projectedMonthlyIncome)}
                         </TableCell>
                       </TableRow>
                     ))}
