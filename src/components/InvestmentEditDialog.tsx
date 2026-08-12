@@ -105,8 +105,10 @@ const InvestmentEditDialog = ({
       a = positions.reduce((s, p) => s + p.appliedAmount, 0);
     }
     const totalReturn = a && a > 0 ? ((v - a) / a) * 100 : undefined;
-    return { value: v, applied: a, totalReturn };
-  }, [mode, value, applied, positions]);
+    const annualReturn = annualRate ? Number(annualRate) : undefined;
+    return { value: v, applied: a, totalReturn, annualReturn };
+  }, [mode, value, applied, positions, annualRate]);
+
 
   const handleSave = () => {
     if (!investment) return;

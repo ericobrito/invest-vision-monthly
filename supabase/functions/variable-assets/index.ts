@@ -86,13 +86,48 @@ function fromBase64(b64: string): Uint8Array {
 }
 
 // ---------- Adapters ----------
+// Binance geo-blocks some datacenter regions with HTTP 451.
+// Rotate through mirror hosts until one answers.
+const BINANCE_HOSTS = [
+  "https://data-api.binance.vision",
+  "https://api-gcp.binance.com",
+  "https://api1.binance.com",
+  "https://api2.binance.com",
+  "https://api3.binance.com",
+  "https://api4.binance.com",
+  "https://api.binance.com",
+];
+
+async function binanceFetch(
+  path: string,
+  init?: RequestInit,
+  hosts: string[] = BINANCE_HOSTS,
+): Promise<Response> {
+  let last: Response | null = null;
+  for (const host of hosts) {
+    try {
+      const res = await fetch(`${host}${path}`, init);
+      if (res.ok) return res;
+      last = res;
+      if (res.status !== 451 && res.status !== 403 && res.status < 500) return res;
+      console.log(`[binance] ${host} returned ${res.status}, trying next host`);
+    } catch (e) {
+      console.log(`[binance] ${host} failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (last) return last;
+  throw new Error("Binance: all hosts unreachable");
+}
+
 async function fetchBinance(key: string, secret: string): Promise<NormalizedBalance[]> {
   const ts = Date.now();
   const query = `timestamp=${ts}&recvWindow=10000`;
   const sig = toHex(await hmac("SHA-256", secret, query));
-  const res = await fetch(
-    `https://api.binance.com/api/v3/account?${query}&signature=${sig}`,
+  // data-api.binance.vision has no signed endpoints; skip it here.
+  const res = await binanceFetch(
+    `/api/v3/account?${query}&signature=${sig}`,
     { headers: { "X-MBX-APIKEY": key } },
+    BINANCE_HOSTS.filter((h) => !h.includes("binance.vision")),
   );
   if (!res.ok) throw new Error(`Binance: ${res.status} ${await res.text()}`);
   const data = await res.json();
@@ -103,6 +138,7 @@ async function fetchBinance(key: string, secret: string): Promise<NormalizedBala
     }))
     .filter((b: NormalizedBalance) => b.quantity > 0);
 }
+
 
 async function bybitSignedGet(
   key: string,
@@ -968,14 +1004,43 @@ const STABLES = new Set(["USDT", "USDC", "BUSD", "DAI", "TUSD", "FDUSD"]);
 let priceCache: { data: Map<string, number>; ts: number } | null = null;
 async function getBinancePrices(): Promise<Map<string, number>> {
   if (priceCache && Date.now() - priceCache.ts < 30_000) return priceCache.data;
-  const res = await fetch("https://api.binance.com/api/v3/ticker/price");
-  if (!res.ok) throw new Error("Binance price feed failed");
-  const arr: { symbol: string; price: string }[] = await res.json();
   const map = new Map<string, number>();
-  for (const t of arr) map.set(t.symbol, parseFloat(t.price));
+
+  try {
+    const res = await binanceFetch("/api/v3/ticker/price");
+    if (res.ok) {
+      const arr: { symbol: string; price: string }[] = await res.json();
+      for (const t of arr) map.set(t.symbol, parseFloat(t.price));
+    } else {
+      console.warn(`[prices] Binance ticker feed unavailable: ${res.status}`);
+    }
+  } catch (e) {
+    console.warn(`[prices] Binance ticker feed error: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Fallback: OKX public tickers (no geo restriction) mapped to Binance-style symbols
+  if (map.size === 0) {
+    try {
+      const res = await fetch("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
+      if (res.ok) {
+        const json = await res.json();
+        for (const t of (json?.data ?? [])) {
+          const sym = String(t.instId ?? "").replace("-", "");
+          const px = parseFloat(t.last);
+          if (sym && Number.isFinite(px)) map.set(sym, px);
+        }
+        console.log(`[prices] Using OKX fallback price feed (${map.size} pairs)`);
+      }
+    } catch (e) {
+      console.warn(`[prices] OKX fallback failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  if (map.size === 0) throw new Error("Binance price feed failed");
   priceCache = { data: map, ts: Date.now() };
   return map;
 }
+
 
 function priceInBRL(
   ticker: string,
