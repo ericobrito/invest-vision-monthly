@@ -30,6 +30,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         valueNative: totals.value,
         valueBRL: totals.valueBRL,
       });
+      const annualRateVal = inv.annual_rate != null ? Number(inv.annual_rate) : inv.annual_return != null ? Number(inv.annual_return) : undefined;
       return {
         id: inv.id,
         name: inv.name,
@@ -40,7 +41,17 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         percentage: Number(inv.percentage),
         applied: totals.applied,
         totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
-        annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
+        annualReturn: annualRateVal,
+        annualRate: annualRateVal,
+        rateType: inv.rate_type ?? undefined,
+        rateSource: inv.rate_source ?? undefined,
+        realizedIncome: inv.realized_income != null ? Number(inv.realized_income) : undefined,
+        realizedReturn: inv.realized_return != null ? Number(inv.realized_return) : undefined,
+        realizedReturnPercent: inv.realized_return_percent != null ? Number(inv.realized_return_percent) : undefined,
+        period: inv.period ?? row.month,
+        benchmark: inv.benchmark ?? undefined,
+        benchmarkReturn: inv.benchmark_return != null ? Number(inv.benchmark_return) : undefined,
+        benchmarkReturnPercent: inv.benchmark_return_percent != null ? Number(inv.benchmark_return_percent) : undefined,
         yearStarted: inv.year_started ? (inv.year_started.length === 4 ? `${inv.year_started}-01-01` : inv.year_started) : undefined,
         incomeType: (inv.income_type as IncomeType) || 'fixed',
         region: (inv.region as Region) || 'brazil',
@@ -65,6 +76,19 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 
   // Portfolio aggregation MUST use BRL-normalized values.
   const totalBRL = mappedInvestments.reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+  const portfolioRealizedIncome = mappedInvestments.reduce(
+    (s, i) => s + (i.realizedIncome != null ? Number(i.realizedIncome) : 0),
+    0
+  );
+  const portfolioProjectedIncome = mappedInvestments.reduce((s, i) => {
+    const rate = i.annualRate ?? i.annualReturn;
+    const val = i.valueBRL ?? i.value;
+    if (rate && val > 0) {
+      return s + (val * (rate / 100)) / 12;
+    }
+    return s;
+  }, 0);
+
   // eslint-disable-next-line no-console
   console.debug("[audit/portfolio]", { month: row.month, totalPortfolioBRL: totalBRL, storedTotal: Number(row.total) });
 
@@ -78,6 +102,8 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
     brazil: row.brazil != null ? Number(row.brazil) : undefined,
     exterior: row.exterior != null ? Number(row.exterior) : undefined,
     growth2025: row.growth_2025 != null ? Number(row.growth_2025) : undefined,
+    portfolioRealizedIncome: portfolioRealizedIncome > 0 ? portfolioRealizedIncome : undefined,
+    portfolioProjectedIncome: portfolioProjectedIncome > 0 ? portfolioProjectedIncome : undefined,
     investments: mappedInvestments,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

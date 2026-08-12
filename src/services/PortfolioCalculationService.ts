@@ -178,6 +178,40 @@ class PortfolioCalculationService {
       profitPercent: portfolioReturnPercent,
     };
   }
+
+  /**
+   * Projected monthly income based on current asset value and annual rate.
+   * FORMULA: current_value × annual_rate ÷ 12
+   * This formula is ONLY used for projection/estimates, NEVER for historical realized income.
+   */
+  calculateProjectedMonthlyIncome(currentValueBRL: number, annualRate?: number): number {
+    const val = safe(currentValueBRL);
+    const rate = safe(annualRate);
+    if (val <= 0 || rate <= 0) return 0;
+    return (val * (rate / 100)) / 12;
+  }
+
+  /**
+   * Realized monthly income from historical records.
+   * Priority:
+   * 1. Direct recorded realized income (`realizedIncome`)
+   * 2. Undefined if no historical data is present (never fall back to projection!)
+   */
+  calculateRealizedMonthlyIncome(inv: { realizedIncome?: number }): number | undefined {
+    if (inv.realizedIncome != null && Number.isFinite(Number(inv.realizedIncome))) {
+      return Number(inv.realizedIncome);
+    }
+    return undefined;
+  }
+
+  /**
+   * Excess return over benchmark (Prêmio de Risco e Liquidez).
+   * Both sides MUST use identical historical periods and methodologies.
+   * FORMULA: portfolio_realized_return - benchmark_realized_return = excess_return
+   */
+  calculateExcessReturn(portfolioReturnMonth: number, benchmarkReturnMonth: number): number {
+    return safe(portfolioReturnMonth) - safe(benchmarkReturnMonth);
+  }
 }
 
 export const portfolioCalculationService = new PortfolioCalculationService();

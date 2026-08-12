@@ -45,6 +45,24 @@ export interface Investment {
   annualReturn?: number;
   incomeType?: IncomeType;
   region?: Region;
+
+  // Projection / Reference
+  annualRate?: number;
+  rateType?: string;
+  rateSource?: string;
+  updatedAt?: string;
+
+  // Realized Performance
+  period?: string;
+  realizedIncome?: number;
+  realizedReturn?: number;
+  realizedReturnPercent?: number;
+
+  // Benchmark
+  benchmark?: string;
+  benchmarkReturn?: number;
+  benchmarkReturnPercent?: number;
+
   flags?: {
     includeInVariablePositions?: boolean;
   };
@@ -76,6 +94,10 @@ export interface MonthlySnapshot {
   growth2025?: number;
   createdAt?: string;
   updatedAt?: string;
+  portfolioRealizedIncome?: number;
+  portfolioProjectedIncome?: number;
+  benchmarkRealizedReturn?: number;
+  excessReturnVsBenchmark?: number;
 }
 
 /** Internal FX helper (avoid importing the hook to keep this file framework-agnostic). */

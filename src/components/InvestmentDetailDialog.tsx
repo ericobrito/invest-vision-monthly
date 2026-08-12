@@ -166,6 +166,29 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
             <Stat label="Região" value={investment.region === "exterior" ? "Exterior" : "Brasil"} />
             <Stat label="Data do aporte" value={investment.yearStarted || "—"} />
             <Stat
+              label="Renda Realizada"
+              value={investment.realizedIncome != null ? formatBRL(investment.realizedIncome) : "Dados históricos insuficientes"}
+              mono
+            />
+            <Stat
+              label="Renda Mensal Projetada"
+              value={
+                (investment.annualRate || investment.annualReturn) && investment.value > 0
+                  ? `${formatBRL((investment.value * ((investment.annualRate || investment.annualReturn || 0) / 100)) / 12)}/mês`
+                  : "—"
+              }
+              mono
+            />
+            <Stat
+              label="Taxa Anual Projetada"
+              value={
+                investment.annualRate || investment.annualReturn
+                  ? `${(investment.annualRate || investment.annualReturn)?.toFixed(2)}% a.a.`
+                  : "—"
+              }
+              mono
+            />
+            <Stat
               label="Última atualização"
               value={investment.lastPriceAt ? new Date(investment.lastPriceAt).toLocaleString("pt-BR") : "—"}
             />
