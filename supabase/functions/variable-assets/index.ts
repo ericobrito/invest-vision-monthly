@@ -1004,14 +1004,43 @@ const STABLES = new Set(["USDT", "USDC", "BUSD", "DAI", "TUSD", "FDUSD"]);
 let priceCache: { data: Map<string, number>; ts: number } | null = null;
 async function getBinancePrices(): Promise<Map<string, number>> {
   if (priceCache && Date.now() - priceCache.ts < 30_000) return priceCache.data;
-  const res = await fetch("https://api.binance.com/api/v3/ticker/price");
-  if (!res.ok) throw new Error("Binance price feed failed");
-  const arr: { symbol: string; price: string }[] = await res.json();
   const map = new Map<string, number>();
-  for (const t of arr) map.set(t.symbol, parseFloat(t.price));
+
+  try {
+    const res = await binanceFetch("/api/v3/ticker/price");
+    if (res.ok) {
+      const arr: { symbol: string; price: string }[] = await res.json();
+      for (const t of arr) map.set(t.symbol, parseFloat(t.price));
+    } else {
+      console.warn(`[prices] Binance ticker feed unavailable: ${res.status}`);
+    }
+  } catch (e) {
+    console.warn(`[prices] Binance ticker feed error: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Fallback: OKX public tickers (no geo restriction) mapped to Binance-style symbols
+  if (map.size === 0) {
+    try {
+      const res = await fetch("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
+      if (res.ok) {
+        const json = await res.json();
+        for (const t of (json?.data ?? [])) {
+          const sym = String(t.instId ?? "").replace("-", "");
+          const px = parseFloat(t.last);
+          if (sym && Number.isFinite(px)) map.set(sym, px);
+        }
+        console.log(`[prices] Using OKX fallback price feed (${map.size} pairs)`);
+      }
+    } catch (e) {
+      console.warn(`[prices] OKX fallback failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  if (map.size === 0) throw new Error("Binance price feed failed");
   priceCache = { data: map, ts: Date.now() };
   return map;
 }
+
 
 function priceInBRL(
   ticker: string,
