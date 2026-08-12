@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      system_incidents: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          status: string
+          severity: string
+          title: string
+          error_message: string | null
+          stack_trace: string | null
+          component_stack: string | null
+          route: string | null
+          user_context: Json | null
+          proposed_fix_summary: string | null
+          proposed_fix_diff: string | null
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          status?: string
+          severity?: string
+          title: string
+          error_message?: string | null
+          stack_trace?: string | null
+          component_stack?: string | null
+          route?: string | null
+          user_context?: Json | null
+          proposed_fix_summary?: string | null
+          proposed_fix_diff?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          status?: string
+          severity?: string
+          title?: string
+          error_message?: string | null
+          stack_trace?: string | null
+          component_stack?: string | null
+          route?: string | null
+          user_context?: Json | null
+          proposed_fix_summary?: string | null
+          proposed_fix_diff?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           data: Json | null
