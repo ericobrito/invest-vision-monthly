@@ -14,57 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      system_incidents: {
-        Row: {
-          id: string
-          created_at: string
-          updated_at: string
-          status: string
-          severity: string
-          title: string
-          error_message: string | null
-          stack_trace: string | null
-          component_stack: string | null
-          route: string | null
-          user_context: Json | null
-          proposed_fix_summary: string | null
-          proposed_fix_diff: string | null
-          resolved_at: string | null
-        }
-        Insert: {
-          id?: string
-          created_at?: string
-          updated_at?: string
-          status?: string
-          severity?: string
-          title: string
-          error_message?: string | null
-          stack_trace?: string | null
-          component_stack?: string | null
-          route?: string | null
-          user_context?: Json | null
-          proposed_fix_summary?: string | null
-          proposed_fix_diff?: string | null
-          resolved_at?: string | null
-        }
-        Update: {
-          id?: string
-          created_at?: string
-          updated_at?: string
-          status?: string
-          severity?: string
-          title?: string
-          error_message?: string | null
-          stack_trace?: string | null
-          component_stack?: string | null
-          route?: string | null
-          user_context?: Json | null
-          proposed_fix_summary?: string | null
-          proposed_fix_diff?: string | null
-          resolved_at?: string | null
-        }
-        Relationships: []
-      }
       audit_logs: {
         Row: {
           data: Json | null
@@ -166,7 +115,7 @@ export type Database = {
         }
         Relationships: []
       }
-       investment_positions: {
+      investment_positions: {
         Row: {
           applied_amount: number
           applied_amount_brl: number | null
@@ -188,7 +137,6 @@ export type Database = {
           symbol: string
           updated_at: string
           user_id: string
-          purchase_date: string | null
         }
         Insert: {
           applied_amount?: number
@@ -211,7 +159,6 @@ export type Database = {
           symbol: string
           updated_at?: string
           user_id?: string
-          purchase_date?: string | null
         }
         Update: {
           applied_amount?: number
@@ -234,7 +181,6 @@ export type Database = {
           symbol?: string
           updated_at?: string
           user_id?: string
-          purchase_date?: string | null
         }
         Relationships: [
           {
@@ -275,16 +221,6 @@ export type Database = {
           value: number
           value_mode: string
           year_started: string | null
-          annual_rate: number | null
-          realized_income: number | null
-          realized_return: number | null
-          period: string | null
-          benchmark: string | null
-          benchmark_return: number | null
-          benchmark_return_percent: number | null
-          realized_return_percent: number | null
-          rate_type: string | null
-          rate_source: string | null
         }
         Insert: {
           annual_return?: number | null
@@ -314,16 +250,6 @@ export type Database = {
           value?: number
           value_mode?: string
           year_started?: string | null
-          annual_rate?: number | null
-          realized_income?: number | null
-          realized_return?: number | null
-          period?: string | null
-          benchmark?: string | null
-          benchmark_return?: number | null
-          benchmark_return_percent?: number | null
-          realized_return_percent?: number | null
-          rate_type?: string | null
-          rate_source?: string | null
         }
         Update: {
           annual_return?: number | null
@@ -353,16 +279,6 @@ export type Database = {
           value?: number
           value_mode?: string
           year_started?: string | null
-          annual_rate?: number | null
-          realized_income?: number | null
-          realized_return?: number | null
-          period?: string | null
-          benchmark?: string | null
-          benchmark_return?: number | null
-          benchmark_return_percent?: number | null
-          realized_return_percent?: number | null
-          rate_type?: string | null
-          rate_source?: string | null
         }
         Relationships: [
           {
