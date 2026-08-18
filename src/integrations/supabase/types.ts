@@ -275,6 +275,16 @@ export type Database = {
           value: number
           value_mode: string
           year_started: string | null
+          annual_rate: number | null
+          realized_income: number | null
+          realized_return: number | null
+          period: string | null
+          benchmark: string | null
+          benchmark_return: number | null
+          benchmark_return_percent: number | null
+          realized_return_percent: number | null
+          rate_type: string | null
+          rate_source: string | null
         }
         Insert: {
           annual_return?: number | null
@@ -304,6 +314,16 @@ export type Database = {
           value?: number
           value_mode?: string
           year_started?: string | null
+          annual_rate?: number | null
+          realized_income?: number | null
+          realized_return?: number | null
+          period?: string | null
+          benchmark?: string | null
+          benchmark_return?: number | null
+          benchmark_return_percent?: number | null
+          realized_return_percent?: number | null
+          rate_type?: string | null
+          rate_source?: string | null
         }
         Update: {
           annual_return?: number | null
@@ -333,6 +353,16 @@ export type Database = {
           value?: number
           value_mode?: string
           year_started?: string | null
+          annual_rate?: number | null
+          realized_income?: number | null
+          realized_return?: number | null
+          period?: string | null
+          benchmark?: string | null
+          benchmark_return?: number | null
+          benchmark_return_percent?: number | null
+          realized_return_percent?: number | null
+          rate_type?: string | null
+          rate_source?: string | null
         }
         Relationships: [
           {

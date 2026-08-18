@@ -101,6 +101,7 @@ export function useUpdateInvestment() {
           year_started: updated.yearStarted ?? null,
           total_return: updated.totalReturn ?? null,
           annual_return: updated.annualRate ?? updated.annualReturn ?? null,
+          annual_rate: updated.annualRate ?? updated.annualReturn ?? null,
           realized_income: updated.realizedIncome ?? null,
           realized_return: updated.realizedReturn ?? null,
           period: updated.period ?? snapshotMonth,
