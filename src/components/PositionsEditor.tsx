@@ -104,7 +104,19 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
       if (details.currency) {
         const upperCur = details.currency.toUpperCase();
         if (SUPPORTED_CURRENCIES.includes(upperCur as any)) {
-          updates.currency = upperCur;
+          if (upperCur !== p.currency) {
+            updates.currency = upperCur;
+            const rate = getFxRate("USD", fxRates) || 5.20;
+            let avgPrice = p.averagePrice || 0;
+            if (p.currency === "BRL" && upperCur === "USD") {
+              avgPrice = avgPrice / rate;
+            } else if (p.currency === "USD" && upperCur === "BRL") {
+              avgPrice = avgPrice * rate;
+            }
+            updates.averagePrice = Number(avgPrice.toFixed(8));
+          } else {
+            updates.currency = upperCur;
+          }
         }
       }
 
@@ -151,7 +163,21 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
       if (details.currency) {
         const upperCur = details.currency.toUpperCase();
         if (SUPPORTED_CURRENCIES.includes(upperCur as any)) {
-          updates.currency = upperCur;
+          const currentPos = positions[idx];
+          const prevCurrency = currentPos?.currency || "BRL";
+          if (upperCur !== prevCurrency) {
+            updates.currency = upperCur;
+            const rate = getFxRate("USD", fxRates) || 5.20;
+            let avgPrice = currentPos?.averagePrice || 0;
+            if (prevCurrency === "BRL" && upperCur === "USD") {
+              avgPrice = avgPrice / rate;
+            } else if (prevCurrency === "USD" && upperCur === "BRL") {
+              avgPrice = avgPrice * rate;
+            }
+            updates.averagePrice = Number(avgPrice.toFixed(8));
+          } else {
+            updates.currency = upperCur;
+          }
         }
       }
       
@@ -323,7 +349,32 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Moeda</Label>
-                  <Select value={p.currency} onValueChange={(v) => updatePosition(idx, { currency: v })}>
+                  <Select 
+                    value={p.currency} 
+                    onValueChange={(v) => {
+                      const oldCurrency = p.currency || "BRL";
+                      const newCurrency = v || "BRL";
+                      if (oldCurrency !== newCurrency) {
+                        const usdRate = getFxRate("USD", fxRates) || 5.20;
+                        let avgPrice = p.averagePrice || 0;
+                        let curPrice = p.currentPrice || 0;
+                        if (oldCurrency === "BRL" && newCurrency === "USD") {
+                          avgPrice = avgPrice / usdRate;
+                          curPrice = curPrice / usdRate;
+                        } else if (oldCurrency === "USD" && newCurrency === "BRL") {
+                          avgPrice = avgPrice * usdRate;
+                          curPrice = curPrice * usdRate;
+                        }
+                        updatePosition(idx, { 
+                          currency: newCurrency,
+                          averagePrice: Number(avgPrice.toFixed(8)),
+                          currentPrice: Number(curPrice.toFixed(8))
+                        });
+                      } else {
+                        updatePosition(idx, { currency: newCurrency });
+                      }
+                    }}
+                  >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {SUPPORTED_CURRENCIES.map((c) => (
