@@ -132,6 +132,7 @@ export type Database = {
           last_price_at: string | null
           name: string | null
           provider: string | null
+          purchase_date: string | null
           quantity: number
           sort_order: number
           symbol: string
@@ -154,6 +155,7 @@ export type Database = {
           last_price_at?: string | null
           name?: string | null
           provider?: string | null
+          purchase_date?: string | null
           quantity?: number
           sort_order?: number
           symbol: string
@@ -176,6 +178,7 @@ export type Database = {
           last_price_at?: string | null
           name?: string | null
           provider?: string | null
+          purchase_date?: string | null
           quantity?: number
           sort_order?: number
           symbol?: string
@@ -194,9 +197,13 @@ export type Database = {
       }
       investments: {
         Row: {
+          annual_rate: number | null
           annual_return: number | null
           applied: number | null
           average_price: number | null
+          benchmark: string | null
+          benchmark_return: number | null
+          benchmark_return_percent: number | null
           connection_id: string | null
           created_at: string
           currency: string
@@ -212,7 +219,13 @@ export type Database = {
           mode: string
           name: string
           percentage: number
+          period: string | null
           quantity: number | null
+          rate_source: string | null
+          rate_type: string | null
+          realized_income: number | null
+          realized_return: number | null
+          realized_return_percent: number | null
           region: string
           snapshot_id: string
           sort_order: number
@@ -223,9 +236,13 @@ export type Database = {
           year_started: string | null
         }
         Insert: {
+          annual_rate?: number | null
           annual_return?: number | null
           applied?: number | null
           average_price?: number | null
+          benchmark?: string | null
+          benchmark_return?: number | null
+          benchmark_return_percent?: number | null
           connection_id?: string | null
           created_at?: string
           currency?: string
@@ -241,7 +258,13 @@ export type Database = {
           mode?: string
           name: string
           percentage?: number
+          period?: string | null
           quantity?: number | null
+          rate_source?: string | null
+          rate_type?: string | null
+          realized_income?: number | null
+          realized_return?: number | null
+          realized_return_percent?: number | null
           region?: string
           snapshot_id: string
           sort_order?: number
@@ -252,9 +275,13 @@ export type Database = {
           year_started?: string | null
         }
         Update: {
+          annual_rate?: number | null
           annual_return?: number | null
           applied?: number | null
           average_price?: number | null
+          benchmark?: string | null
+          benchmark_return?: number | null
+          benchmark_return_percent?: number | null
           connection_id?: string | null
           created_at?: string
           currency?: string
@@ -270,7 +297,13 @@ export type Database = {
           mode?: string
           name?: string
           percentage?: number
+          period?: string | null
           quantity?: number | null
+          rate_source?: string | null
+          rate_type?: string | null
+          realized_income?: number | null
+          realized_return?: number | null
+          realized_return_percent?: number | null
           region?: string
           snapshot_id?: string
           sort_order?: number
