@@ -297,8 +297,8 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                   <Input
                     type="number"
                     step="0.00000001"
-                    value={p.quantity || ""}
-                    onChange={(e) => updatePosition(idx, { quantity: Number(e.target.value) || 0 })}
+                    value={p.quantity ?? ""}
+                    onChange={(e) => updatePosition(idx, { quantity: e.target.value === "" ? 0 : Number(e.target.value) })}
                   />
                 </div>
                 <div className="col-span-2">
@@ -306,8 +306,8 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                   <Input
                     type="number"
                     step="0.01"
-                    value={p.averagePrice || ""}
-                    onChange={(e) => updatePosition(idx, { averagePrice: Number(e.target.value) || 0 })}
+                    value={p.averagePrice ?? ""}
+                    onChange={(e) => updatePosition(idx, { averagePrice: e.target.value === "" ? 0 : Number(e.target.value) })}
                   />
                 </div>
                 <div className="col-span-2">
@@ -315,7 +315,7 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                   <Input
                     type="number"
                     step="0.01"
-                    value={p.currentPrice || ""}
+                    value={p.currentPrice ?? ""}
                     readOnly
                     className="bg-muted/50 cursor-not-allowed"
                     placeholder="Auto"
