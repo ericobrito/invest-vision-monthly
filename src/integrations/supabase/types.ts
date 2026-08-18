@@ -14,57 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      system_incidents: {
-        Row: {
-          id: string
-          created_at: string
-          updated_at: string
-          status: string
-          severity: string
-          title: string
-          error_message: string | null
-          stack_trace: string | null
-          component_stack: string | null
-          route: string | null
-          user_context: Json | null
-          proposed_fix_summary: string | null
-          proposed_fix_diff: string | null
-          resolved_at: string | null
-        }
-        Insert: {
-          id?: string
-          created_at?: string
-          updated_at?: string
-          status?: string
-          severity?: string
-          title: string
-          error_message?: string | null
-          stack_trace?: string | null
-          component_stack?: string | null
-          route?: string | null
-          user_context?: Json | null
-          proposed_fix_summary?: string | null
-          proposed_fix_diff?: string | null
-          resolved_at?: string | null
-        }
-        Update: {
-          id?: string
-          created_at?: string
-          updated_at?: string
-          status?: string
-          severity?: string
-          title?: string
-          error_message?: string | null
-          stack_trace?: string | null
-          component_stack?: string | null
-          route?: string | null
-          user_context?: Json | null
-          proposed_fix_summary?: string | null
-          proposed_fix_diff?: string | null
-          resolved_at?: string | null
-        }
-        Relationships: []
-      }
       audit_logs: {
         Row: {
           data: Json | null
@@ -166,7 +115,7 @@ export type Database = {
         }
         Relationships: []
       }
-       investment_positions: {
+      investment_positions: {
         Row: {
           applied_amount: number
           applied_amount_brl: number | null
@@ -183,12 +132,12 @@ export type Database = {
           last_price_at: string | null
           name: string | null
           provider: string | null
+          purchase_date: string | null
           quantity: number
           sort_order: number
           symbol: string
           updated_at: string
           user_id: string
-          purchase_date: string | null
         }
         Insert: {
           applied_amount?: number
@@ -206,12 +155,12 @@ export type Database = {
           last_price_at?: string | null
           name?: string | null
           provider?: string | null
+          purchase_date?: string | null
           quantity?: number
           sort_order?: number
           symbol: string
           updated_at?: string
           user_id?: string
-          purchase_date?: string | null
         }
         Update: {
           applied_amount?: number
@@ -229,12 +178,12 @@ export type Database = {
           last_price_at?: string | null
           name?: string | null
           provider?: string | null
+          purchase_date?: string | null
           quantity?: number
           sort_order?: number
           symbol?: string
           updated_at?: string
           user_id?: string
-          purchase_date?: string | null
         }
         Relationships: [
           {
@@ -248,9 +197,13 @@ export type Database = {
       }
       investments: {
         Row: {
+          annual_rate: number | null
           annual_return: number | null
           applied: number | null
           average_price: number | null
+          benchmark: string | null
+          benchmark_return: number | null
+          benchmark_return_percent: number | null
           connection_id: string | null
           created_at: string
           currency: string
@@ -266,7 +219,13 @@ export type Database = {
           mode: string
           name: string
           percentage: number
+          period: string | null
           quantity: number | null
+          rate_source: string | null
+          rate_type: string | null
+          realized_income: number | null
+          realized_return: number | null
+          realized_return_percent: number | null
           region: string
           snapshot_id: string
           sort_order: number
@@ -275,21 +234,15 @@ export type Database = {
           value: number
           value_mode: string
           year_started: string | null
-          annual_rate: number | null
-          realized_income: number | null
-          realized_return: number | null
-          period: string | null
-          benchmark: string | null
-          benchmark_return: number | null
-          benchmark_return_percent: number | null
-          realized_return_percent: number | null
-          rate_type: string | null
-          rate_source: string | null
         }
         Insert: {
+          annual_rate?: number | null
           annual_return?: number | null
           applied?: number | null
           average_price?: number | null
+          benchmark?: string | null
+          benchmark_return?: number | null
+          benchmark_return_percent?: number | null
           connection_id?: string | null
           created_at?: string
           currency?: string
@@ -305,7 +258,13 @@ export type Database = {
           mode?: string
           name: string
           percentage?: number
+          period?: string | null
           quantity?: number | null
+          rate_source?: string | null
+          rate_type?: string | null
+          realized_income?: number | null
+          realized_return?: number | null
+          realized_return_percent?: number | null
           region?: string
           snapshot_id: string
           sort_order?: number
@@ -314,21 +273,15 @@ export type Database = {
           value?: number
           value_mode?: string
           year_started?: string | null
-          annual_rate?: number | null
-          realized_income?: number | null
-          realized_return?: number | null
-          period?: string | null
-          benchmark?: string | null
-          benchmark_return?: number | null
-          benchmark_return_percent?: number | null
-          realized_return_percent?: number | null
-          rate_type?: string | null
-          rate_source?: string | null
         }
         Update: {
+          annual_rate?: number | null
           annual_return?: number | null
           applied?: number | null
           average_price?: number | null
+          benchmark?: string | null
+          benchmark_return?: number | null
+          benchmark_return_percent?: number | null
           connection_id?: string | null
           created_at?: string
           currency?: string
@@ -344,7 +297,13 @@ export type Database = {
           mode?: string
           name?: string
           percentage?: number
+          period?: string | null
           quantity?: number | null
+          rate_source?: string | null
+          rate_type?: string | null
+          realized_income?: number | null
+          realized_return?: number | null
+          realized_return_percent?: number | null
           region?: string
           snapshot_id?: string
           sort_order?: number
@@ -353,16 +312,6 @@ export type Database = {
           value?: number
           value_mode?: string
           year_started?: string | null
-          annual_rate?: number | null
-          realized_income?: number | null
-          realized_return?: number | null
-          period?: string | null
-          benchmark?: string | null
-          benchmark_return?: number | null
-          benchmark_return_percent?: number | null
-          realized_return_percent?: number | null
-          rate_type?: string | null
-          rate_source?: string | null
         }
         Relationships: [
           {
@@ -490,6 +439,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_incidents: {
+        Row: {
+          component_stack: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          proposed_fix_diff: string | null
+          proposed_fix_summary: string | null
+          resolved_at: string | null
+          route: string | null
+          severity: string
+          stack_trace: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_context: Json | null
+          user_id: string
+        }
+        Insert: {
+          component_stack?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          proposed_fix_diff?: string | null
+          proposed_fix_summary?: string | null
+          resolved_at?: string | null
+          route?: string | null
+          severity?: string
+          stack_trace?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_context?: Json | null
+          user_id?: string
+        }
+        Update: {
+          component_stack?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          proposed_fix_diff?: string | null
+          proposed_fix_summary?: string | null
+          resolved_at?: string | null
+          route?: string | null
+          severity?: string
+          stack_trace?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_context?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
       va_connections: {
         Row: {
