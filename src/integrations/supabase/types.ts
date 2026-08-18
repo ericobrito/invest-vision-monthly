@@ -440,6 +440,60 @@ export type Database = {
           },
         ]
       }
+      system_incidents: {
+        Row: {
+          component_stack: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          proposed_fix_diff: string | null
+          proposed_fix_summary: string | null
+          resolved_at: string | null
+          route: string | null
+          severity: string
+          stack_trace: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_context: Json | null
+          user_id: string
+        }
+        Insert: {
+          component_stack?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          proposed_fix_diff?: string | null
+          proposed_fix_summary?: string | null
+          resolved_at?: string | null
+          route?: string | null
+          severity?: string
+          stack_trace?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_context?: Json | null
+          user_id?: string
+        }
+        Update: {
+          component_stack?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          proposed_fix_diff?: string | null
+          proposed_fix_summary?: string | null
+          resolved_at?: string | null
+          route?: string | null
+          severity?: string
+          stack_trace?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_context?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       va_connections: {
         Row: {
           created_at: string
