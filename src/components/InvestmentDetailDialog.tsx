@@ -117,14 +117,21 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                         p.symbol,
                       );
                       const r = posMetrics.investedValue > 0 ? posMetrics.profitPercent : undefined;
+                      
                       let annualReturnPos: number | undefined = undefined;
-                      if (investment.yearStarted && posMetrics.investedValue > 0 && posMetrics.currentValue > 0) {
-                        const start = new Date(investment.yearStarted.length === 4 ? `${investment.yearStarted}-01-01` : investment.yearStarted);
-                        const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-                        if (years > 0) {
-                          annualReturnPos = (Math.pow(posMetrics.currentValue / posMetrics.investedValue, 1 / years) - 1) * 100;
+                      const refDate = p.purchaseDate || investment.yearStarted;
+                      if (refDate && posMetrics.investedValue > 0 && posMetrics.currentValue > 0) {
+                        try {
+                          const start = new Date(refDate.length === 4 ? `${refDate}-01-01` : refDate);
+                          const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+                          if (years > 0) {
+                            annualReturnPos = (Math.pow(posMetrics.currentValue / posMetrics.investedValue, 1 / years) - 1) * 100;
+                          }
+                        } catch (e) {
+                          console.error("Error calculating position annual return:", e);
                         }
                       }
+
                       const nativeLabel =
                         cur === "BRL" ? `R$ ${fmtNum(posMetrics.currentValue)}` :
                         cur === "USD" ? `US$ ${fmtNum(posMetrics.currentValue)}` :
@@ -146,8 +153,10 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                           <td className="text-right p-2 font-mono">{fmtNum(p.currentPrice)}</td>
                           <td className="text-right p-2 font-mono">{nativeLabel}</td>
                           <td className="text-right p-2 font-mono">{formatBRL(valBRL)}</td>
-                          <td className={`text-right p-2 font-mono ${r != null ? (r >= 0 ? "text-positive" : "text-negative") : ""}`}>
-                            {r != null ? `${r >= 0 ? "+" : ""}${r.toFixed(2)}%` : "—"}
+                          <td className="text-right p-2">
+                            <div className={`font-mono font-medium ${r != null ? (r >= 0 ? "text-positive" : "text-negative") : ""}`}>
+                              {r != null ? `${r >= 0 ? "+" : ""}${r.toFixed(2)}%` : "—"}
+                            </div>
                           </td>
                           <td className={`text-right p-2 font-mono text-xs ${annualReturnPos != null ? (annualReturnPos >= 0 ? "text-positive" : "text-negative") : ""}`}>
                             {annualReturnPos != null ? `${annualReturnPos >= 0 ? "+" : ""}${annualReturnPos.toFixed(2)}% a.a.` : "—"}

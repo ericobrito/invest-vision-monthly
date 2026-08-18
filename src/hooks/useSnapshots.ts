@@ -233,6 +233,7 @@ export function useSnapshots() {
           fxRateAt: p.fx_rate_at ?? undefined,
           provider: p.provider ?? undefined,
           lastPriceAt: p.last_price_at ?? undefined,
+          purchaseDate: p.purchase_date ?? undefined,
         });
         positionsByInvestment.set(p.investment_id, list);
       }
@@ -560,6 +561,7 @@ export function useSaveSnapshot() {
               fxRateAt: p.fx_rate_at ?? undefined,
               provider: p.provider ?? undefined,
               lastPriceAt: p.last_price_at ?? undefined,
+              purchaseDate: p.purchase_date ?? undefined,
             }));
           }
         }
@@ -755,6 +757,7 @@ export function useSaveSnapshot() {
                     fx_rate_at: pos.fxRateAt ?? null,
                     provider: pos.provider ?? null,
                     last_price_at: pos.lastPriceAt ?? null,
+                    purchase_date: pos.purchaseDate ?? null,
                   });
                 }
               }

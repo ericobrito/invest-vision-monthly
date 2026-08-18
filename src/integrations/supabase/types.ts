@@ -166,7 +166,7 @@ export type Database = {
         }
         Relationships: []
       }
-      investment_positions: {
+       investment_positions: {
         Row: {
           applied_amount: number
           applied_amount_brl: number | null
@@ -188,6 +188,7 @@ export type Database = {
           symbol: string
           updated_at: string
           user_id: string
+          purchase_date: string | null
         }
         Insert: {
           applied_amount?: number
@@ -210,6 +211,7 @@ export type Database = {
           symbol: string
           updated_at?: string
           user_id?: string
+          purchase_date?: string | null
         }
         Update: {
           applied_amount?: number
@@ -232,6 +234,7 @@ export type Database = {
           symbol?: string
           updated_at?: string
           user_id?: string
+          purchase_date?: string | null
         }
         Relationships: [
           {

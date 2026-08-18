@@ -26,6 +26,7 @@ export interface Position {
   fxRateAt?: string;
   provider?: string;
   lastPriceAt?: string;
+  purchaseDate?: string;
 }
 
 export interface Investment {

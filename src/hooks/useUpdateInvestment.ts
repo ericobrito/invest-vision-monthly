@@ -151,6 +151,7 @@ export function useUpdateInvestment() {
               provider: p.provider ?? null,
               sort_order: i,
               last_price_at: p.lastPriceAt ?? null,
+              purchase_date: p.purchaseDate ?? null,
             }))
           )
           .throwOnError();

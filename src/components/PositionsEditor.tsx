@@ -292,7 +292,7 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
               </div>
 
               <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <Label className="text-xs">Quantidade</Label>
                   <Input
                     type="number"
@@ -301,7 +301,7 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                     onChange={(e) => updatePosition(idx, { quantity: Number(e.target.value) || 0 })}
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <Label className="text-xs">Preço médio</Label>
                   <Input
                     type="number"
@@ -310,7 +310,7 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                     onChange={(e) => updatePosition(idx, { averagePrice: Number(e.target.value) || 0 })}
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-2">
                   <Label className="text-xs">Preço atual</Label>
                   <Input
                     type="number"
@@ -331,6 +331,14 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="col-span-3">
+                  <Label className="text-xs">Data da Compra</Label>
+                  <Input
+                    type="date"
+                    value={p.purchaseDate ? p.purchaseDate.substring(0, 10) : ""}
+                    onChange={(e) => updatePosition(idx, { purchaseDate: e.target.value })}
+                  />
                 </div>
                 <div className="col-span-1 flex items-end gap-1">
                   <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => fetchQuote(idx)} disabled={fetching === idx} title="Buscar cotação">
