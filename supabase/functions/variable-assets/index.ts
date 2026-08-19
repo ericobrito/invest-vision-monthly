@@ -902,22 +902,55 @@ async function fetchMercadoBitcoin(
   const accRes = await fetch("https://api.mercadobitcoin.net/api/v4/accounts", {
     headers: { Authorization: `Bearer ${access_token}` },
   });
-  if (!accRes.ok) throw new Error(`MB accounts: ${accRes.status}`);
-  const accounts = await accRes.json();
-  const accountId = accounts?.[0]?.id;
-  if (!accountId) return [];
-  const balRes = await fetch(
-    `https://api.mercadobitcoin.net/api/v4/accounts/${accountId}/balances`,
-    { headers: { Authorization: `Bearer ${access_token}` } },
-  );
-  if (!balRes.ok) throw new Error(`MB balances: ${balRes.status}`);
-  const balances = await balRes.json();
-  return (balances ?? [])
-    .map((b: { symbol: string; total: string }) => ({
-      ticker: b.symbol.toUpperCase(),
-      quantity: parseFloat(b.total),
-    }))
-    .filter((b: NormalizedBalance) => b.quantity > 0);
+  if (!accRes.ok) throw new Error(`MB accounts: ${accRes.status} ${await accRes.text()}`);
+  const accRaw = await accRes.json();
+  const accounts: Array<{ id?: string }> = Array.isArray(accRaw)
+    ? accRaw
+    : (accRaw?.accounts ?? accRaw?.data ?? []);
+  console.log("[MB] accounts:", JSON.stringify(accRaw));
+  const ids = accounts.map((a) => a?.id).filter(Boolean) as string[];
+  if (ids.length === 0) return [];
+
+  const totals = new Map<string, number>();
+  const errors: string[] = [];
+
+  for (const accountId of ids) {
+    try {
+      const balRes = await fetch(
+        `https://api.mercadobitcoin.net/api/v4/accounts/${accountId}/balances`,
+        { headers: { Authorization: `Bearer ${access_token}` } },
+      );
+      const text = await balRes.text();
+      if (!balRes.ok) {
+        console.error(`[MB] balances ${accountId} -> ${balRes.status}: ${text}`);
+        errors.push(`${accountId}:${balRes.status}`);
+        continue;
+      }
+      const parsed = text ? JSON.parse(text) : [];
+      const list: Array<Record<string, unknown>> = Array.isArray(parsed)
+        ? parsed
+        : ((parsed as any)?.balances ?? (parsed as any)?.data ?? []);
+      console.log(`[MB] balances ${accountId}:`, JSON.stringify(list));
+      for (const b of list) {
+        const ticker = String(b.symbol ?? b.currency ?? b.coin ?? "").toUpperCase();
+        if (!ticker) continue;
+        const qty = parseFloat(
+          String(b.total ?? b.balance ?? b.available ?? b.amount ?? "0"),
+        );
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        totals.set(ticker, (totals.get(ticker) ?? 0) + qty);
+      }
+    } catch (e) {
+      console.error(`[MB] balances ${accountId} failed:`, e);
+      errors.push(`${accountId}:${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  if (totals.size === 0 && errors.length === ids.length) {
+    throw new Error(`MB balances failed for all accounts (${errors.join(", ")})`);
+  }
+
+  return Array.from(totals.entries()).map(([ticker, quantity]) => ({ ticker, quantity }));
 }
 
 async function fetchPluggy(itemId: string, customClientId?: string | null, customClientSecret?: string | null): Promise<NormalizedBalance[]> {
