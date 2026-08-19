@@ -372,6 +372,21 @@ const Index = () => {
                   const projectedTotalAtPeak = snapshot.total + totalVariablePeakGap;
                   const projectedGainPct = snapshot.total > 0 ? (totalVariablePeakGap / snapshot.total) * 100 : 0;
 
+                  // Projected Annualized Return Calculation
+                  const totalApplied = snapshot.investments.reduce((s, i) => s + (i.appliedBRL ?? i.applied ?? 0), 0);
+                  const oldestYear = snapshot.investments
+                    .filter(i => i.yearStarted)
+                    .map(i => i.yearStarted!)
+                    .sort()[0];
+                  let projectedAnnualReturn: number | undefined;
+                  if (oldestYear && totalApplied > 0 && projectedTotalAtPeak > 0) {
+                    const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
+                    const years = (new Date().getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+                    if (years > 0) {
+                      projectedAnnualReturn = (Math.pow(projectedTotalAtPeak / totalApplied, 1 / years) - 1) * 100;
+                    }
+                  }
+
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {growthSince2024 != null && (
@@ -395,23 +410,30 @@ const Index = () => {
                           </p>
                         )}
                       </div>
-                      <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
-                        <p className="text-sm text-muted-foreground mb-1">
-                          {t("index.variablePeakProjection")}
-                        </p>
-                        <p className="text-2xl font-bold text-primary">
-                          {projectedTotalAtPeak.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </p>
-                        {totalVariablePeakGap > 0 ? (
-                          <p className="text-sm text-primary mt-1">
-                            {t("index.variablePeakGain", { 
-                              gain: totalVariablePeakGap.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), 
-                              pct: projectedGainPct.toFixed(2) 
-                            })}
+                      <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center flex flex-col justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            {t("index.variablePeakProjection")}
                           </p>
-                        ) : (
-                          <p className="text-sm text-primary mt-1">
-                            {t("index.atPeak")}
+                          <p className="text-2xl font-bold text-primary">
+                            {projectedTotalAtPeak.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </p>
+                          {totalVariablePeakGap > 0 ? (
+                            <p className="text-sm text-primary mt-1">
+                              {t("index.variablePeakGain", { 
+                                gain: totalVariablePeakGap.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), 
+                                pct: projectedGainPct.toFixed(2) 
+                              })}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-primary mt-1">
+                              {t("index.atPeak")}
+                            </p>
+                          )}
+                        </div>
+                        {projectedAnnualReturn != null && (
+                          <p className="text-[11px] text-muted-foreground mt-3 pt-2 border-t border-border/50">
+                            Ret. Anual Projetada: <strong className="text-primary font-mono">{projectedAnnualReturn.toFixed(2)}% a.a.</strong>
                           </p>
                         )}
                       </div>
