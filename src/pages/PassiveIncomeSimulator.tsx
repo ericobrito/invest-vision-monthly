@@ -474,7 +474,7 @@ const PassiveIncomeSimulator = () => {
                 Ativos de Portfólio e Rentabilidades Cadastradas
               </CardTitle>
               <CardDescription className="text-xs">
-                Separação entre Renda Realizada (histórica) e Renda Projetada (baseada na taxa anual cadastrada). Ativos sem taxa cadastrada usam o CDI ({CDI_RATE}% a.a.) como referência de projeção.
+                Renda Projetada baseada na taxa anual cadastrada de cada ativo. Ativos sem taxa cadastrada usam o CDI ({CDI_RATE}% a.a.) como referência de projeção.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -486,7 +486,6 @@ const PassiveIncomeSimulator = () => {
                       <TableHead className="text-right">Alocação</TableHead>
                       <TableHead className="text-center w-[90px]">Classe/Região</TableHead>
                       <TableHead className="text-center w-[120px]">Taxa Projetada</TableHead>
-                      <TableHead className="text-right">Renda Realizada</TableHead>
                       <TableHead className="text-right">Renda Projetada</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -551,13 +550,6 @@ const PassiveIncomeSimulator = () => {
                             </div>
                           ) : (
                             <span className="text-xs font-normal text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-emerald-400 text-sm">
-                          {inv.realizedIncome != null ? (
-                            formatBRL(inv.realizedIncome)
-                          ) : (
-                            <span className="text-[10px] font-normal text-muted-foreground">Dados históricos insuficientes</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-primary text-sm">
