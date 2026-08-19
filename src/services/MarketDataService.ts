@@ -16,6 +16,15 @@ export interface SymbolSearchResult {
 }
 
 export class MarketDataService {
+  private static normalizeYahooSymbol(symbol: string): string {
+    const sym = symbol.toUpperCase().trim();
+    const cryptos = ["BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT", "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC"];
+    if (cryptos.includes(sym)) {
+      return `${sym}-USD`;
+    }
+    return symbol.replace('.', '-');
+  }
+
   /**
    * Internal helper to retrieve the USD-BRL FX rate and quotes for a set of symbols.
    * If the Firebase Cloud Function is configured, it calls it. Otherwise, it uses the fallback.
@@ -89,8 +98,9 @@ export class MarketDataService {
       await Promise.all(
         symbols.map(async (symbol) => {
           try {
+            const normSymbol = this.normalizeYahooSymbol(symbol);
             const { data, error } = await supabase.functions.invoke("asset-quote", {
-              body: { action: "quote", symbol, provider: "yahoo" },
+              body: { action: "quote", symbol: normSymbol, provider: "yahoo" },
             });
             if (error) throw error;
             const price = Number(data?.result?.price);
@@ -109,7 +119,7 @@ export class MarketDataService {
 
           // Direct browser fallback via public CORS proxy
           try {
-            const yahooSymbol = symbol.replace('.', '-');
+            const yahooSymbol = this.normalizeYahooSymbol(symbol);
             const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
             const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
             const res = await fetch(proxyUrl);
@@ -147,7 +157,7 @@ export class MarketDataService {
     // If auto or yahoo, try direct Yahoo Finance CORS proxy first to bypass broken/outdated edge functions
     if (prov === "yahoo" || prov === "auto") {
       try {
-        const yahooSymbol = sym.replace('.', '-');
+        const yahooSymbol = this.normalizeYahooSymbol(sym);
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
         const res = await fetch(proxyUrl);
@@ -169,8 +179,9 @@ export class MarketDataService {
 
     // Try the Supabase edge function (for brapi, coingecko, or as fallback for auto)
     try {
+      const normSymbol = (prov === "yahoo" || prov === "auto") ? this.normalizeYahooSymbol(sym) : sym;
       const { data, error } = await supabase.functions.invoke("asset-quote", {
-        body: { action: "quote", symbol: sym, provider },
+        body: { action: "quote", symbol: normSymbol, provider },
       });
       if (error) throw error;
       const result = data?.result;
@@ -195,7 +206,7 @@ export class MarketDataService {
     // Direct browser fallback using CORS proxy (if we didn't try it already or if it's the last resort)
     if (prov !== "yahoo" && prov !== "auto") {
       try {
-        const yahooSymbol = sym.replace('.', '-');
+        const yahooSymbol = this.normalizeYahooSymbol(sym);
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1d`;
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
         const res = await fetch(proxyUrl);
