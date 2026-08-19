@@ -29,7 +29,9 @@
     "growthSince": "Cumulative growth since Jan 2024",
     "atPeak": "You're at an all-time high!",
     "distanceFromPeak": "Distance from all-time high",
-    "vsPeak": "{{pct}}% vs peak ({{peak}})"
+    "vsPeak": "{{pct}}% vs peak ({{peak}})",
+    "variablePeakProjection": "Projection with Variable Income at Peak",
+    "variablePeakGain": "+{{gain}} (+{{pct}}%) projected gain"
   },
   "delete": {
     "title": "Delete month?",

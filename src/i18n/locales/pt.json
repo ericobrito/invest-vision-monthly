@@ -29,7 +29,9 @@
     "growthSince": "Crescimento acumulado desde Jan 2024",
     "atPeak": "Você está no topo histórico!",
     "distanceFromPeak": "Distância do topo histórico",
-    "vsPeak": "{{pct}}% em relação ao pico ({{peak}})"
+    "vsPeak": "{{pct}}% em relação ao pico ({{peak}})",
+    "variablePeakProjection": "Projeção com Renda Variável no Topo",
+    "variablePeakGain": "+{{gain}} (+{{pct}}%) de ganho projetado"
   },
   "delete": {
     "title": "Excluir mês?",

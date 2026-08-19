@@ -353,8 +353,27 @@ const Index = () => {
                   const diffFromMaxPct = maxTotal > 0 ? (diffFromMax / maxTotal) * 100 : 0;
                   const isAtPeak = diffFromMax >= 0;
 
+                  // Variable Income Peak Projection
+                  const variableInvs = snapshot.investments.filter(i => i.incomeType === 'variable');
+                  let totalVariablePeakGap = 0;
+                  
+                  variableInvs.forEach(currInv => {
+                    const histValues = monthlyData.flatMap(s => 
+                      s.investments
+                        .filter(i => i.name === currInv.name)
+                        .map(i => i.valueBRL ?? i.value)
+                    );
+                    const peak = histValues.length > 0 ? Math.max(...histValues) : (currInv.valueBRL ?? currInv.value);
+                    const current = currInv.valueBRL ?? currInv.value;
+                    const gap = peak > current ? peak - current : 0;
+                    totalVariablePeakGap += gap;
+                  });
+
+                  const projectedTotalAtPeak = snapshot.total + totalVariablePeakGap;
+                  const projectedGainPct = snapshot.total > 0 ? (totalVariablePeakGap / snapshot.total) * 100 : 0;
+
                   return (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {growthSince2024 != null && (
                         <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
                           <p className="text-sm text-muted-foreground mb-1">{t("index.growthSince")}</p>
@@ -373,6 +392,26 @@ const Index = () => {
                         {!isAtPeak && (
                           <p className="text-sm text-destructive mt-1">
                             {t("index.vsPeak", { pct: diffFromMaxPct.toFixed(2), peak: maxTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) })}
+                          </p>
+                        )}
+                      </div>
+                      <div className="gradient-card rounded-xl border border-primary/30 p-5 text-center">
+                        <p className="text-sm text-muted-foreground mb-1">
+                          {t("index.variablePeakProjection")}
+                        </p>
+                        <p className="text-2xl font-bold text-primary">
+                          {projectedTotalAtPeak.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </p>
+                        {totalVariablePeakGap > 0 ? (
+                          <p className="text-sm text-primary mt-1">
+                            {t("index.variablePeakGain", { 
+                              gain: totalVariablePeakGap.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), 
+                              pct: projectedGainPct.toFixed(2) 
+                            })}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-primary mt-1">
+                            {t("index.atPeak")}
                           </p>
                         )}
                       </div>
