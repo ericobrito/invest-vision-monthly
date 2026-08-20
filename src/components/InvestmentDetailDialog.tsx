@@ -141,8 +141,10 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                         try {
                           const start = new Date(refDate.length === 4 ? `${refDate}-01-01` : refDate);
                           const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-                          if (years > 0) {
+                          if (years >= 1) {
                             annualReturnPos = (Math.pow(posMetrics.currentValue / posMetrics.investedValue, 1 / years) - 1) * 100;
+                          } else if (years > 0 && r !== undefined) {
+                            annualReturnPos = r;
                           }
                         } catch (e) {
                           console.error("Error calculating position annual return:", e);

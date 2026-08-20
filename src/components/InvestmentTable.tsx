@@ -59,8 +59,10 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     if (inv.yearStarted && appliedValue && appliedValue > 0 && currentValue > 0) {
       const start = new Date(inv.yearStarted);
       const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      if (years > 0) {
+      if (years >= 1) {
         return (Math.pow(currentValue / appliedValue, 1 / years) - 1) * 100;
+      } else if (years > 0) {
+        return displayedTotalReturn(inv);
       }
     }
     return inv.annualReturn;
@@ -192,8 +194,10 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   if (oldestYear && totalApplied > 0 && totalValue > 0) {
     const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
     const years = (new Date().getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-    if (years > 0) {
+    if (years >= 1) {
       overallAnnualReturn = (Math.pow(totalValue / totalApplied, 1 / years) - 1) * 100;
+    } else if (years > 0) {
+      overallAnnualReturn = overallTotalReturn;
     }
   }
 
