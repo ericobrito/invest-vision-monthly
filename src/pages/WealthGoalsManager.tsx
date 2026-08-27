@@ -258,6 +258,25 @@ const WealthGoalsManager = () => {
     }
   };
 
+  const handleDeleteRecord = async (month: string) => {
+    if (confirm(`Tem certeza que deseja excluir o lançamento de ${month}?`)) {
+      try {
+        await deleteRecord(month);
+        toast({
+          title: "Lançamento excluído",
+          description: `Os valores de ${month} foram removidos.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Erro ao excluir",
+          description: getErrorMessage(err),
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+
   // Compile monthly statistics dynamically for the historical table
   const allHistoryMonths = Array.from(
     new Set([
@@ -439,7 +458,7 @@ const WealthGoalsManager = () => {
                 <span className="font-semibold text-foreground">{goals.years_horizon} anos</span>
               </div>
               <div className="pt-2 text-right">
-                <Button variant="outline" size="xs" onClick={handleOpenGoalsEdit}>
+                <Button variant="outline" size="sm" onClick={handleOpenGoalsEdit}>
                   <Edit2 className="w-3 h-3 mr-1" /> Editar Diretrizes
                 </Button>
               </div>
