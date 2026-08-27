@@ -458,7 +458,7 @@ const WealthGoalsManager = () => {
                 <span className="font-semibold text-foreground">{goals.years_horizon} anos</span>
               </div>
               <div className="pt-2 text-right">
-                <Button variant="outline" size="xs" onClick={handleOpenGoalsEdit}>
+                <Button variant="outline" size="sm" onClick={handleOpenGoalsEdit}>
                   <Edit2 className="w-3 h-3 mr-1" /> Editar Diretrizes
                 </Button>
               </div>
