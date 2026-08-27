@@ -9,6 +9,7 @@ export interface WealthGoals {
   target_emergency_reserve: number;
   target_leisure: number;
   target_fixed_cost: number;
+  target_urgent_expense: number;
   monthly_income: number;
   years_horizon: number;
 }
@@ -27,7 +28,7 @@ export interface WealthBudgetItem {
   id?: string;
   user_id?: string;
   month: string; // YYYY-MM
-  category: "aporte" | "fixed_cost" | "leisure";
+  category: "aporte" | "fixed_cost" | "leisure" | "urgent_expense";
   description: string;
   value: number;
   created_at?: string;
@@ -39,6 +40,7 @@ export const DEFAULT_GOALS: WealthGoals = {
   target_emergency_reserve: 66000,
   target_leisure: 3300,
   target_fixed_cost: 5500,
+  target_urgent_expense: 0,
   monthly_income: 10000,
   years_horizon: 16,
 };

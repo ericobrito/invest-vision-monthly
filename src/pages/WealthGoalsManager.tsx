@@ -125,10 +125,12 @@ const WealthGoalsManager = () => {
   const selectedAporteItems = activeMonthItems.filter(i => i.category === "aporte");
   const selectedFixedCostItems = activeMonthItems.filter(i => i.category === "fixed_cost");
   const selectedLeisureItems = activeMonthItems.filter(i => i.category === "leisure");
+  const selectedUrgentExpenseItems = activeMonthItems.filter(i => i.category === "urgent_expense");
 
   const totalAporte = selectedAporteItems.reduce((acc, i) => acc + i.value, 0);
   const totalFixedCost = selectedFixedCostItems.reduce((acc, i) => acc + i.value, 0);
   const totalLeisure = selectedLeisureItems.reduce((acc, i) => acc + i.value, 0);
+  const totalUrgentExpense = selectedUrgentExpenseItems.reduce((acc, i) => acc + i.value, 0);
 
   const activeRecord = records.find(r => r.month === selectedMonth);
   const currentEmergencyReserve = activeRecord?.actual_emergency_reserve ?? 0;
@@ -295,6 +297,7 @@ const WealthGoalsManager = () => {
       actual_aporte: items.filter(i => i.category === "aporte").reduce((sum, i) => sum + i.value, 0),
       actual_fixed_cost: items.filter(i => i.category === "fixed_cost").reduce((sum, i) => sum + i.value, 0),
       actual_leisure: items.filter(i => i.category === "leisure").reduce((sum, i) => sum + i.value, 0),
+      actual_urgent_expense: items.filter(i => i.category === "urgent_expense").reduce((sum, i) => sum + i.value, 0),
     };
   });
 
@@ -453,6 +456,10 @@ const WealthGoalsManager = () => {
                 <span>Lazer/Compras Máximos:</span>
                 <span className="font-semibold text-foreground">{formatBRL(goals.target_leisure)}</span>
               </div>
+              <div className="flex justify-between border-b border-border/50 pb-1 text-muted-foreground">
+                <span>Despesas Urgentes Limite:</span>
+                <span className="font-semibold text-foreground">{formatBRL(goals.target_urgent_expense)}</span>
+              </div>
               <div className="flex justify-between pt-1 text-muted-foreground">
                 <span>Horizonte Estimado:</span>
                 <span className="font-semibold text-foreground">{goals.years_horizon} anos</span>
@@ -592,16 +599,45 @@ const WealthGoalsManager = () => {
                     }`} 
                   />
                 </div>
+
+                {/* Goal Item 4: Despesas Urgentes */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-foreground block">Despesas Urgentes</span>
+                      <span className="text-muted-foreground text-[10px]">Teto Sugerido: {formatBRL(goals.target_urgent_expense)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-foreground block">
+                        {formatBRL(totalUrgentExpense)}
+                      </span>
+                      {totalUrgentExpense <= goals.target_urgent_expense ? (
+                        <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> Dentro do Limite
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-destructive font-bold inline-flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3" /> Estourado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Progress 
+                    value={getProgressPercent(totalUrgentExpense, goals.target_urgent_expense)} 
+                    className={`h-2.5 bg-secondary ${
+                      totalUrgentExpense <= goals.target_urgent_expense ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-destructive/20 [&>div]:bg-destructive"
+                    }`} 
+                  />
+                </div>
               </div>
 
-              {/* DETAILED ITEMS BREAKDOWN FOR THE MONTH ("aporte onde... custo fixo somar... lazer tbm") */}
+              {/* DETAILED ITEMS BREAKDOWN FOR THE MONTH */}
               <div className="pt-4 border-t border-border/65 space-y-4">
                 <h3 className="text-xs font-black uppercase text-foreground tracking-wider flex items-center gap-1.5 mb-3">
                   <Info className="w-3.5 h-3.5 text-primary" />
                   Detalhamento de Lançamentos de {selectedMonth}
                 </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   {/* Category 1: Aportes */}
                   <div className="bg-background/25 border border-border/60 rounded-xl p-3.5 space-y-2.5">
                     <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
@@ -697,9 +733,40 @@ const WealthGoalsManager = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Category 4: Despesas Urgentes */}
+                  <div className="bg-background/25 border border-border/60 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-primary" /> Desp. Urgentes
+                      </span>
+                      <span className="text-xs font-mono font-bold text-primary">{formatBRL(totalUrgentExpense)}</span>
+                    </div>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {selectedUrgentExpenseItems.length > 0 ? (
+                        selectedUrgentExpenseItems.map(item => (
+                          <div key={item.id} className="flex justify-between items-center text-[11px] hover:bg-secondary/15 p-1 rounded">
+                            <span className="text-muted-foreground truncate max-w-[100px]" title={item.description}>
+                              {item.description}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-foreground">{formatBRL(item.value)}</span>
+                              <button 
+                                onClick={() => handleDeleteItem(item.id!, item.description)} 
+                                className="text-muted-foreground/60 hover:text-destructive transition-colors shrink-0"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/70 italic text-center py-2">Sem desp. urgentes</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-
             </CardContent>
           </Card>
 
@@ -805,6 +872,7 @@ const WealthGoalsManager = () => {
                       <TableHead className="text-right">Aportes (Alvo: {formatBRL(goals.target_aporte)})</TableHead>
                       <TableHead className="text-right">Custo Fixo (Teto: {formatBRL(goals.target_fixed_cost)})</TableHead>
                       <TableHead className="text-right">Lazer (Teto: {formatBRL(goals.target_leisure)})</TableHead>
+                      <TableHead className="text-right">Despesas Urgentes (Teto: {formatBRL(goals.target_urgent_expense)})</TableHead>
                       <TableHead className="text-right">Reserva de Emergência (Alvo: {formatBRL(goals.target_emergency_reserve)})</TableHead>
                       <TableHead className="text-center w-[120px]">Ação</TableHead>
                     </TableRow>
@@ -814,6 +882,7 @@ const WealthGoalsManager = () => {
                       const isAporteOk = r.actual_aporte >= goals.target_aporte;
                       const isFixoOk = r.actual_fixed_cost <= goals.target_fixed_cost;
                       const isLazerOk = r.actual_leisure <= goals.target_leisure;
+                      const isUrgentOk = r.actual_urgent_expense <= goals.target_urgent_expense;
                       const isReservaOk = r.actual_emergency_reserve != null && r.actual_emergency_reserve >= goals.target_emergency_reserve;
 
                       return (
@@ -835,6 +904,11 @@ const WealthGoalsManager = () => {
                           {/* Lazer Cell */}
                           <TableCell className={`text-right font-medium ${isLazerOk ? "text-emerald-400" : "text-destructive"}`}>
                             {formatBRL(r.actual_leisure)}
+                          </TableCell>
+
+                          {/* Urgent Expense Cell */}
+                          <TableCell className={`text-right font-medium ${isUrgentOk ? "text-emerald-400" : "text-destructive"}`}>
+                            {formatBRL(r.actual_urgent_expense)}
                           </TableCell>
 
                           {/* Reserva Cell */}
@@ -931,6 +1005,17 @@ const WealthGoalsManager = () => {
                 className="col-span-2 text-right font-mono"
                 value={goalsForm.target_leisure}
                 onChange={(e) => setGoalsForm({ ...goalsForm, target_leisure: Number(e.target.value) })}
+              />
+            </div>
+
+            {/* Despesas Urgentes */}
+            <div className="grid grid-cols-4 items-center gap-4 text-xs">
+              <label className="text-right font-semibold text-muted-foreground col-span-2">Despesas Urgentes Limite:</label>
+              <Input
+                type="number"
+                className="col-span-2 text-right font-mono"
+                value={goalsForm.target_urgent_expense}
+                onChange={(e) => setGoalsForm({ ...goalsForm, target_urgent_expense: Number(e.target.value) })}
               />
             </div>
 
@@ -1048,6 +1133,7 @@ const WealthGoalsManager = () => {
                     <option value="fixed_cost">Custo Fixo (Teto: {formatBRL(goals.target_fixed_cost)})</option>
                     <option value="leisure">Lazer/Compras (Teto: {formatBRL(goals.target_leisure)})</option>
                     <option value="aporte">Aporte/Investimento (Alvo: {formatBRL(goals.target_aporte)})</option>
+                    <option value="urgent_expense">Despesa Urgente (Teto: {formatBRL(goals.target_urgent_expense)})</option>
                   </select>
                 </div>
 
