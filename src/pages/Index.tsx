@@ -16,7 +16,7 @@ import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
 import LanguageToggle from "@/components/LanguageToggle";
 import ThemeToggle from "@/components/ThemeToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -187,6 +187,11 @@ const Index = () => {
                 <PiggyBank className="w-4 h-4 mr-1" /> Simulador
               </Button>
             </Link>
+            <Link to="/metas">
+              <Button variant="outline" size="sm">
+                <Trophy className="w-4 h-4 mr-1" /> {t("nav.goals")}
+              </Button>
+            </Link>
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")}>
@@ -255,6 +260,11 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/simulador-renda" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <PiggyBank className="w-4 h-4" /> Simulador de Renda Passiva
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/metas" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
+                      <Trophy className="w-4 h-4" /> {t("nav.goals")}
                     </Link>
                   </SheetClose>
 
