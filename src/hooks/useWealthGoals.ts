@@ -54,7 +54,7 @@ export function useWealthGoals() {
       if (!user) throw new Error("User not authenticated");
 
       const { data, error } = await supabase
-        .from("wealth_goals" as any)
+        .from("wealth_goals")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
@@ -76,7 +76,7 @@ export function useWealthGoals() {
       if (!user) throw new Error("User not authenticated");
 
       const { data, error } = await supabase
-        .from("wealth_goal_records" as any)
+        .from("wealth_goal_records")
         .select("*")
         .eq("user_id", user.id)
         .order("month", { ascending: true });
@@ -98,7 +98,7 @@ export function useWealthGoals() {
       if (!user) throw new Error("User not authenticated");
 
       const { data, error } = await supabase
-        .from("wealth_budget_items" as any)
+        .from("wealth_budget_items")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
@@ -131,7 +131,7 @@ export function useWealthGoals() {
       }
 
       const { data, error } = await supabase
-        .from("wealth_goals" as any)
+        .from("wealth_goals")
         .upsert(payload, { onConflict: "user_id" })
         .select()
         .single();
@@ -157,7 +157,7 @@ export function useWealthGoals() {
       };
 
       const { data, error } = await supabase
-        .from("wealth_goal_records" as any)
+        .from("wealth_goal_records")
         .upsert(payload, { onConflict: "user_id,month" })
         .select()
         .single();
@@ -177,7 +177,7 @@ export function useWealthGoals() {
       if (!user) throw new Error("User not authenticated");
 
       const { error } = await supabase
-        .from("wealth_goal_records" as any)
+        .from("wealth_goal_records")
         .delete()
         .eq("user_id", user.id)
         .eq("month", month);
@@ -202,7 +202,7 @@ export function useWealthGoals() {
       };
 
       const { data, error } = await supabase
-        .from("wealth_budget_items" as any)
+        .from("wealth_budget_items")
         .upsert(payload)
         .select()
         .single();
@@ -222,7 +222,7 @@ export function useWealthGoals() {
       if (!user) throw new Error("User not authenticated");
 
       const { error } = await supabase
-        .from("wealth_budget_items" as any)
+        .from("wealth_budget_items")
         .delete()
         .eq("user_id", user.id)
         .eq("id", id);
