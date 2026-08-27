@@ -108,7 +108,7 @@ export function useWealthGoals() {
         return [];
       }
 
-      return data || [];
+      return (data || []) as WealthBudgetItem[];
     },
   });
 
@@ -208,7 +208,7 @@ export function useWealthGoals() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as WealthBudgetItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wealth-budget-items"] });
