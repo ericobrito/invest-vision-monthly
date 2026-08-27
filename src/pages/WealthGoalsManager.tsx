@@ -337,7 +337,7 @@ const WealthGoalsManager = () => {
 
   // Percent values helper
   const getProgressPercent = (current: number, target: number) => {
-    if (target <= 0) return 0;
+    if (target <= 0) return current > 0 ? 100 : 0;
     return Math.min(100, Math.round((current / target) * 100));
   };
 
@@ -637,7 +637,7 @@ const WealthGoalsManager = () => {
                   <Info className="w-3.5 h-3.5 text-primary" />
                   Detalhamento de Lançamentos de {selectedMonth}
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Category 1: Aportes */}
                   <div className="bg-background/25 border border-border/60 rounded-xl p-3.5 space-y-2.5">
                     <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
