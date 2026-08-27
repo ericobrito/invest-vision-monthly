@@ -627,6 +627,117 @@ export type Database = {
           },
         ]
       }
+      wealth_budget_items: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          month: string
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string
+          id?: string
+          month: string
+          updated_at?: string
+          user_id: string
+          value?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          month?: string
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      wealth_goal_records: {
+        Row: {
+          actual_aporte: number | null
+          actual_emergency_reserve: number | null
+          actual_fixed_cost: number | null
+          actual_leisure: number | null
+          created_at: string
+          id: string
+          month: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_aporte?: number | null
+          actual_emergency_reserve?: number | null
+          actual_fixed_cost?: number | null
+          actual_leisure?: number | null
+          created_at?: string
+          id?: string
+          month: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_aporte?: number | null
+          actual_emergency_reserve?: number | null
+          actual_fixed_cost?: number | null
+          actual_leisure?: number | null
+          created_at?: string
+          id?: string
+          month?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wealth_goals: {
+        Row: {
+          created_at: string
+          id: string
+          monthly_income: number | null
+          target_aporte: number | null
+          target_emergency_reserve: number | null
+          target_fixed_cost: number | null
+          target_leisure: number | null
+          target_wealth: number | null
+          updated_at: string
+          user_id: string
+          years_horizon: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          monthly_income?: number | null
+          target_aporte?: number | null
+          target_emergency_reserve?: number | null
+          target_fixed_cost?: number | null
+          target_leisure?: number | null
+          target_wealth?: number | null
+          updated_at?: string
+          user_id: string
+          years_horizon?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          monthly_income?: number | null
+          target_aporte?: number | null
+          target_emergency_reserve?: number | null
+          target_fixed_cost?: number | null
+          target_leisure?: number | null
+          target_wealth?: number | null
+          updated_at?: string
+          user_id?: string
+          years_horizon?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
