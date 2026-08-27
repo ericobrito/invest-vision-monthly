@@ -52,6 +52,16 @@ import {
   CartesianGrid 
 } from "recharts";
 
+const getErrorMessage = (err: any): string => {
+  if (!err) return "Erro desconhecido";
+  if (typeof err === "string") return err;
+  const msg = err.message || (typeof err === "object" && err.error_description) || JSON.stringify(err);
+  if (msg.includes("relation") && msg.includes("does not exist")) {
+    return "As tabelas de metas não foram encontradas no seu banco de dados Supabase. Por favor, execute o script SQL de migração no painel do Supabase SQL Editor para criá-las.";
+  }
+  return msg;
+};
+
 const WealthGoalsManager = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -139,7 +149,7 @@ const WealthGoalsManager = () => {
     } catch (err) {
       toast({
         title: "Erro ao atualizar metas",
-        description: String(err),
+        description: getErrorMessage(err),
         variant: "destructive",
       });
     }
@@ -191,7 +201,7 @@ const WealthGoalsManager = () => {
     } catch (err) {
       toast({
         title: "Erro ao salvar reserva",
-        description: String(err),
+        description: getErrorMessage(err),
         variant: "destructive",
       });
     }
@@ -224,7 +234,7 @@ const WealthGoalsManager = () => {
     } catch (err) {
       toast({
         title: "Erro ao salvar item",
-        description: String(err),
+        description: getErrorMessage(err),
         variant: "destructive",
       });
     }
@@ -241,7 +251,7 @@ const WealthGoalsManager = () => {
       } catch (err) {
         toast({
           title: "Erro ao excluir",
-          description: String(err),
+          description: getErrorMessage(err),
           variant: "destructive",
         });
       }
