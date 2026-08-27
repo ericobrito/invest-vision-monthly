@@ -258,6 +258,25 @@ const WealthGoalsManager = () => {
     }
   };
 
+  const handleDeleteRecord = async (month: string) => {
+    if (confirm(`Tem certeza que deseja excluir o lançamento de ${month}?`)) {
+      try {
+        await deleteRecord(month);
+        toast({
+          title: "Lançamento excluído",
+          description: `Os valores de ${month} foram removidos.`,
+        });
+      } catch (err) {
+        toast({
+          title: "Erro ao excluir",
+          description: getErrorMessage(err),
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+
   // Compile monthly statistics dynamically for the historical table
   const allHistoryMonths = Array.from(
     new Set([
