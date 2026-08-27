@@ -12,26 +12,26 @@ import {
   TrendingUp, 
   AlertTriangle, 
   CheckCircle2, 
-  HelpCircle, 
   Calendar,
   Wallet,
   Coins,
-  ChevronRight
+  ChevronRight,
+  Info
 } from "lucide-react";
-import { useWealthGoals, type WealthGoalRecord, type WealthGoals as GoalsType } from "@/hooks/useWealthGoals";
+import { useWealthGoals, type WealthGoalRecord, type WealthBudgetItem, type WealthGoals as GoalsType } from "@/hooks/useWealthGoals";
 import { useSnapshots } from "@/hooks/useSnapshots";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Dialog, 
   DialogContent, 
   DialogDescription, 
   DialogFooter, 
   DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+  DialogTitle 
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -41,12 +41,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ResponsiveContainer, 
@@ -55,7 +49,6 @@ import {
   XAxis, 
   YAxis, 
   Tooltip as ChartTooltip, 
-  Legend, 
   CartesianGrid 
 } from "recharts";
 
@@ -67,37 +60,68 @@ const WealthGoalsManager = () => {
   const {
     goals,
     records,
+    budgetItems,
     isLoadingGoals,
     isLoadingRecords,
+    isLoadingBudgetItems,
     updateGoals,
     saveRecord,
-    deleteRecord
+    deleteRecord,
+    saveBudgetItem,
+    deleteBudgetItem
   } = useWealthGoals();
 
   const [isEditingGoals, setIsEditingGoals] = useState(false);
   const [goalsForm, setGoalsForm] = useState<GoalsType>(goals);
 
+  // Selector controls
   const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<Partial<WealthGoalRecord> | null>(null);
-  const [recordForm, setRecordForm] = useState({
-    month: new Date().toISOString().substring(0, 7), // YYYY-MM
-    actual_aporte: "",
-    actual_fixed_cost: "",
-    actual_leisure: "",
+  const [activeTab, setActiveTab] = useState<"reserve" | "item">("item");
+
+  // Form for emergency reserve balance
+  const [reserveForm, setReserveForm] = useState({
+    month: new Date().toISOString().substring(0, 7),
     actual_emergency_reserve: "",
+  });
+
+  // Form for budget items (Aporte, Custo Fixo, Lazer)
+  const [itemForm, setItemForm] = useState({
+    month: new Date().toISOString().substring(0, 7),
+    category: "fixed_cost",
+    description: "",
+    value: "",
   });
 
   const latestSnapshot = snapshots && snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
   const currentWealth = latestSnapshot ? latestSnapshot.total : 593034.15; // default fallback
 
+  // Get all unique months present in either records or budget items to populate selectors
+  const uniqueMonths = Array.from(
+    new Set([
+      ...records.map(r => r.month),
+      ...budgetItems.map(i => i.month),
+      new Date().toISOString().substring(0, 7)
+    ])
+  ).sort();
+
   // Selected month for detail tracking
   const [selectedMonth, setSelectedMonth] = useState<string>(
-    records.length > 0 ? records[records.length - 1].month : new Date().toISOString().substring(0, 7)
+    uniqueMonths.length > 0 ? uniqueMonths[uniqueMonths.length - 1] : new Date().toISOString().substring(0, 7)
   );
 
+  // Sum calculations for the selected month
+  const activeMonthItems = budgetItems.filter(item => item.month === selectedMonth);
+  
+  const selectedAporteItems = activeMonthItems.filter(i => i.category === "aporte");
+  const selectedFixedCostItems = activeMonthItems.filter(i => i.category === "fixed_cost");
+  const selectedLeisureItems = activeMonthItems.filter(i => i.category === "leisure");
+
+  const totalAporte = selectedAporteItems.reduce((acc, i) => acc + i.value, 0);
+  const totalFixedCost = selectedFixedCostItems.reduce((acc, i) => acc + i.value, 0);
+  const totalLeisure = selectedLeisureItems.reduce((acc, i) => acc + i.value, 0);
+
   const activeRecord = records.find(r => r.month === selectedMonth);
-  const latestRecord = records.length > 0 ? records[records.length - 1] : null;
-  const currentEmergencyReserve = latestRecord?.actual_emergency_reserve ?? 0;
+  const currentEmergencyReserve = activeRecord?.actual_emergency_reserve ?? 0;
 
   const handleOpenGoalsEdit = () => {
     setGoalsForm(goals);
@@ -121,79 +145,99 @@ const WealthGoalsManager = () => {
     }
   };
 
-  const handleOpenAddRecord = () => {
-    setEditingRecord(null);
-    setRecordForm({
-      month: new Date().toISOString().substring(0, 7),
-      actual_aporte: "",
-      actual_fixed_cost: "",
-      actual_leisure: "",
-      actual_emergency_reserve: "",
+  const handleOpenAddRecord = (tab: "reserve" | "item") => {
+    setActiveTab(tab);
+    
+    // Set default month to currently selected month
+    setReserveForm({
+      month: selectedMonth,
+      actual_emergency_reserve: activeRecord?.actual_emergency_reserve?.toString() || "",
     });
+
+    setItemForm({
+      month: selectedMonth,
+      category: "fixed_cost",
+      description: "",
+      value: "",
+    });
+
     setIsRecordDialogOpen(true);
   };
 
-  const handleOpenEditRecord = (record: WealthGoalRecord) => {
-    setEditingRecord(record);
-    setRecordForm({
-      month: record.month,
-      actual_aporte: record.actual_aporte?.toString() || "",
-      actual_fixed_cost: record.actual_fixed_cost?.toString() || "",
-      actual_leisure: record.actual_leisure?.toString() || "",
-      actual_emergency_reserve: record.actual_emergency_reserve?.toString() || "",
-    });
-    setIsRecordDialogOpen(true);
-  };
-
-  const handleSaveRecord = async () => {
-    if (!recordForm.month) {
+  const handleSaveReserve = async () => {
+    if (!reserveForm.month || !reserveForm.actual_emergency_reserve) {
       toast({
-        title: "Campo obrigatório",
-        description: "Por favor, selecione um mês de referência.",
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha o mês e o saldo da reserva.",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      const existing = records.find(r => r.month === reserveForm.month);
       await saveRecord({
-        id: editingRecord?.id,
-        month: recordForm.month,
-        actual_aporte: recordForm.actual_aporte ? Number(recordForm.actual_aporte) : null,
-        actual_fixed_cost: recordForm.actual_fixed_cost ? Number(recordForm.actual_fixed_cost) : null,
-        actual_leisure: recordForm.actual_leisure ? Number(recordForm.actual_leisure) : null,
-        actual_emergency_reserve: recordForm.actual_emergency_reserve ? Number(recordForm.actual_emergency_reserve) : null,
+        id: existing?.id,
+        month: reserveForm.month,
+        actual_emergency_reserve: Number(reserveForm.actual_emergency_reserve),
       });
 
       toast({
-        title: editingRecord ? "Lançamento editado!" : "Lançamento adicionado!",
-        description: `Dados de acompanhamento para o mês ${recordForm.month} salvos.`,
+        title: "Reserva de Emergência salva!",
+        description: `Saldo do mês ${reserveForm.month} atualizado no Supabase.`,
       });
       setIsRecordDialogOpen(false);
-      setSelectedMonth(recordForm.month);
+      setSelectedMonth(reserveForm.month);
     } catch (err) {
       toast({
-        title: "Erro ao salvar lançamento",
+        title: "Erro ao salvar reserva",
         description: String(err),
         variant: "destructive",
       });
     }
   };
 
-  const handleDeleteRecord = async (month: string) => {
-    if (confirm(`Tem certeza que deseja excluir o lançamento do mês ${month}?`)) {
+  const handleSaveItem = async () => {
+    if (!itemForm.month || !itemForm.description || !itemForm.value) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha a descrição, valor e mês do item.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await saveBudgetItem({
+        month: itemForm.month,
+        category: itemForm.category as any,
+        description: itemForm.description,
+        value: Number(itemForm.value),
+      });
+
+      toast({
+        title: "Item de orçamento salvo!",
+        description: `Lançamento de "${itemForm.description}" adicionado com sucesso.`,
+      });
+      setIsRecordDialogOpen(false);
+      setSelectedMonth(itemForm.month);
+    } catch (err) {
+      toast({
+        title: "Erro ao salvar item",
+        description: String(err),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteItem = async (id: string, desc: string) => {
+    if (confirm(`Tem certeza que deseja excluir o item "${desc}"?`)) {
       try {
-        await deleteRecord(month);
+        await deleteBudgetItem(id);
         toast({
-          title: "Lançamento excluído",
-          description: "Os dados deste mês foram removidos.",
+          title: "Item excluído",
+          description: `O item "${desc}" foi removido do seu orçamento.`,
         });
-        if (selectedMonth === month) {
-          const remaining = records.filter(r => r.month !== month);
-          if (remaining.length > 0) {
-            setSelectedMonth(remaining[remaining.length - 1].month);
-          }
-        }
       } catch (err) {
         toast({
           title: "Erro ao excluir",
@@ -204,12 +248,33 @@ const WealthGoalsManager = () => {
     }
   };
 
+  // Compile monthly statistics dynamically for the historical table
+  const allHistoryMonths = Array.from(
+    new Set([
+      ...records.map(r => r.month),
+      ...budgetItems.map(i => i.month)
+    ])
+  ).sort();
+
+  const monthlyHistoryMetrics = allHistoryMonths.map(month => {
+    const rec = records.find(r => r.month === month);
+    const items = budgetItems.filter(i => i.month === month);
+    
+    return {
+      month,
+      actual_emergency_reserve: rec?.actual_emergency_reserve ?? null,
+      actual_aporte: items.filter(i => i.category === "aporte").reduce((sum, i) => sum + i.value, 0),
+      actual_fixed_cost: items.filter(i => i.category === "fixed_cost").reduce((sum, i) => sum + i.value, 0),
+      actual_leisure: items.filter(i => i.category === "leisure").reduce((sum, i) => sum + i.value, 0),
+    };
+  });
+
   // Compounding math projection
   const annualYield = 0.085; // 8.5% a.a. conservative return rate
   const monthlyRate = Math.pow(1 + annualYield, 1 / 12) - 1;
   const monthsHorizon = goals.years_horizon * 12; // 192 months
   
-  // Projection list for Chart (aggregated yearly for readability)
+  // Projection list for Chart
   const projectionData = [];
   let currentAccumulated = currentWealth;
   
@@ -260,14 +325,16 @@ const WealthGoalsManager = () => {
             <div>
               <h1 className="text-xl font-bold text-foreground">Gestão de Metas e Orçamento</h1>
               <p className="text-xs text-muted-foreground">
-                Acompanhamento e simulação da meta de patrimônio de longo prazo
+                Lançamentos detalhados de orçamento e projeção anualizada de metas
               </p>
             </div>
           </div>
-          <div>
-            <Button onClick={handleOpenAddRecord} size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              Lançar Mês
+          <div className="flex items-center gap-2">
+            <Button onClick={() => handleOpenAddRecord("reserve")} size="sm" variant="outline">
+              <Wallet className="w-4 h-4 mr-1" /> Saldo da Reserva
+            </Button>
+            <Button onClick={() => handleOpenAddRecord("item")} size="sm">
+              <Plus className="w-4 h-4 mr-1" /> Novo Item
             </Button>
           </div>
         </div>
@@ -370,7 +437,7 @@ const WealthGoalsManager = () => {
           </Card>
         </div>
 
-        {/* MIDDLE SECTION: MONTHLY BUDGET TRACKER & HISTORY */}
+        {/* MIDDLE SECTION: MONTHLY BUDGET TRACKER & DETAILED BREAKDOWN ITEMS */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           
           {/* BUDGET MONTHLY DETAIL TRACKER (3 cols) */}
@@ -394,157 +461,216 @@ const WealthGoalsManager = () => {
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
                   >
-                    {records.length === 0 ? (
-                      <option value={selectedMonth}>{selectedMonth}</option>
-                    ) : (
-                      records.map(r => (
-                        <option key={r.month} value={r.month}>
-                          {r.month}
-                        </option>
-                      ))
-                    )}
+                    {uniqueMonths.map(m => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              {activeRecord ? (
-                <div className="space-y-6">
-                  {/* Goal Item 1: Aporte */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <div>
-                        <span className="font-bold text-foreground block">Aportes Mensais em Investimentos</span>
-                        <span className="text-muted-foreground text-[10px]">Meta: {formatBRL(goals.target_aporte)}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-foreground block">
-                          {formatBRL(activeRecord.actual_aporte ?? 0)}
-                        </span>
-                        {activeRecord.actual_aporte != null && activeRecord.actual_aporte >= goals.target_aporte ? (
-                          <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
-                            <CheckCircle2 className="w-3 h-3" /> Meta Mantida
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-amber-400 font-bold inline-flex items-center gap-0.5">
-                            <AlertTriangle className="w-3 h-3" /> Abaixo do Alvo
-                          </span>
-                        )}
-                      </div>
+              
+              {/* Progress Tracker Bars */}
+              <div className="space-y-6">
+                {/* Goal Item 1: Aporte */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-foreground block">Aportes Mensais em Investimentos</span>
+                      <span className="text-muted-foreground text-[10px]">Meta: {formatBRL(goals.target_aporte)}</span>
                     </div>
-                    <Progress 
-                      value={getProgressPercent(activeRecord.actual_aporte ?? 0, goals.target_aporte)} 
-                      className={`h-2.5 bg-secondary ${
-                        (activeRecord.actual_aporte ?? 0) >= goals.target_aporte ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-amber-500/20 [&>div]:bg-amber-400"
-                      }`} 
-                    />
+                    <div className="text-right">
+                      <span className="font-bold text-foreground block">
+                        {formatBRL(totalAporte)}
+                      </span>
+                      {totalAporte >= goals.target_aporte ? (
+                        <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> Meta Mantida
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-400 font-bold inline-flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3" /> Abaixo do Alvo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Progress 
+                    value={getProgressPercent(totalAporte, goals.target_aporte)} 
+                    className={`h-2.5 bg-secondary ${
+                      totalAporte >= goals.target_aporte ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-amber-500/20 [&>div]:bg-amber-400"
+                    }`} 
+                  />
+                </div>
+
+                {/* Goal Item 2: Custos Fixos */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-foreground block">Custos Fixos Máximos</span>
+                      <span className="text-muted-foreground text-[10px]">Limite Teto: {formatBRL(goals.target_fixed_cost)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-foreground block">
+                        {formatBRL(totalFixedCost)}
+                      </span>
+                      {totalFixedCost <= goals.target_fixed_cost ? (
+                        <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> Dentro do Limite
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-destructive font-bold inline-flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3" /> Estourado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Progress 
+                    value={getProgressPercent(totalFixedCost, goals.target_fixed_cost)} 
+                    className={`h-2.5 bg-secondary ${
+                      totalFixedCost <= goals.target_fixed_cost ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-destructive/20 [&>div]:bg-destructive"
+                    }`} 
+                  />
+                </div>
+
+                {/* Goal Item 3: Lazer / Compras */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-foreground block">Lazer / Compras Discricionárias</span>
+                      <span className="text-muted-foreground text-[10px]">Limite Teto: {formatBRL(goals.target_leisure)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-foreground block">
+                        {formatBRL(totalLeisure)}
+                      </span>
+                      {totalLeisure <= goals.target_leisure ? (
+                        <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> Dentro do Limite
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-destructive font-bold inline-flex items-center gap-0.5">
+                          <AlertTriangle className="w-3 h-3" /> Estourado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Progress 
+                    value={getProgressPercent(totalLeisure, goals.target_leisure)} 
+                    className={`h-2.5 bg-secondary ${
+                      totalLeisure <= goals.target_leisure ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-destructive/20 [&>div]:bg-destructive"
+                    }`} 
+                  />
+                </div>
+              </div>
+
+              {/* DETAILED ITEMS BREAKDOWN FOR THE MONTH ("aporte onde... custo fixo somar... lazer tbm") */}
+              <div className="pt-4 border-t border-border/65 space-y-4">
+                <h3 className="text-xs font-black uppercase text-foreground tracking-wider flex items-center gap-1.5 mb-3">
+                  <Info className="w-3.5 h-3.5 text-primary" />
+                  Detalhamento de Lançamentos de {selectedMonth}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Category 1: Aportes */}
+                  <div className="bg-background/25 border border-border/60 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                        <Coins className="w-3.5 h-3.5 text-primary" /> Aportes
+                      </span>
+                      <span className="text-xs font-mono font-bold text-primary">{formatBRL(totalAporte)}</span>
+                    </div>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {selectedAporteItems.length > 0 ? (
+                        selectedAporteItems.map(item => (
+                          <div key={item.id} className="flex justify-between items-center text-[11px] hover:bg-secondary/15 p-1 rounded">
+                            <span className="text-muted-foreground truncate max-w-[100px]" title={item.description}>
+                              {item.description}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-foreground">{formatBRL(item.value)}</span>
+                              <button 
+                                onClick={() => handleDeleteItem(item.id!, item.description)} 
+                                className="text-muted-foreground/60 hover:text-destructive transition-colors shrink-0"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/70 italic text-center py-2">Sem aportes detalhados</p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Goal Item 2: Custos Fixos */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <div>
-                        <span className="font-bold text-foreground block">Custos Fixos Máximos</span>
-                        <span className="text-muted-foreground text-[10px]">Limite Teto: {formatBRL(goals.target_fixed_cost)}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-foreground block">
-                          {formatBRL(activeRecord.actual_fixed_cost ?? 0)}
-                        </span>
-                        {activeRecord.actual_fixed_cost != null && activeRecord.actual_fixed_cost <= goals.target_fixed_cost ? (
-                          <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
-                            <CheckCircle2 className="w-3 h-3" /> Dentro do Limite
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-destructive font-bold inline-flex items-center gap-0.5">
-                            <AlertTriangle className="w-3 h-3" /> Estourado
-                          </span>
-                        )}
-                      </div>
+                  {/* Category 2: Custos Fixos */}
+                  <div className="bg-background/25 border border-border/60 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                        <Wallet className="w-3.5 h-3.5 text-primary" /> Custos Fixos
+                      </span>
+                      <span className="text-xs font-mono font-bold text-primary">{formatBRL(totalFixedCost)}</span>
                     </div>
-                    <Progress 
-                      value={getProgressPercent(activeRecord.actual_fixed_cost ?? 0, goals.target_fixed_cost)} 
-                      className={`h-2.5 bg-secondary ${
-                        (activeRecord.actual_fixed_cost ?? 0) <= goals.target_fixed_cost ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-destructive/20 [&>div]:bg-destructive"
-                      }`} 
-                    />
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {selectedFixedCostItems.length > 0 ? (
+                        selectedFixedCostItems.map(item => (
+                          <div key={item.id} className="flex justify-between items-center text-[11px] hover:bg-secondary/15 p-1 rounded">
+                            <span className="text-muted-foreground truncate max-w-[100px]" title={item.description}>
+                              {item.description}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-foreground">{formatBRL(item.value)}</span>
+                              <button 
+                                onClick={() => handleDeleteItem(item.id!, item.description)} 
+                                className="text-muted-foreground/60 hover:text-destructive transition-colors shrink-0"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/70 italic text-center py-2">Sem custos fixos detalhados</p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Goal Item 3: Lazer / Compras */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <div>
-                        <span className="font-bold text-foreground block">Lazer / Compras Discricionárias</span>
-                        <span className="text-muted-foreground text-[10px]">Limite Teto: {formatBRL(goals.target_leisure)}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-foreground block">
-                          {formatBRL(activeRecord.actual_leisure ?? 0)}
-                        </span>
-                        {activeRecord.actual_leisure != null && activeRecord.actual_leisure <= goals.target_leisure ? (
-                          <span className="text-[10px] text-emerald-400 font-bold inline-flex items-center gap-0.5">
-                            <CheckCircle2 className="w-3 h-3" /> Dentro do Limite
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-destructive font-bold inline-flex items-center gap-0.5">
-                            <AlertTriangle className="w-3 h-3" /> Estourado
-                          </span>
-                        )}
-                      </div>
+                  {/* Category 3: Lazer */}
+                  <div className="bg-background/25 border border-border/60 rounded-xl p-3.5 space-y-2.5">
+                    <div className="flex justify-between items-center border-b border-border/50 pb-1.5">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1">
+                        <Trophy className="w-3.5 h-3.5 text-primary" /> Lazer/Compras
+                      </span>
+                      <span className="text-xs font-mono font-bold text-primary">{formatBRL(totalLeisure)}</span>
                     </div>
-                    <Progress 
-                      value={getProgressPercent(activeRecord.actual_leisure ?? 0, goals.target_leisure)} 
-                      className={`h-2.5 bg-secondary ${
-                        (activeRecord.actual_leisure ?? 0) <= goals.target_leisure ? "bg-emerald-500/20 [&>div]:bg-emerald-400" : "bg-destructive/20 [&>div]:bg-destructive"
-                      }`} 
-                    />
-                  </div>
-
-                  {/* Summary Health Rating */}
-                  <div className="bg-secondary/20 rounded-lg p-4 border border-border flex items-start gap-3 mt-4">
-                    {activeRecord.actual_fixed_cost != null && activeRecord.actual_fixed_cost <= goals.target_fixed_cost && 
-                     activeRecord.actual_leisure != null && activeRecord.actual_leisure <= goals.target_leisure && 
-                     activeRecord.actual_aporte != null && activeRecord.actual_aporte >= goals.target_aporte ? (
-                      <>
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                        <div className="text-xs">
-                          <p className="font-bold text-foreground">Orçamento Perfeito!</p>
-                          <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                            Neste mês, você manteve as despesas sob controle e realizou o aporte total planejado. Excelente consistência rumo ao topo de {formatBRL(goals.target_wealth)}!
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                        <div className="text-xs">
-                          <p className="font-bold text-foreground">Atenção no Planejamento</p>
-                          <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                            Algum item desviou do planejado neste mês. 
-                            {activeRecord.actual_aporte != null && activeRecord.actual_aporte < goals.target_aporte && " O seu aporte ficou abaixo dos R$ 2.200."}
-                            {activeRecord.actual_fixed_cost != null && activeRecord.actual_fixed_cost > goals.target_fixed_cost && " Os custos fixos excederam os R$ 5.500."}
-                            {activeRecord.actual_leisure != null && activeRecord.actual_leisure > goals.target_leisure && " As compras e lazer superaram o limite de R$ 3.300."}
-                             Ajuste as despesas do próximo mês para manter o ritmo acumulado saudável.
-                          </p>
-                        </div>
-                      </>
-                    )}
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {selectedLeisureItems.length > 0 ? (
+                        selectedLeisureItems.map(item => (
+                          <div key={item.id} className="flex justify-between items-center text-[11px] hover:bg-secondary/15 p-1 rounded">
+                            <span className="text-muted-foreground truncate max-w-[100px]" title={item.description}>
+                              {item.description}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-foreground">{formatBRL(item.value)}</span>
+                              <button 
+                                onClick={() => handleDeleteItem(item.id!, item.description)} 
+                                className="text-muted-foreground/60 hover:text-destructive transition-colors shrink-0"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/70 italic text-center py-2">Sem lazer detalhado</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="py-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
-                  <Calendar className="w-10 h-10 text-muted-foreground/45" />
-                  <div>
-                    <p className="font-bold text-foreground text-sm">Nenhum registro para este mês</p>
-                    <p className="max-w-md mx-auto mt-1 leading-relaxed">
-                      Clique no botão "Lançar Mês" no canto superior direito para cadastrar os dados reais de orçamento e aporte de cada período.
-                    </p>
-                  </div>
-                  <Button onClick={handleOpenAddRecord} size="xs" variant="outline" className="mt-2">
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Criar Lançamento Inicial
-                  </Button>
-                </div>
-              )}
+              </div>
+
             </CardContent>
           </Card>
 
@@ -634,50 +760,52 @@ const WealthGoalsManager = () => {
           <CardHeader>
             <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-primary" />
-              Histórico de Lançamentos Registrados
+              Histórico de Lançamentos Registrados (Consolidado Mensal)
             </CardTitle>
             <CardDescription className="text-xs">
-              Histórico de aportes, custos fixos, gastos de lazer e saldo da reserva cadastrados no banco de dados
+              Histórico consolidado calculado a partir dos saldos da reserva e da soma dos itens detalhados de cada mês
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 border-t border-border">
-            {records.length > 0 ? (
+            {monthlyHistoryMetrics.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Mês</TableHead>
-                      <TableHead className="text-right">Aporte (Alvo: {formatBRL(goals.target_aporte)})</TableHead>
+                      <TableHead className="text-right">Aportes (Alvo: {formatBRL(goals.target_aporte)})</TableHead>
                       <TableHead className="text-right">Custo Fixo (Teto: {formatBRL(goals.target_fixed_cost)})</TableHead>
                       <TableHead className="text-right">Lazer (Teto: {formatBRL(goals.target_leisure)})</TableHead>
                       <TableHead className="text-right">Reserva de Emergência (Alvo: {formatBRL(goals.target_emergency_reserve)})</TableHead>
-                      <TableHead className="text-center w-[120px]">Ações</TableHead>
+                      <TableHead className="text-center w-[120px]">Ação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {records.map((r) => {
-                      const isAporteOk = r.actual_aporte != null && r.actual_aporte >= goals.target_aporte;
-                      const isFixoOk = r.actual_fixed_cost != null && r.actual_fixed_cost <= goals.target_fixed_cost;
-                      const isLazerOk = r.actual_leisure != null && r.actual_leisure <= goals.target_leisure;
+                    {monthlyHistoryMetrics.map((r) => {
+                      const isAporteOk = r.actual_aporte >= goals.target_aporte;
+                      const isFixoOk = r.actual_fixed_cost <= goals.target_fixed_cost;
+                      const isLazerOk = r.actual_leisure <= goals.target_leisure;
                       const isReservaOk = r.actual_emergency_reserve != null && r.actual_emergency_reserve >= goals.target_emergency_reserve;
 
                       return (
-                        <TableRow key={r.month} className="hover:bg-secondary/15">
-                          <TableCell className="font-semibold py-3">{r.month}</TableCell>
+                        <TableRow key={r.month} className="hover:bg-secondary/15 cursor-pointer" onClick={() => setSelectedMonth(r.month)}>
+                          <TableCell className="font-semibold py-3 flex items-center gap-1">
+                            {r.month} {r.month === selectedMonth && <ChevronRight className="w-3.5 h-3.5 text-primary" />}
+                          </TableCell>
                           
                           {/* Aporte Cell */}
                           <TableCell className={`text-right font-medium ${isAporteOk ? "text-emerald-400" : "text-amber-400"}`}>
-                            {r.actual_aporte != null ? formatBRL(r.actual_aporte) : "—"}
+                            {formatBRL(r.actual_aporte)}
                           </TableCell>
 
                           {/* Custo Fixo Cell */}
                           <TableCell className={`text-right font-medium ${isFixoOk ? "text-emerald-400" : "text-destructive"}`}>
-                            {r.actual_fixed_cost != null ? formatBRL(r.actual_fixed_cost) : "—"}
+                            {formatBRL(r.actual_fixed_cost)}
                           </TableCell>
 
                           {/* Lazer Cell */}
                           <TableCell className={`text-right font-medium ${isLazerOk ? "text-emerald-400" : "text-destructive"}`}>
-                            {r.actual_leisure != null ? formatBRL(r.actual_leisure) : "—"}
+                            {formatBRL(r.actual_leisure)}
                           </TableCell>
 
                           {/* Reserva Cell */}
@@ -686,14 +814,13 @@ const WealthGoalsManager = () => {
                           </TableCell>
 
                           {/* Actions */}
-                          <TableCell className="text-center">
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-center items-center gap-2">
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handleOpenEditRecord(r)}>
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/80 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteRecord(r.month)}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
+                              {r.actual_emergency_reserve != null && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/80 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteRecord(r.month)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -812,86 +939,122 @@ const WealthGoalsManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG 2: ADD/EDIT MONTHLY BUDGET RECORD */}
+      {/* DIALOG 2: RECORD DIALOG WITH TABS FOR EMERGENCY RESERVE AND BUDGET ITEMS */}
       <Dialog open={isRecordDialogOpen} onOpenChange={setIsRecordDialogOpen}>
         <DialogContent className="sm:max-w-[400px] bg-background border-border">
-          <DialogHeader>
-            <DialogTitle>{editingRecord ? "Editar Lançamento" : "Lançar Mês"}</DialogTitle>
-            <DialogDescription>
-              Insira os dados reais de orçamento e investimentos do mês de referência.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="w-full">
+            <TabsList className="grid grid-cols-2 mb-4">
+              <TabsTrigger value="reserve" className="text-xs">Saldo da Reserva</TabsTrigger>
+              <TabsTrigger value="item" className="text-xs">Novo Item de Gasto/Aporte</TabsTrigger>
+            </TabsList>
             
-            {/* Month */}
-            <div className="grid grid-cols-4 items-center gap-4 text-xs">
-              <label className="text-right font-semibold text-muted-foreground">Mês:</label>
-              <Input
-                type="month"
-                className="col-span-3 text-right"
-                disabled={!!editingRecord}
-                value={recordForm.month}
-                onChange={(e) => setRecordForm({ ...recordForm, month: e.target.value })}
-              />
-            </div>
+            {/* Tab 1: Emergency Reserve Balance */}
+            <TabsContent value="reserve" className="space-y-4 pt-2">
+              <DialogHeader>
+                <DialogTitle>Saldo da Reserva de Emergência</DialogTitle>
+                <DialogDescription>
+                  Informe o saldo final estático da sua reserva de emergência para o mês.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-2">
+                <div className="grid grid-cols-4 items-center gap-4 text-xs">
+                  <label className="text-right font-semibold text-muted-foreground">Mês:</label>
+                  <Input
+                    type="month"
+                    className="col-span-3 text-right"
+                    value={reserveForm.month}
+                    onChange={(e) => setReserveForm({ ...reserveForm, month: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4 text-xs">
+                  <label className="text-right font-semibold text-muted-foreground">Saldo Total:</label>
+                  <Input
+                    type="number"
+                    placeholder="R$ 66.000"
+                    className="col-span-3 text-right font-mono"
+                    value={reserveForm.actual_emergency_reserve}
+                    onChange={(e) => setReserveForm({ ...reserveForm, actual_emergency_reserve: e.target.value })}
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter className="pt-2">
+                <Button variant="ghost" onClick={() => setIsRecordDialogOpen(false)} size="sm">
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveReserve} size="sm">
+                  <Save className="w-4 h-4 mr-1" /> Salvar Saldo
+                </Button>
+              </DialogFooter>
+            </TabsContent>
 
-            {/* Aporte Realizado */}
-            <div className="grid grid-cols-4 items-center gap-4 text-xs">
-              <label className="text-right font-semibold text-muted-foreground">Aporte Realizado:</label>
-              <Input
-                type="number"
-                placeholder="R$ 2.200"
-                className="col-span-3 text-right font-mono"
-                value={recordForm.actual_aporte}
-                onChange={(e) => setRecordForm({ ...recordForm, actual_aporte: e.target.value })}
-              />
-            </div>
+            {/* Tab 2: Itemized Budget Records */}
+            <TabsContent value="item" className="space-y-4 pt-2">
+              <DialogHeader>
+                <DialogTitle>Lançar Item de Gasto ou Aporte</DialogTitle>
+                <DialogDescription>
+                  Adicione uma despesa ou investimento detalhado para somar na categoria.
+                </DialogDescription>
+              </DialogHeader>
 
-            {/* Custo Fixo Realizado */}
-            <div className="grid grid-cols-4 items-center gap-4 text-xs">
-              <label className="text-right font-semibold text-muted-foreground">Custos Fixos:</label>
-              <Input
-                type="number"
-                placeholder="R$ 5.500"
-                className="col-span-3 text-right font-mono"
-                value={recordForm.actual_fixed_cost}
-                onChange={(e) => setRecordForm({ ...recordForm, actual_fixed_cost: e.target.value })}
-              />
-            </div>
+              <div className="grid gap-4 py-2">
+                <div className="grid grid-cols-4 items-center gap-4 text-xs">
+                  <label className="text-right font-semibold text-muted-foreground">Mês:</label>
+                  <Input
+                    type="month"
+                    className="col-span-3 text-right"
+                    value={itemForm.month}
+                    onChange={(e) => setItemForm({ ...itemForm, month: e.target.value })}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4 text-xs">
+                  <label className="text-right font-semibold text-muted-foreground">Categoria:</label>
+                  <select
+                    className="col-span-3 bg-background border border-border rounded px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                    value={itemForm.category}
+                    onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
+                  >
+                    <option value="fixed_cost">Custo Fixo (Teto: {formatBRL(goals.target_fixed_cost)})</option>
+                    <option value="leisure">Lazer/Compras (Teto: {formatBRL(goals.target_leisure)})</option>
+                    <option value="aporte">Aporte/Investimento (Alvo: {formatBRL(goals.target_aporte)})</option>
+                  </select>
+                </div>
 
-            {/* Lazer Realizado */}
-            <div className="grid grid-cols-4 items-center gap-4 text-xs">
-              <label className="text-right font-semibold text-muted-foreground">Lazer / Compras:</label>
-              <Input
-                type="number"
-                placeholder="R$ 3.300"
-                className="col-span-3 text-right font-mono"
-                value={recordForm.actual_leisure}
-                onChange={(e) => setRecordForm({ ...recordForm, actual_leisure: e.target.value })}
-              />
-            </div>
+                <div className="grid grid-cols-4 items-center gap-4 text-xs">
+                  <label className="text-right font-semibold text-muted-foreground">Descrição:</label>
+                  <Input
+                    type="text"
+                    placeholder="Ex: Aluguel, Supermercado, Aporte BTC"
+                    className="col-span-3"
+                    value={itemForm.description}
+                    onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                  />
+                </div>
 
-            {/* Reserva Realizado */}
-            <div className="grid grid-cols-4 items-center gap-4 text-xs">
-              <label className="text-right font-semibold text-muted-foreground">Saldo da Reserva:</label>
-              <Input
-                type="number"
-                placeholder="R$ 66.000"
-                className="col-span-3 text-right font-mono"
-                value={recordForm.actual_emergency_reserve}
-                onChange={(e) => setRecordForm({ ...recordForm, actual_emergency_reserve: e.target.value })}
-              />
-            </div>
+                <div className="grid grid-cols-4 items-center gap-4 text-xs">
+                  <label className="text-right font-semibold text-muted-foreground">Valor (R$):</label>
+                  <Input
+                    type="number"
+                    placeholder="R$ 1.500"
+                    className="col-span-3 text-right font-mono"
+                    value={itemForm.value}
+                    onChange={(e) => setItemForm({ ...itemForm, value: e.target.value })}
+                  />
+                </div>
+              </div>
 
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsRecordDialogOpen(false)} size="sm">
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveRecord} size="sm">
-              <Save className="w-4 h-4 mr-1" /> Salvar Lançamento
-            </Button>
-          </DialogFooter>
+              <DialogFooter className="pt-2">
+                <Button variant="ghost" onClick={() => setIsRecordDialogOpen(false)} size="sm">
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveItem} size="sm">
+                  <Save className="w-4 h-4 mr-1" /> Adicionar Item
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
