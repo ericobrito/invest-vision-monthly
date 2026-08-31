@@ -62,6 +62,34 @@ interface SnapshotDialogProps {
   isSaving?: boolean;
 }
 
+const formatMonthToLabel = (monthStr: string): string => {
+  if (!monthStr || !monthStr.includes("-")) return "";
+  const [year, month] = monthStr.split("-");
+  const monthsMap: Record<string, string> = {
+    "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+    "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+    "09": "Set", "10": "Out", "11": "Nov", "12": "Dez"
+  };
+  const monthLabel = monthsMap[month] || "";
+  return monthLabel ? `${monthLabel} ${year}` : "";
+};
+
+const getNextMonthString = (previousMonth: string): string => {
+  if (!previousMonth || !previousMonth.includes("-")) return "";
+  const [yearStr, monthStr] = previousMonth.split("-");
+  let year = parseInt(yearStr, 10);
+  let month = parseInt(monthStr, 10);
+  
+  month += 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  
+  const monthFormatted = month < 10 ? `0${month}` : `${month}`;
+  return `${year}-${monthFormatted}`;
+};
+
 const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [], isSaving }: SnapshotDialogProps) => {
   const isEdit = !!snapshot;
 
@@ -124,8 +152,9 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
       );
       setCopiedFromPrev(false);
     } else {
-      setMonth("");
-      setLabel("");
+      const nextMonth = previousSnapshot ? getNextMonthString(previousSnapshot.month) : "";
+      setMonth(nextMonth);
+      setLabel(nextMonth ? formatMonthToLabel(nextMonth) : "");
       setInvestments([]);
       setCopiedFromPrev(false);
       // Show copy prompt when opening for new month and there's a previous snapshot
@@ -133,7 +162,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
         setShowCopyPrompt(true);
       }
     }
-  }, [snapshot, open]);
+  }, [snapshot, open, previousSnapshot]);
 
   const handleCopyPrevious = () => {
     if (!previousSnapshot) return;
@@ -234,10 +263,16 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
     setInvestments(investments.map((inv, i) => (i === index ? { ...inv, [field]: value } : inv)));
   };
 
+  const handleMonthChange = (val: string) => {
+    setMonth(val);
+    setLabel(formatMonthToLabel(val));
+  };
+
   const handleSubmit = () => {
+    const finalLabel = formatMonthToLabel(month);
     const data: SnapshotFormData = {
       month,
-      label,
+      label: finalLabel || label,
       total: computed.derived.total,
       changeValue: computed.derived.changeValue,
       changePercentage: computed.derived.changePercentage,
@@ -293,14 +328,14 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           <ScrollArea className="flex-1 overflow-y-auto pr-4">
             <div className="space-y-6 py-2">
               {/* Basic Info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <Label>Mês (ex: 2025-04)</Label>
-                  <Input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="2025-04" />
-                </div>
-                <div>
-                  <Label>Label (ex: Abr 2025)</Label>
-                  <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Abr 2025" />
+                  <Label>Selecione o Mês</Label>
+                  <Input 
+                    type="month" 
+                    value={month} 
+                    onChange={(e) => handleMonthChange(e.target.value)} 
+                  />
                 </div>
               </div>
 
@@ -431,7 +466,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSubmit} disabled={!month || !label || investments.length === 0 || isSaving}>
+              <Button onClick={handleSubmit} disabled={!month || investments.length === 0 || isSaving}>
                 {isSaving ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Mês"}
               </Button>
             </div>
