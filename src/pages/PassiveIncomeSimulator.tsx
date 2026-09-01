@@ -60,7 +60,7 @@ const PassiveIncomeSimulator = () => {
     const allocatedCapital = simulatedCapital * allocationRatio;
     
     // Projection rate MUST only be explicit annualRate (ignore multi-year return since 2024)
-    const registeredRate = inv.annualRate;
+    const registeredRate = inv.annualReturn ?? inv.annualRate;
     const hasProjectionRate = registeredRate != null && Number.isFinite(Number(registeredRate)) && Number(registeredRate) > 0;
     
     let rawYield = hasProjectionRate ? Number(registeredRate) : 0;
@@ -118,7 +118,7 @@ const PassiveIncomeSimulator = () => {
     const totalRealWealth = snap.total || 1;
     const income = snap.investments.reduce((sum, inv) => {
       const realValue = inv.valueBRL ?? inv.value;
-      const registeredRate = inv.annualRate;
+      const registeredRate = inv.annualReturn ?? inv.annualRate;
       if (!registeredRate || registeredRate <= 0) return sum;
       const maxYield = inv.incomeType === "fixed" ? 15.0 : 20.0;
       const annualYield = registeredRate > maxYield ? maxYield : registeredRate;

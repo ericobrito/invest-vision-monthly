@@ -57,8 +57,6 @@ const InvestmentEditDialog = ({
   const [connectionId, setConnectionId] = useState<string>("");
   const { connections, sync } = useVariableAssets();
   const [currency, setCurrency] = useState("BRL");
-  const [annualRate, setAnnualRate] = useState("");
-  const [realizedIncome, setRealizedIncome] = useState("");
 
   const [showConnectForm, setShowConnectForm] = useState(false);
   const [newConnProvider, setNewConnProvider] = useState<Provider>("investment_bloom");
@@ -81,8 +79,6 @@ const InvestmentEditDialog = ({
       setPositions(investment.positions ?? []);
       setConnectionId(investment.connectionId ?? "");
       setCurrency(investment.currency || "BRL");
-      setAnnualRate(investment.annualRate != null ? String(investment.annualRate) : (investment.annualReturn != null ? String(investment.annualReturn) : ""));
-      setRealizedIncome(investment.realizedIncome != null ? String(investment.realizedIncome) : "");
     }
   }, [investment, open]);
 
@@ -105,10 +101,17 @@ const InvestmentEditDialog = ({
       a = positions.reduce((s, p) => s + p.appliedAmount, 0);
     }
     const totalReturn = a && a > 0 ? ((v - a) / a) * 100 : undefined;
-    const annualReturn = annualRate ? Number(annualRate) : undefined;
+    let annualReturn: number | undefined;
+    if (totalReturn != null && yearStarted && a && a > 0) {
+      const startDate = new Date(yearStarted);
+      const now = new Date();
+      const years = (now.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      if (years > 0) {
+        annualReturn = Number(((Math.pow(v / a, 1 / years) - 1) * 100).toFixed(2));
+      }
+    }
     return { value: v, applied: a, totalReturn, annualReturn };
-  }, [mode, value, applied, positions, annualRate]);
-
+  }, [mode, value, applied, positions, yearStarted]);
 
   const handleSave = () => {
     if (!investment) return;
@@ -121,9 +124,9 @@ const InvestmentEditDialog = ({
       applied: computed.applied,
       yearStarted: yearStarted || undefined,
       totalReturn: computed.totalReturn != null ? Number(computed.totalReturn.toFixed(2)) : undefined,
-      annualReturn: annualRate ? Number(annualRate) : undefined,
-      annualRate: annualRate ? Number(annualRate) : undefined,
-      realizedIncome: realizedIncome ? Number(realizedIncome) : undefined,
+      annualReturn: computed.annualReturn,
+      annualRate: undefined,
+      realizedIncome: undefined,
       incomeType,
       region,
       flags: {
@@ -135,15 +138,6 @@ const InvestmentEditDialog = ({
       currency: currency || "BRL",
     });
   };
-
-  const projectedMonthlyPreview = useMemo(() => {
-    const r = Number(annualRate);
-    const v = computed.value;
-    if (r > 0 && v > 0) {
-      return (v * (r / 100)) / 12;
-    }
-    return undefined;
-  }, [annualRate, computed.value]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -347,39 +341,6 @@ const InvestmentEditDialog = ({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Taxa Anual Projetada (% a.a.)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={annualRate}
-                placeholder="ex: 6.92"
-                onChange={(e) => setAnnualRate(e.target.value)}
-              />
-              {projectedMonthlyPreview != null && (
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Renda Mensal Projetada:{" "}
-                  <strong className="font-mono text-foreground">
-                    {projectedMonthlyPreview.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/mês
-                  </strong>
-                </p>
-              )}
-            </div>
-            <div>
-              <Label>Renda Realizada no Mês (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={realizedIncome}
-                placeholder="ex: 2238.99"
-                onChange={(e) => setRealizedIncome(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Rendimento histórico efetivo registrado no período
-              </p>
-            </div>
-          </div>
 
           <div>
             <Label>Data do Aporte</Label>
