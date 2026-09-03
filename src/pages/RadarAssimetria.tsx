@@ -1,17 +1,86 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useRadarData } from "@/hooks/useRadarData";
+import { useSnapshots } from "@/hooks/useSnapshots";
+import { useVariableAssets } from "@/features/variableAssets/useVariableAssets";
 import RadarTable from "@/components/radar/RadarTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Target, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Target, RefreshCw, Eye, EyeOff, Briefcase } from "lucide-react";
+
+function normalizeTickerForYahoo(ticker: string): string {
+  const sym = ticker.toUpperCase().trim();
+  const cryptos = ["BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT", "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC"];
+  
+  if (cryptos.includes(sym)) {
+    return `${sym}-USD`;
+  }
+  
+  if (/^[A-Z]{4}[0-9]{1,2}$/.test(sym) && !sym.includes(".")) {
+    return `${sym}.SA`;
+  }
+  
+  return sym;
+}
 
 const RadarAssimetria = () => {
   const [activeTab, setActiveTab] = useState("big_techs");
   const [showAll, setShowAll] = useState(false);
 
-  const { data: response, isLoading, error, refetch, isFetching } = useRadarData(activeTab);
+  const { data: monthlySnapshots = [] } = useSnapshots();
+  const { positions: variablePositions = [] } = useVariableAssets();
+
+  const latestSnapshot = monthlySnapshots.length > 0 ? monthlySnapshots[monthlySnapshots.length - 1] : undefined;
+
+  // Extract tickers from both connected/manual variable assets and detailed snapshot positions
+  const userPortfolioTickers = useMemo(() => {
+    const tickerSet = new Set<string>();
+
+    // 1. From variable assets (connected APIs & manual assets)
+    variablePositions.forEach((pos) => {
+      if (pos.symbol) {
+        const normalized = normalizeTickerForYahoo(pos.symbol);
+        if (normalized) tickerSet.add(normalized);
+      }
+    });
+
+    // 2. From latest monthly snapshot (variable income or detailed positions)
+    if (latestSnapshot?.investments) {
+      latestSnapshot.investments.forEach((inv) => {
+        if (inv.incomeType === "variable" || inv.positions?.length || inv.flags?.includeInVariablePositions) {
+          if (inv.linkedAsset?.symbol) {
+            const normalized = normalizeTickerForYahoo(inv.linkedAsset.symbol);
+            if (normalized) tickerSet.add(normalized);
+          }
+
+          if (inv.positions && inv.positions.length > 0) {
+            inv.positions.forEach((p: any) => {
+              const rawSym = p.symbol || p.ticker || p.name;
+              if (rawSym) {
+                const normalized = normalizeTickerForYahoo(String(rawSym));
+                if (normalized) tickerSet.add(normalized);
+              }
+            });
+          }
+
+          if (inv.name && !inv.linkedAsset && (!inv.positions || inv.positions.length === 0)) {
+            const trimmed = inv.name.trim().toUpperCase();
+            if (/^[A-Z0-9.]{2,10}$/.test(trimmed)) {
+              const normalized = normalizeTickerForYahoo(trimmed);
+              if (normalized) tickerSet.add(normalized);
+            }
+          }
+        }
+      });
+    }
+
+    return Array.from(tickerSet);
+  }, [latestSnapshot, variablePositions]);
+
+  const customTickers = activeTab === "my_portfolio" ? userPortfolioTickers : undefined;
+
+  const { data: response, isLoading, error, refetch, isFetching } = useRadarData(activeTab, customTickers);
 
   const stocks = response
     ? showAll ? response.allData : response.data
@@ -33,7 +102,7 @@ const RadarAssimetria = () => {
             <div>
               <h1 className="text-xl font-bold text-foreground">Radar de Assimetria</h1>
               <p className="text-xs text-muted-foreground">
-                Oportunidades assimétricas em ações de tecnologia dos EUA
+                Oportunidades assimétricas e análise de topo em ações e criptoativos
               </p>
             </div>
           </div>
@@ -90,6 +159,10 @@ const RadarAssimetria = () => {
             <TabsTrigger value="growth" className="flex-1 sm:flex-none">
               Maior Potencial de Retorno
             </TabsTrigger>
+            <TabsTrigger value="my_portfolio" className="flex-1 sm:flex-none flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5" />
+              Assimetria do Meu Portfólio ({userPortfolioTickers.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="big_techs" className="mt-4">
@@ -127,6 +200,40 @@ const RadarAssimetria = () => {
                 )}
               </div>
               {renderContent()}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="my_portfolio" className="mt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Assimetria de topo de todos os ativos de renda variável alocados na sua carteira (conectados e declarados no detalhado).
+                </p>
+                {response && (
+                  <p className="text-xs text-muted-foreground">
+                    {response.totalPassed} de {response.totalAnalyzed} ativos analisados
+                    {response.updatedAt && (
+                      <> · Atualizado {new Date(response.updatedAt).toLocaleString("pt-BR")}</>
+                    )}
+                  </p>
+                )}
+              </div>
+
+              {userPortfolioTickers.length === 0 ? (
+                <div className="text-center py-12 bg-card/30 border border-border rounded-xl p-8 space-y-4">
+                  <p className="text-base font-bold text-foreground">Nenhum ativo de renda variável detectado</p>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Não encontramos tickers de renda variável cadastrados nas suas conexões de corretoras ou no detalhamento da foto mensal.
+                  </p>
+                  <Link to="/posicoes-variaveis">
+                    <Button variant="outline" size="sm">
+                      Cadastrar Ativos em Posições Variáveis
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                renderContent()
+              )}
             </div>
           </TabsContent>
         </Tabs>

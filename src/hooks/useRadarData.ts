@@ -34,19 +34,19 @@ export interface RadarResponse {
   error?: string;
 }
 
-async function fetchRadar(tab: string): Promise<RadarResponse> {
+async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarResponse> {
   const { data, error } = await supabase.functions.invoke('radar-assimetria', {
-    body: { tab },
+    body: { tab, customTickers },
   });
   if (error) throw new Error(error.message || 'Failed to invoke radar function');
   if (!data?.success) throw new Error(data?.error || 'Failed to fetch radar data');
   return data;
 }
 
-export function useRadarData(tab: string) {
+export function useRadarData(tab: string, customTickers?: string[]) {
   return useQuery({
-    queryKey: ['radar', tab],
-    queryFn: () => fetchRadar(tab),
+    queryKey: ['radar', tab, customTickers],
+    queryFn: () => fetchRadar(tab, customTickers),
     staleTime: 60 * 60 * 1000, // 1 hour
     gcTime: 24 * 60 * 60 * 1000,
     retry: 1,

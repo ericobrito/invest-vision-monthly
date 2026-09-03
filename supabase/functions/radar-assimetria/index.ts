@@ -225,8 +225,16 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const tab = body.tab || 'big_techs';
+    const customTickers: string[] = Array.isArray(body.customTickers) ? body.customTickers : [];
 
-    const tickers = tab === 'big_techs' ? BIG_TECHS : GROWTH_UNIVERSE;
+    let tickers: string[];
+    if (customTickers.length > 0) {
+      tickers = customTickers;
+    } else if (tab === 'big_techs') {
+      tickers = BIG_TECHS;
+    } else {
+      tickers = GROWTH_UNIVERSE;
+    }
 
     // Fetch S&P 500 data first
     console.log('Fetching S&P 500 data...');
@@ -281,8 +289,8 @@ Deno.serve(async (req) => {
     filtered.sort(sortFn);
     allResults.sort(sortFn);
 
-    // Guarantee: never return empty — fallback to top allResults
-    const finalData = filtered.length > 0 ? filtered : allResults.slice(0, 10);
+    // For custom portfolio tickers, return all analyzed results so user sees all their assets
+    const finalData = customTickers.length > 0 ? allResults : (filtered.length > 0 ? filtered : allResults.slice(0, 10));
 
     console.log(`Analyzed ${tickers.length}, valid ${allResults.length}, passed filters ${filtered.length}`);
 
