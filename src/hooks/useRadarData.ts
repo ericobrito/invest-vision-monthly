@@ -198,7 +198,20 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
 }
 
 async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarResponse> {
-  if (customTickers && customTickers.length > 0) {
+  if (tab === "my_portfolio" || (customTickers && customTickers.length > 0)) {
+    const tickersToAnalyze = customTickers || [];
+    if (tickersToAnalyze.length === 0) {
+      return {
+        success: true,
+        data: [],
+        allData: [],
+        sp500Return12m: 0,
+        updatedAt: new Date().toISOString(),
+        totalAnalyzed: 0,
+        totalPassed: 0,
+      };
+    }
+
     try {
       const sp500Chart = await fetchChartData('^GSPC');
       let sp500Return12m = 0;
@@ -213,32 +226,64 @@ async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarR
 
       const results: RadarStock[] = [];
       await Promise.all(
-        customTickers.map(async (ticker) => {
+        tickersToAnalyze.map(async (ticker) => {
           const chart = await fetchChartData(ticker);
           if (chart) {
             const analysis = analyzeStockData(chart, sp500Return12m);
             if (analysis) {
               results.push(analysis);
+              return;
             }
           }
+
+          // Fallback entry for custom tickers without valid Yahoo Finance chart
+          results.push({
+            ticker,
+            currentPrice: 0,
+            ath: 0,
+            athDate: new Date().toISOString(),
+            distanceFromAth: 0,
+            potentialReturn: 0,
+            annualizedReturn: 0,
+            momentum: true,
+            ma200: 0,
+            relativeStrength: 0,
+            revenueGrowth: null,
+            probability30: 0,
+            score: 50,
+            volatility: 0,
+            avgVolume: 0,
+            sparklineData: [0, 0],
+            stockReturn12m: 0,
+            qualityBadge: 'Moderado',
+            opportunitySignal: 'Observação',
+          });
         })
       );
 
       results.sort((a, b) => b.score - a.score || b.potentialReturn - a.potentialReturn);
 
-      if (results.length > 0) {
-        return {
-          success: true,
-          data: results,
-          allData: results,
-          sp500Return12m,
-          updatedAt: new Date().toISOString(),
-          totalAnalyzed: customTickers.length,
-          totalPassed: results.length,
-        };
-      }
+      return {
+        success: true,
+        data: results,
+        allData: results,
+        sp500Return12m,
+        updatedAt: new Date().toISOString(),
+        totalAnalyzed: tickersToAnalyze.length,
+        totalPassed: results.length,
+      };
     } catch (err) {
-      console.warn("Client side portfolio radar fetch failed, falling back to edge function:", err);
+      console.warn("Client side portfolio radar fetch failed:", err);
+      return {
+        success: true,
+        data: [],
+        allData: [],
+        sp500Return12m: 0,
+        updatedAt: new Date().toISOString(),
+        totalAnalyzed: tickersToAnalyze.length,
+        totalPassed: 0,
+        error: String(err),
+      };
     }
   }
 
@@ -254,7 +299,7 @@ export function useRadarData(tab: string, customTickers?: string[]) {
   return useQuery({
     queryKey: ['radar', tab, customTickers],
     queryFn: () => fetchRadar(tab, customTickers),
-    staleTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
