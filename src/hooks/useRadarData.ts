@@ -21,6 +21,24 @@ export interface RadarStock {
   stockReturn12m: number;
   qualityBadge: string;
   opportunitySignal: string;
+
+  // Personalized user position fields
+  userQuantity?: number;
+  userValueBRL?: number;
+  userAppliedBRL?: number;
+  userProfitBRL?: number;
+  userProfitPct?: number;
+  userSource?: string;
+}
+
+export interface UserPositionMeta {
+  ticker: string;
+  quantity: number;
+  currentValueBRL: number;
+  appliedAmountBRL: number;
+  profitBRL?: number;
+  profitPct?: number;
+  source?: string;
 }
 
 export interface RadarResponse {
@@ -49,7 +67,8 @@ async function fetchChartData(symbol: string): Promise<any> {
   }
 
   for (const sym of Array.from(new Set(trySymbols))) {
-    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&includePrePost=false`;
+    // Query range=max to fetch true full-history All-Time High (ATH)
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=max&interval=1d&includePrePost=false`;
 
     const proxies = [
       (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -226,7 +245,7 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
   };
 }
 
-async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarResponse> {
+async function fetchRadar(tab: string, customTickers?: string[], userPositionsMeta?: UserPositionMeta[]): Promise<RadarResponse> {
   if (tab === "my_portfolio" || (customTickers && customTickers.length > 0)) {
     const tickersToAnalyze = customTickers || [];
     if (tickersToAnalyze.length === 0) {
@@ -253,6 +272,11 @@ async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarR
         }
       }
 
+      const metaMap = new Map<string, UserPositionMeta>();
+      if (userPositionsMeta) {
+        userPositionsMeta.forEach(m => metaMap.set(m.ticker, m));
+      }
+
       const results: RadarStock[] = [];
       await Promise.all(
         tickersToAnalyze.map(async (ticker) => {
@@ -260,6 +284,15 @@ async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarR
           if (chart) {
             const analysis = analyzeStockData(chart, sp500Return12m);
             if (analysis && analysis.currentPrice > 0 && analysis.ath > 0) {
+              const meta = metaMap.get(ticker);
+              if (meta) {
+                analysis.userQuantity = meta.quantity;
+                analysis.userValueBRL = meta.currentValueBRL;
+                analysis.userAppliedBRL = meta.appliedAmountBRL;
+                analysis.userProfitBRL = meta.profitBRL;
+                analysis.userProfitPct = meta.profitPct;
+                analysis.userSource = meta.source;
+              }
               results.push(analysis);
             }
           }
@@ -269,7 +302,13 @@ async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarR
       // Strictly filter out any items with 0 price ("O que tiver zerado vc não traz")
       const validResults = results.filter(s => s.currentPrice > 0 && s.ath > 0);
 
-      validResults.sort((a, b) => b.score - a.score || b.potentialReturn - a.potentialReturn);
+      // Sort by user value BRL desc if available, or score desc
+      validResults.sort((a, b) => {
+        if (a.userValueBRL !== undefined && b.userValueBRL !== undefined) {
+          return b.userValueBRL - a.userValueBRL;
+        }
+        return b.score - a.score || b.potentialReturn - a.potentialReturn;
+      });
 
       return {
         success: true,
@@ -303,10 +342,10 @@ async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarR
   return data;
 }
 
-export function useRadarData(tab: string, customTickers?: string[]) {
+export function useRadarData(tab: string, customTickers?: string[], userPositionsMeta?: UserPositionMeta[]) {
   return useQuery({
-    queryKey: ['radar', tab, customTickers],
-    queryFn: () => fetchRadar(tab, customTickers),
+    queryKey: ['radar', tab, customTickers, userPositionsMeta],
+    queryFn: () => fetchRadar(tab, customTickers, userPositionsMeta),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     retry: 1,

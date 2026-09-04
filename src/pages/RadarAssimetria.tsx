@@ -118,49 +118,136 @@ const RadarAssimetria = () => {
   const { data: monthlySnapshots = [] } = useSnapshots();
   const { positions: variablePositions = [] } = useVariableAssets();
 
-  // Extract tickers ONLY from detailed positions (Avenue-Dolar, Bybit) and connected APIs (Binance, Bitcoin)
-  const userPortfolioTickers = useMemo(() => {
-    const tickerSet = new Set<string>();
+  // Extract structured position metadata ONLY from detailed (Avenue-Dolar, Bybit) and connected APIs (Binance, Bitcoin)
+  const userPortfolioPositions = useMemo(() => {
+    const map = new Map<string, {
+      ticker: string;
+      quantity: number;
+      currentValueBRL: number;
+      appliedAmountBRL: number;
+      source?: string;
+    }>();
+
+    const ignoredDustTickers = new Set([
+      "NEON", "CBK", "ZRO", "PENDLE", "GRAPE", "TOMI", "RENDER",
+      "SOFISA", "CDB", "LCI", "LCA", "BANCO", "TESOURO"
+    ]);
 
     // 1. From connected API positions (Binance, Bitcoin, etc. in useVariableAssets)
     variablePositions.forEach((pos) => {
-      const rawSym = pos.ticker || (pos as any).symbol;
-      if (rawSym) {
-        const norm = normalizeTickerForYahoo(String(rawSym));
-        if (norm) tickerSet.add(norm);
-      }
+      const rawSym = (pos.ticker || (pos as any).symbol || "").toUpperCase().trim();
+      if (!rawSym || ignoredDustTickers.has(rawSym)) return;
+
+      const norm = normalizeTickerForYahoo(rawSym);
+      if (!norm) return;
+
+      const qty = Number(pos.quantity) || 0;
+      const valBRL = Number(pos.currentValue) || 0;
+      if (valBRL <= 0 && qty <= 0) return; // Skip zeroed / dust holdings
+
+      const existing = map.get(norm) || {
+        ticker: norm,
+        quantity: 0,
+        currentValueBRL: 0,
+        appliedAmountBRL: 0,
+        source: pos.broker || pos.provider || "Conectado",
+      };
+
+      existing.quantity += qty;
+      existing.currentValueBRL += valBRL;
+      map.set(norm, existing);
     });
 
     // 2. From ALL monthly snapshots (Avenue-Dolar, Bybit - Cripto, etc.)
     monthlySnapshots.forEach((snap) => {
       if (snap?.investments) {
         snap.investments.forEach((inv) => {
-          // Linked Asset (connected crypto/stock asset)
-          if (inv.linkedAsset?.symbol) {
-            const norm = normalizeTickerForYahoo(inv.linkedAsset.symbol);
-            if (norm) tickerSet.add(norm);
-          }
-
           // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
           if (inv.positions && inv.positions.length > 0) {
             inv.positions.forEach((p: any) => {
-              const rawSym = p.symbol || p.ticker || p.name;
-              if (rawSym) {
-                const norm = normalizeTickerForYahoo(String(rawSym));
-                if (norm) tickerSet.add(norm);
-              }
+              const rawSym = (p.symbol || p.ticker || "").toUpperCase().trim();
+              if (!rawSym || ignoredDustTickers.has(rawSym)) return;
+
+              const norm = normalizeTickerForYahoo(rawSym);
+              if (!norm) return;
+
+              const qty = Number(p.quantity) || 0;
+              const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || 0;
+              const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || 0;
+
+              if (valBRL <= 0 && qty <= 0) return; // Skip zeroed holdings
+
+              const existing = map.get(norm) || {
+                ticker: norm,
+                quantity: 0,
+                currentValueBRL: 0,
+                appliedAmountBRL: 0,
+                source: inv.name,
+              };
+
+              existing.quantity += qty;
+              existing.currentValueBRL += valBRL;
+              existing.appliedAmountBRL += appBRL;
+              map.set(norm, existing);
             });
           }
         });
       }
     });
 
-    return Array.from(tickerSet);
+    const list: Array<{
+      ticker: string;
+      quantity: number;
+      currentValueBRL: number;
+      appliedAmountBRL: number;
+      profitBRL?: number;
+      profitPct?: number;
+      source?: string;
+    }> = [];
+
+    map.forEach((item) => {
+      if (item.currentValueBRL > 0 || item.quantity > 0) {
+        const profitBRL = item.currentValueBRL - item.appliedAmountBRL;
+        const profitPct = item.appliedAmountBRL > 0 ? profitBRL / item.appliedAmountBRL : undefined;
+        list.push({
+          ...item,
+          profitBRL,
+          profitPct,
+        });
+      }
+    });
+
+    return list;
   }, [monthlySnapshots, variablePositions]);
 
-  const customTickers = activeTab === "my_portfolio" ? userPortfolioTickers : undefined;
+  const userPortfolioTickers = useMemo(
+    () => userPortfolioPositions.map((p) => p.ticker),
+    [userPortfolioPositions]
+  );
 
-  const { data: response, isLoading, error, refetch, isFetching } = useRadarData(activeTab, customTickers);
+  const portfolioSummary = useMemo(() => {
+    const totalValueBRL = userPortfolioPositions.reduce((sum, p) => sum + p.currentValueBRL, 0);
+    const totalAppliedBRL = userPortfolioPositions.reduce((sum, p) => sum + p.appliedAmountBRL, 0);
+    const totalProfitBRL = totalValueBRL - totalAppliedBRL;
+    const totalProfitPct = totalAppliedBRL > 0 ? totalProfitBRL / totalAppliedBRL : 0;
+
+    return {
+      totalValueBRL,
+      totalAppliedBRL,
+      totalProfitBRL,
+      totalProfitPct,
+      count: userPortfolioPositions.length,
+    };
+  }, [userPortfolioPositions]);
+
+  const customTickers = activeTab === "my_portfolio" ? userPortfolioTickers : undefined;
+  const customMeta = activeTab === "my_portfolio" ? userPortfolioPositions : undefined;
+
+  const { data: response, isLoading, error, refetch, isFetching } = useRadarData(
+    activeTab,
+    customTickers,
+    customMeta
+  );
 
   const stocks = response
     ? showAll ? response.allData : response.data
@@ -209,25 +296,57 @@ const RadarAssimetria = () => {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Strategy Context */}
+        {/* Strategy Context or Global Portfolio Summary */}
         <Card className="border-primary/30">
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-xs text-muted-foreground">Objetivo Preferencial</p>
-                <p className="text-lg font-bold text-primary">30% ao ano</p>
+            {activeTab === "my_portfolio" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor Global Renda Variável</p>
+                  <p className="text-lg font-bold text-primary">
+                    {portfolioSummary.totalValueBRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Aplicado</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {portfolioSummary.totalAppliedBRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Resultado Global</p>
+                  <p className={`text-lg font-bold ${portfolioSummary.totalProfitBRL >= 0 ? "text-primary" : "text-destructive"}`}>
+                    {portfolioSummary.totalProfitBRL >= 0 ? "+" : ""}
+                    {portfolioSummary.totalProfitBRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    {" "}
+                    ({(portfolioSummary.totalProfitPct * 100).toFixed(2)}%)
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Retorno S&P 500 (12m)</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {response ? `${(response.sp500Return12m * 100).toFixed(2)}%` : "—"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Resultado Mínimo Aceitável</p>
-                <p className="text-lg font-bold text-foreground">40% em 24 meses</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">Objetivo Preferencial</p>
+                  <p className="text-lg font-bold text-primary">30% ao ano</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Resultado Mínimo Aceitável</p>
+                  <p className="text-lg font-bold text-foreground">40% em 24 meses</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Retorno S&P 500 (12m)</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {response ? `${(response.sp500Return12m * 100).toFixed(2)}%` : "—"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Retorno S&P 500 (12m)</p>
-                <p className="text-lg font-bold text-foreground">
-                  {response ? `${(response.sp500Return12m * 100).toFixed(2)}%` : "—"}
-                </p>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

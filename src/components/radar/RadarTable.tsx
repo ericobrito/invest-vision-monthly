@@ -38,6 +38,10 @@ function getRowHighlight(annualizedReturn: number): string {
   return "";
 }
 
+function formatBRL(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
   if (stocks.length === 0) {
     return (
@@ -49,14 +53,21 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
     );
   }
 
+  const hasUserPositions = stocks.some((s) => s.userValueBRL !== undefined);
+
   return (
     <div className="rounded-xl border border-border overflow-hidden">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="whitespace-nowrap font-semibold text-center w-16">Rank</TableHead>
+              <TableHead className="whitespace-nowrap font-semibold text-center w-12">Rank</TableHead>
               <TableHead className="whitespace-nowrap font-semibold">Ticker</TableHead>
+              {hasUserPositions && (
+                <TableHead className="whitespace-nowrap font-semibold text-right text-primary">
+                  Valor Atual (R$)
+                </TableHead>
+              )}
               <TableHead className="whitespace-nowrap font-semibold text-right">Preço Atual</TableHead>
               <TableHead className="whitespace-nowrap font-semibold text-right">Topo Histórico (ATH)</TableHead>
               <TableHead className="whitespace-nowrap font-semibold text-right">Distância do Topo</TableHead>
@@ -77,10 +88,27 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
                 </TableCell>
                 <TableCell className="font-bold text-foreground whitespace-nowrap">
                   {stock.ticker}
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                  {stock.userQuantity !== undefined && stock.userQuantity > 0 && (
+                    <div className="text-xs text-muted-foreground font-normal">
+                      {stock.userQuantity.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} un.
+                      {stock.userSource ? ` · ${stock.userSource}` : ""}
+                    </div>
+                  )}
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
                     {stock.momentum ? "▲ Acima da MA200" : "▼ Abaixo da MA200"}
                   </div>
                 </TableCell>
+
+                {hasUserPositions && (
+                  <TableCell className="text-right font-mono whitespace-nowrap font-bold text-primary">
+                    {stock.userValueBRL !== undefined ? formatBRL(stock.userValueBRL) : "—"}
+                    {stock.userProfitPct !== undefined && (
+                      <div className={`text-xs font-normal ${stock.userProfitPct >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {stock.userProfitPct >= 0 ? "+" : ""}{(stock.userProfitPct * 100).toFixed(2)}%
+                      </div>
+                    )}
+                  </TableCell>
+                )}
 
                 <TableCell className="text-right font-mono whitespace-nowrap">
                   {formatCurrency(stock.currentPrice)}
