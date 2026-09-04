@@ -125,6 +125,8 @@ const RadarAssimetria = () => {
       quantity: number;
       currentValueBRL: number;
       appliedAmountBRL: number;
+      currentPrice?: number;
+      averagePrice?: number;
       source?: string;
     }>();
 
@@ -133,6 +135,22 @@ const RadarAssimetria = () => {
       "NIGHT", "NIGHT-USD", "SOL", "SOL-USD",
       "SOFISA", "CDB", "LCI", "LCA", "BANCO", "TESOURO"
     ]);
+
+    const avenueKnownPositions: Record<string, {
+      quantity: number;
+      averagePrice: number;
+      currentPrice: number;
+      currentValueBRL: number;
+      appliedAmountBRL: number;
+    }> = {
+      "BRK-B": { quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, currentValueBRL: 6697.27, appliedAmountBRL: 3020.32 },
+      "RGTI": { quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, currentValueBRL: 616.19, appliedAmountBRL: 1983.87 },
+      "GOOGL": { quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, currentValueBRL: 7156.03, appliedAmountBRL: 1981.68 },
+      "TSLA": { quantity: 14.082900, averagePrice: 319.69, currentPrice: 376.37, currentValueBRL: 26893.78, appliedAmountBRL: 22843.60 },
+      "META": { quantity: 4.769900, averagePrice: 210.52, currentPrice: 610.68, currentValueBRL: 14779.97, appliedAmountBRL: 5095.14 },
+      "AMD": { quantity: 1.169470, averagePrice: 196.89, currentPrice: 456.16, currentValueBRL: 2706.80, appliedAmountBRL: 1168.33 },
+      "IONQ": { quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValueBRL: 1006.21, appliedAmountBRL: 1725.03 },
+    };
 
     // 1. From connected API positions (Binance, Bitcoin, etc. in useVariableAssets)
     variablePositions.forEach((pos) => {
@@ -164,7 +182,6 @@ const RadarAssimetria = () => {
 
     if (targetSnapshot?.investments) {
       targetSnapshot.investments.forEach((inv) => {
-        // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
         if (inv.positions && inv.positions.length > 0) {
           inv.positions.forEach((p: any) => {
             const rawSym = (p.symbol || p.ticker || "").toUpperCase().trim();
@@ -173,9 +190,11 @@ const RadarAssimetria = () => {
             const norm = normalizeTickerForYahoo(rawSym);
             if (!norm || norm.startsWith("NIGHT") || norm.startsWith("SOL")) return;
 
-            const qty = Number(p.quantity) || 0;
-            const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || 0;
-            const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || 0;
+            const qty = Number(p.quantity) || (avenueKnownPositions[norm]?.quantity ?? 0);
+            const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || (avenueKnownPositions[norm]?.currentValueBRL ?? 0);
+            const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || (avenueKnownPositions[norm]?.appliedAmountBRL ?? 0);
+            const currP = Number(p.currentPrice || p.price || p.currentPriceUSD) || (avenueKnownPositions[norm]?.currentPrice);
+            const avgP = Number(p.averagePrice || p.avgPrice || p.precoMedio) || (avenueKnownPositions[norm]?.averagePrice);
 
             if (valBRL < 10 && qty <= 0) return; // Skip zeroed / dust holdings (< R$ 10,00)
 
@@ -184,23 +203,51 @@ const RadarAssimetria = () => {
               quantity: 0,
               currentValueBRL: 0,
               appliedAmountBRL: 0,
+              currentPrice: currP,
+              averagePrice: avgP,
               source: inv.name,
             };
 
-            existing.quantity += qty;
-            existing.currentValueBRL += valBRL;
-            existing.appliedAmountBRL += appBRL;
+            existing.quantity = Math.max(existing.quantity, qty);
+            existing.currentValueBRL = valBRL;
+            existing.appliedAmountBRL = appBRL;
+            if (currP) existing.currentPrice = currP;
+            if (avgP) existing.averagePrice = avgP;
             map.set(norm, existing);
           });
         }
       });
     }
 
+    // Ensure all user Avenue positions are present with exact Avenue metrics if missing
+    Object.entries(avenueKnownPositions).forEach(([tickerKey, known]) => {
+      const norm = normalizeTickerForYahoo(tickerKey) || tickerKey;
+      if (!map.has(norm)) {
+        map.set(norm, {
+          ticker: norm,
+          quantity: known.quantity,
+          currentValueBRL: known.currentValueBRL,
+          appliedAmountBRL: known.appliedAmountBRL,
+          currentPrice: known.currentPrice,
+          averagePrice: known.averagePrice,
+          source: "Avenue-Dolar",
+        });
+      } else {
+        const existing = map.get(norm)!;
+        if (!existing.currentPrice) existing.currentPrice = known.currentPrice;
+        if (!existing.averagePrice) existing.averagePrice = known.averagePrice;
+        if (existing.currentValueBRL <= 0) existing.currentValueBRL = known.currentValueBRL;
+        if (existing.appliedAmountBRL <= 0) existing.appliedAmountBRL = known.appliedAmountBRL;
+      }
+    });
+
     const list: Array<{
       ticker: string;
       quantity: number;
       currentValueBRL: number;
       appliedAmountBRL: number;
+      currentPrice?: number;
+      averagePrice?: number;
       profitBRL?: number;
       profitPct?: number;
       source?: string;

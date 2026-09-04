@@ -91,6 +91,7 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
                   {stock.userQuantity !== undefined && stock.userQuantity > 0 && (
                     <div className="text-xs text-muted-foreground font-normal">
                       {stock.userQuantity.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} un.
+                      {stock.userAveragePrice ? ` · P. Médio: US$ ${stock.userAveragePrice.toFixed(2)}` : ""}
                       {stock.userSource ? ` · ${stock.userSource}` : ""}
                     </div>
                   )}
