@@ -35,32 +35,48 @@ export interface RadarResponse {
 }
 
 async function fetchChartData(symbol: string): Promise<any> {
-  const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1d&includePrePost=false`;
-  try {
-    const res = await fetch(targetUrl);
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.chart?.result?.[0]) return data.chart.result[0];
-    }
-  } catch (err) {
-    console.warn(`Direct chart fetch failed for ${symbol}:`, err);
+  const trySymbols = [symbol];
+  
+  if (symbol.includes(".")) {
+    trySymbols.push(symbol.replace(".", "-"));
+  }
+  if (!symbol.includes("-") && !symbol.includes(".")) {
+    trySymbols.push(`${symbol}-USD`);
+    trySymbols.push(`${symbol}.SA`);
   }
 
-  const proxies = [
-    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
-
-  for (const proxyFn of proxies) {
+  for (const sym of Array.from(new Set(trySymbols))) {
+    const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&includePrePost=false`;
     try {
-      const proxyUrl = proxyFn(targetUrl);
-      const res = await fetch(proxyUrl);
+      const res = await fetch(targetUrl);
       if (res.ok) {
         const data = await res.json();
-        if (data?.chart?.result?.[0]) return data.chart.result[0];
+        if (data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.length) {
+          return data.chart.result[0];
+        }
       }
     } catch (err) {
-      console.warn(`Proxy chart fetch failed for ${symbol}:`, err);
+      console.warn(`Direct chart fetch failed for ${sym}:`, err);
+    }
+
+    const proxies = [
+      (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    ];
+
+    for (const proxyFn of proxies) {
+      try {
+        const proxyUrl = proxyFn(targetUrl);
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.length) {
+            return data.chart.result[0];
+          }
+        }
+      } catch (err) {
+        console.warn(`Proxy chart fetch failed for ${sym}:`, err);
+      }
     }
   }
 
@@ -80,11 +96,11 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
   for (let i = 0; i < closes.length; i++) {
     if (closes[i] != null && closes[i]! > 0) {
       validCloses.push(closes[i]!);
-      validTimestamps.push(timestamps[i]);
+      validTimestamps.push(timestamps[i] || Math.floor(Date.now() / 1000));
     }
   }
 
-  if (validCloses.length < 5) return null;
+  if (validCloses.length < 2) return null;
 
   const currentPrice = meta.regularMarketPrice || validCloses[validCloses.length - 1];
   if (!currentPrice || currentPrice <= 0) return null;
@@ -103,7 +119,7 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
     athIdx = validCloses.length - 1;
   }
 
-  const athDate = new Date(validTimestamps[athIdx] * 1000);
+  const athDate = validTimestamps[athIdx] ? new Date(validTimestamps[athIdx] * 1000) : new Date();
   const distanceFromAth = ath > 0 ? (ath - currentPrice) / ath : 0;
   const potentialReturn = currentPrice > 0 ? (ath / currentPrice) - 1 : 0;
   const annualizedReturn = potentialReturn / 2;

@@ -23,6 +23,7 @@ function normalizeTickerForYahoo(rawTicker: string): string | null {
     CARDANO: "ADA",
     DOGECOIN: "DOGE",
     BERKSHIRE: "BRK-B",
+    "BERKSHIRE HATHAWAY": "BRK-B",
     TESLA: "TSLA",
     GOOGLE: "GOOGL",
     ALPHABET: "GOOGL",
@@ -42,7 +43,14 @@ function normalizeTickerForYahoo(rawTicker: string): string | null {
     sym = sym.replace(".", "-");
   }
 
-  // Remove currency pair slash if present (e.g. BTC/USD)
+  // Handle Binance/Crypto pair tickers like BTCUSDT, ETHUSDT, SOLUSDT -> BTC, ETH, SOL
+  if (sym.length > 4 && sym.endsWith("USDT")) {
+    sym = sym.replace(/USDT$/, "");
+  } else if (sym.length > 3 && sym.endsWith("BRL") && !sym.includes(".")) {
+    sym = sym.replace(/BRL$/, "");
+  }
+
+  // Remove currency pair slash if present (e.g. BTC/USD -> BTC)
   if (sym.includes("/")) {
     sym = sym.split("/")[0].trim();
   }
@@ -60,14 +68,18 @@ function normalizeTickerForYahoo(rawTicker: string): string | null {
     return sym;
   }
 
-  // Brazilian stocks (PETR4, VALE3, WEGE3, ITUB4)
-  if (/^[A-Z]{4}[0-9]{1,2}F?$/.test(sym) && !sym.endsWith(".SA")) {
+  if (sym.endsWith(".SA")) {
+    return sym;
+  }
+
+  // B3 Brazilian stock / FII / ETF tickers (PETR4, VALE3, B3SA3, IVVB11, HASH11, SMAL11, BOVA11, CPLE6, etc.)
+  if (/^[A-Z0-9]{4,6}[0-9]{1,2}F?$/.test(sym)) {
     return `${sym.replace(/F$/, "")}.SA`;
   }
 
-  // US Stocks or B3 (GOOGL, TSLA, META, AMD, IONQ, RGTI, BRK-B, PETR4.SA)
+  // US Stocks or general tickers (GOOGL, TSLA, META, AMD, IONQ, RGTI, BRK-B, PETR4.SA)
   if (/^[A-Z0-9.\-]{1,10}$/.test(sym)) {
-    const ignoredWords = ["USD", "BRL", "FX", "CRIPTO", "RENDA", "FIXA", "VARIAVEL", "EXTERIOR", "BRASIL", "US$"];
+    const ignoredWords = ["USD", "BRL", "FX", "CRIPTO", "RENDA", "FIXA", "VARIAVEL", "EXTERIOR", "BRASIL", "US$", "VALOR", "APLICADO", "CARTEIRA", "POSICOES"];
     if (!/^\d+$/.test(sym) && !ignoredWords.includes(sym) && sym.length >= 2) {
       return sym;
     }
@@ -85,7 +97,7 @@ function extractTickersFromText(text: string): string[] {
     results.push(fullNorm);
   }
 
-  const tokens = text.split(/[\s(),;/\\_]+/);
+  const tokens = text.split(/[\s(),;/\\_\-]+/);
   for (const tok of tokens) {
     const norm = normalizeTickerForYahoo(tok);
     if (norm) {
@@ -103,9 +115,7 @@ const RadarAssimetria = () => {
   const { data: monthlySnapshots = [] } = useSnapshots();
   const { positions: variablePositions = [] } = useVariableAssets();
 
-  const latestSnapshot = monthlySnapshots.length > 0 ? monthlySnapshots[monthlySnapshots.length - 1] : undefined;
-
-  // Extract tickers from both connected/manual variable assets and detailed snapshot positions
+  // Extract tickers from both connected/manual variable assets and ALL snapshot positions
   const userPortfolioTickers = useMemo(() => {
     const tickerSet = new Set<string>();
 
@@ -117,34 +127,34 @@ const RadarAssimetria = () => {
       }
     });
 
-    // 2. From latest monthly snapshot (all investments & detailed positions)
-    if (latestSnapshot?.investments) {
-      latestSnapshot.investments.forEach((inv) => {
-        // Linked Asset (e.g. connected crypto/stock asset)
-        if (inv.linkedAsset?.symbol) {
-          extractTickersFromText(inv.linkedAsset.symbol).forEach((t) => tickerSet.add(t));
-        }
+    // 2. From ALL monthly snapshots (investments & detailed positions)
+    monthlySnapshots.forEach((snap) => {
+      if (snap?.investments) {
+        snap.investments.forEach((inv) => {
+          // Linked Asset (e.g. connected crypto/stock asset)
+          if (inv.linkedAsset?.symbol) {
+            extractTickersFromText(inv.linkedAsset.symbol).forEach((t) => tickerSet.add(t));
+          }
 
-        // Detailed positions inside this investment
-        if (inv.positions && inv.positions.length > 0) {
-          inv.positions.forEach((p: any) => {
-            if (p.symbol) extractTickersFromText(String(p.symbol)).forEach((t) => tickerSet.add(t));
-            if (p.ticker) extractTickersFromText(String(p.ticker)).forEach((t) => tickerSet.add(t));
-            if (p.name) extractTickersFromText(String(p.name)).forEach((t) => tickerSet.add(t));
-          });
-        }
+          // Detailed positions inside this investment
+          if (inv.positions && inv.positions.length > 0) {
+            inv.positions.forEach((p: any) => {
+              if (p.symbol) extractTickersFromText(String(p.symbol)).forEach((t) => tickerSet.add(t));
+              if (p.ticker) extractTickersFromText(String(p.ticker)).forEach((t) => tickerSet.add(t));
+              if (p.name) extractTickersFromText(String(p.name)).forEach((t) => tickerSet.add(t));
+            });
+          }
 
-        // Investment name itself (for single-asset investments or manual variable income items)
-        if (inv.incomeType === "variable" || inv.flags?.includeInVariablePositions || inv.mode === "DETAILED" || inv.mode === "CONNECTED") {
+          // Investment name itself
           if (inv.name) {
             extractTickersFromText(inv.name).forEach((t) => tickerSet.add(t));
           }
-        }
-      });
-    }
+        });
+      }
+    });
 
     return Array.from(tickerSet);
-  }, [latestSnapshot, variablePositions]);
+  }, [monthlySnapshots, variablePositions]);
 
   const customTickers = activeTab === "my_portfolio" ? userPortfolioTickers : undefined;
 
