@@ -131,32 +131,32 @@ const RadarAssimetria = () => {
       }
     });
 
-    // 2. From detailed snapshot investments (Avenue-Dolar, Bybit - Cripto, etc.)
-    const targetSnapshot = latestSnapshot || (monthlySnapshots.length > 0 ? monthlySnapshots[monthlySnapshots.length - 1] : undefined);
+    // 2. From ALL monthly snapshots (Avenue-Dolar, Bybit - Cripto, etc.)
+    monthlySnapshots.forEach((snap) => {
+      if (snap?.investments) {
+        snap.investments.forEach((inv) => {
+          // Linked Asset (connected crypto/stock asset)
+          if (inv.linkedAsset?.symbol) {
+            const norm = normalizeTickerForYahoo(inv.linkedAsset.symbol);
+            if (norm) tickerSet.add(norm);
+          }
 
-    if (targetSnapshot?.investments) {
-      targetSnapshot.investments.forEach((inv) => {
-        // Linked Asset (connected crypto/stock asset)
-        if (inv.linkedAsset?.symbol) {
-          const norm = normalizeTickerForYahoo(inv.linkedAsset.symbol);
-          if (norm) tickerSet.add(norm);
-        }
-
-        // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
-        if (inv.positions && inv.positions.length > 0) {
-          inv.positions.forEach((p: any) => {
-            const rawSym = p.symbol || p.ticker || p.name;
-            if (rawSym) {
-              const norm = normalizeTickerForYahoo(String(rawSym));
-              if (norm) tickerSet.add(norm);
-            }
-          });
-        }
-      });
-    }
+          // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
+          if (inv.positions && inv.positions.length > 0) {
+            inv.positions.forEach((p: any) => {
+              const rawSym = p.symbol || p.ticker || p.name;
+              if (rawSym) {
+                const norm = normalizeTickerForYahoo(String(rawSym));
+                if (norm) tickerSet.add(norm);
+              }
+            });
+          }
+        });
+      }
+    });
 
     return Array.from(tickerSet);
-  }, [latestSnapshot, monthlySnapshots, variablePositions]);
+  }, [monthlySnapshots, variablePositions]);
 
   const customTickers = activeTab === "my_portfolio" ? userPortfolioTickers : undefined;
 

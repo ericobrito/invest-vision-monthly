@@ -106,10 +106,11 @@ async function fetchChartData(symbol: string): Promise<any> {
 function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null {
   if (!chart) return null;
 
-  const meta = chart.meta;
+  const meta = chart.meta || {};
   const timestamps: number[] = chart.timestamp || [];
-  const closes: (number | null)[] = chart.indicators?.quote?.[0]?.close || [];
-  const volumes: (number | null)[] = chart.indicators?.quote?.[0]?.volume || [];
+  const quotes = chart.indicators?.quote?.[0] || {};
+  const closes: (number | null)[] = quotes.close || [];
+  const volumes: (number | null)[] = quotes.volume || [];
 
   const validCloses: number[] = [];
   const validTimestamps: number[] = [];
@@ -121,7 +122,7 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
   }
 
   const currentPrice = meta.regularMarketPrice || (validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0);
-  if (!currentPrice || currentPrice <= 0) return null;
+  if (!currentPrice || currentPrice <= 0 || !Number.isFinite(currentPrice)) return null;
 
   if (validCloses.length === 0) {
     validCloses.push(currentPrice);
@@ -149,15 +150,17 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
 
   const maWindow = Math.min(200, validCloses.length);
   const lastN = validCloses.slice(-maWindow);
-  const ma200 = lastN.reduce((a, b) => a + b, 0) / lastN.length;
+  const ma200 = lastN.length > 0 ? lastN.reduce((a, b) => a + b, 0) / lastN.length : currentPrice;
   const momentum = currentPrice >= ma200;
 
   const lookback = Math.min(252, validCloses.length - 1);
-  const idx12m = validCloses.length - 1 - lookback;
+  const idx12m = Math.max(0, validCloses.length - 1 - lookback);
   const price12mAgo = validCloses[idx12m] || validCloses[0];
   const stockReturn12m = price12mAgo > 0 ? (currentPrice - price12mAgo) / price12mAgo : 0;
 
-  const relativeStrength = sp500Return12m !== 0 ? stockReturn12m / sp500Return12m : 0;
+  const relativeStrength = (sp500Return12m && sp500Return12m !== 0 && Number.isFinite(sp500Return12m)) 
+    ? stockReturn12m / sp500Return12m 
+    : 0;
 
   const logReturns: number[] = [];
   for (let i = 1; i < validCloses.length; i++) {
@@ -173,19 +176,22 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
   const avgVolume = recentVols.length > 0 ? recentVols.reduce((a, b) => a + b, 0) / recentVols.length : 0;
 
   const rawProb = volatility > 0 ? (potentialReturn / volatility) * 50 : 0;
-  const probability30 = Math.min(100, Math.max(0, rawProb));
+  const probability30 = Math.min(100, Math.max(0, Number.isFinite(rawProb) ? rawProb : 0));
 
   const potReturnFactor = Math.min(1, potentialReturn / 0.5);
   const momentumFactor = momentum ? 1 : 0.3;
   const rsFactor = relativeStrength > 1 ? Math.min(1, (relativeStrength - 0.5) / 1.5) : Math.max(0, relativeStrength / 2);
   const rawScore = potReturnFactor * 30 + momentumFactor * 20 + rsFactor * 20 + 0.6 * 15 + 10 + 5;
-  const score = Math.round(Math.min(100, rawScore));
+  const score = Math.round(Math.min(100, Math.max(0, Number.isFinite(rawScore) ? rawScore : 50)));
 
   const last252 = validCloses.slice(-252);
   const sparkline: number[] = [];
   const step = Math.max(1, Math.floor(last252.length / 50));
   for (let i = 0; i < last252.length; i += step) {
     sparkline.push(last252[i]);
+  }
+  if (sparkline.length === 0) {
+    sparkline.push(currentPrice, currentPrice);
   }
 
   let qualityBadge = 'Fraco';
@@ -202,19 +208,19 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
     currentPrice,
     ath,
     athDate: athDate.toISOString(),
-    distanceFromAth,
-    potentialReturn,
-    annualizedReturn,
+    distanceFromAth: Number.isFinite(distanceFromAth) ? distanceFromAth : 0,
+    potentialReturn: Number.isFinite(potentialReturn) ? potentialReturn : 0,
+    annualizedReturn: Number.isFinite(annualizedReturn) ? annualizedReturn : 0,
     momentum,
-    ma200,
-    relativeStrength,
+    ma200: Number.isFinite(ma200) ? ma200 : currentPrice,
+    relativeStrength: Number.isFinite(relativeStrength) ? relativeStrength : 0,
     revenueGrowth: null,
     probability30,
     score,
-    volatility,
-    avgVolume,
+    volatility: Number.isFinite(volatility) ? volatility : 0,
+    avgVolume: Number.isFinite(avgVolume) ? avgVolume : 0,
     sparklineData: sparkline,
-    stockReturn12m,
+    stockReturn12m: Number.isFinite(stockReturn12m) ? stockReturn12m : 0,
     qualityBadge,
     opportunitySignal,
   };
