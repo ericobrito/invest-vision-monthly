@@ -118,49 +118,45 @@ const RadarAssimetria = () => {
   const { data: monthlySnapshots = [] } = useSnapshots();
   const { positions: variablePositions = [] } = useVariableAssets();
 
-  // Extract tickers ONLY from connected/manual variable assets and variable income snapshot positions
+  // Extract tickers ONLY from detailed positions (Avenue-Dolar, Bybit) and connected APIs (Binance, Bitcoin)
   const userPortfolioTickers = useMemo(() => {
     const tickerSet = new Set<string>();
 
-    // 1. From variable assets hook (connected APIs like Binance/Bybit + manual variable positions)
+    // 1. From connected API positions (Binance, Bitcoin, etc. in useVariableAssets)
     variablePositions.forEach((pos) => {
-      const rawTicker = pos.ticker || (pos as any).symbol;
-      if (rawTicker) {
-        extractTickersFromText(String(rawTicker)).forEach((t) => tickerSet.add(t));
+      const rawSym = pos.ticker || (pos as any).symbol;
+      if (rawSym) {
+        const norm = normalizeTickerForYahoo(String(rawSym));
+        if (norm) tickerSet.add(norm);
       }
     });
 
-    // 2. From ALL monthly snapshots (ONLY variable income or detailed/connected positions)
-    monthlySnapshots.forEach((snap) => {
-      if (snap?.investments) {
-        snap.investments.forEach((inv) => {
-          const isVariable = inv.incomeType === "variable" || inv.flags?.includeInVariablePositions || inv.mode === "DETAILED" || inv.mode === "CONNECTED";
-          if (!isVariable) return;
+    // 2. From detailed snapshot investments (Avenue-Dolar, Bybit - Cripto, etc.)
+    const targetSnapshot = latestSnapshot || (monthlySnapshots.length > 0 ? monthlySnapshots[monthlySnapshots.length - 1] : undefined);
 
-          // Linked Asset (e.g. connected crypto/stock asset)
-          if (inv.linkedAsset?.symbol) {
-            extractTickersFromText(inv.linkedAsset.symbol).forEach((t) => tickerSet.add(t));
-          }
+    if (targetSnapshot?.investments) {
+      targetSnapshot.investments.forEach((inv) => {
+        // Linked Asset (connected crypto/stock asset)
+        if (inv.linkedAsset?.symbol) {
+          const norm = normalizeTickerForYahoo(inv.linkedAsset.symbol);
+          if (norm) tickerSet.add(norm);
+        }
 
-          // Detailed positions inside this investment
-          if (inv.positions && inv.positions.length > 0) {
-            inv.positions.forEach((p: any) => {
-              if (p.symbol) extractTickersFromText(String(p.symbol)).forEach((t) => tickerSet.add(t));
-              if (p.ticker) extractTickersFromText(String(p.ticker)).forEach((t) => tickerSet.add(t));
-              if (p.name) extractTickersFromText(String(p.name)).forEach((t) => tickerSet.add(t));
-            });
-          }
-
-          // Investment name itself (if no sub-positions)
-          if (inv.name && (!inv.positions || inv.positions.length === 0)) {
-            extractTickersFromText(inv.name).forEach((t) => tickerSet.add(t));
-          }
-        });
-      }
-    });
+        // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
+        if (inv.positions && inv.positions.length > 0) {
+          inv.positions.forEach((p: any) => {
+            const rawSym = p.symbol || p.ticker || p.name;
+            if (rawSym) {
+              const norm = normalizeTickerForYahoo(String(rawSym));
+              if (norm) tickerSet.add(norm);
+            }
+          });
+        }
+      });
+    }
 
     return Array.from(tickerSet);
-  }, [monthlySnapshots, variablePositions]);
+  }, [latestSnapshot, monthlySnapshots, variablePositions]);
 
   const customTickers = activeTab === "my_portfolio" ? userPortfolioTickers : undefined;
 

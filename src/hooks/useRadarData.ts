@@ -63,13 +63,40 @@ async function fetchChartData(symbol: string): Promise<any> {
         if (res.ok) {
           const data = await res.json();
           const chart = data?.chart?.result?.[0];
-          if (chart && (chart?.meta?.regularMarketPrice > 0 || chart?.indicators?.quote?.[0]?.close?.some((c: any) => c > 0))) {
-            return chart;
+          if (chart) {
+            const closes = chart?.indicators?.quote?.[0]?.close || [];
+            const price = chart?.meta?.regularMarketPrice || closes[closes.length - 1];
+            if (price > 0) {
+              return chart;
+            }
           }
         }
       } catch (err) {
         console.warn(`Proxy chart fetch failed for ${sym}:`, err);
       }
+    }
+
+    // Fallback: call Supabase edge function 'asset-quote'
+    try {
+      const { data, error } = await supabase.functions.invoke("asset-quote", {
+        body: { action: "quote", symbol: sym, provider: "yahoo" },
+      });
+      if (!error && data?.result?.price > 0) {
+        const p = Number(data.result.price);
+        return {
+          meta: {
+            symbol: sym,
+            regularMarketPrice: p,
+            currency: data.result.currency || "USD",
+          },
+          timestamp: [Math.floor(Date.now() / 1000)],
+          indicators: {
+            quote: [{ close: [p], volume: [0] }],
+          },
+        };
+      }
+    } catch (err) {
+      console.warn(`Asset quote edge function fallback failed for ${sym}:`, err);
     }
   }
 
@@ -93,10 +120,13 @@ function analyzeStockData(chart: any, sp500Return12m: number): RadarStock | null
     }
   }
 
-  if (validCloses.length < 2) return null;
-
-  const currentPrice = meta.regularMarketPrice || validCloses[validCloses.length - 1];
+  const currentPrice = meta.regularMarketPrice || (validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0);
   if (!currentPrice || currentPrice <= 0) return null;
+
+  if (validCloses.length === 0) {
+    validCloses.push(currentPrice);
+    validTimestamps.push(Math.floor(Date.now() / 1000));
+  }
 
   let ath = 0;
   let athIdx = 0;
