@@ -40,28 +40,20 @@ async function fetchChartData(symbol: string): Promise<any> {
   if (symbol.includes(".")) {
     trySymbols.push(symbol.replace(".", "-"));
   }
+  if (symbol.endsWith("-USD")) {
+    trySymbols.push(symbol.replace("-USD", ""));
+  }
   if (!symbol.includes("-") && !symbol.includes(".")) {
     trySymbols.push(`${symbol}-USD`);
     trySymbols.push(`${symbol}.SA`);
   }
 
   for (const sym of Array.from(new Set(trySymbols))) {
-    const targetUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&includePrePost=false`;
-    try {
-      const res = await fetch(targetUrl);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.length) {
-          return data.chart.result[0];
-        }
-      }
-    } catch (err) {
-      console.warn(`Direct chart fetch failed for ${sym}:`, err);
-    }
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d&includePrePost=false`;
 
     const proxies = [
-      (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
       (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
     ];
 
     for (const proxyFn of proxies) {
@@ -70,8 +62,9 @@ async function fetchChartData(symbol: string): Promise<any> {
         const res = await fetch(proxyUrl);
         if (res.ok) {
           const data = await res.json();
-          if (data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.length) {
-            return data.chart.result[0];
+          const chart = data?.chart?.result?.[0];
+          if (chart && (chart?.meta?.regularMarketPrice > 0 || chart?.indicators?.quote?.[0]?.close?.some((c: any) => c > 0))) {
+            return chart;
           }
         }
       } catch (err) {
@@ -230,47 +223,26 @@ async function fetchRadar(tab: string, customTickers?: string[]): Promise<RadarR
           const chart = await fetchChartData(ticker);
           if (chart) {
             const analysis = analyzeStockData(chart, sp500Return12m);
-            if (analysis) {
+            if (analysis && analysis.currentPrice > 0 && analysis.ath > 0) {
               results.push(analysis);
-              return;
             }
           }
-
-          // Fallback entry for custom tickers without valid Yahoo Finance chart
-          results.push({
-            ticker,
-            currentPrice: 0,
-            ath: 0,
-            athDate: new Date().toISOString(),
-            distanceFromAth: 0,
-            potentialReturn: 0,
-            annualizedReturn: 0,
-            momentum: true,
-            ma200: 0,
-            relativeStrength: 0,
-            revenueGrowth: null,
-            probability30: 0,
-            score: 50,
-            volatility: 0,
-            avgVolume: 0,
-            sparklineData: [0, 0],
-            stockReturn12m: 0,
-            qualityBadge: 'Moderado',
-            opportunitySignal: 'Observação',
-          });
         })
       );
 
-      results.sort((a, b) => b.score - a.score || b.potentialReturn - a.potentialReturn);
+      // Strictly filter out any items with 0 price ("O que tiver zerado vc não traz")
+      const validResults = results.filter(s => s.currentPrice > 0 && s.ath > 0);
+
+      validResults.sort((a, b) => b.score - a.score || b.potentialReturn - a.potentialReturn);
 
       return {
         success: true,
-        data: results,
-        allData: results,
+        data: validResults,
+        allData: validResults,
         sp500Return12m,
         updatedAt: new Date().toISOString(),
         totalAnalyzed: tickersToAnalyze.length,
-        totalPassed: results.length,
+        totalPassed: validResults.length,
       };
     } catch (err) {
       console.warn("Client side portfolio radar fetch failed:", err);

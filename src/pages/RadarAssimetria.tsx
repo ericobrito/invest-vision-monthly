@@ -57,7 +57,7 @@ function normalizeTickerForYahoo(rawTicker: string): string | null {
 
   const cryptos = [
     "BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT",
-    "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC", "PEPE", "SHIB", "NEAR", "APT", "SUI", "RENDER", "FET"
+    "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC", "PEPE", "SHIB", "NEAR", "APT", "SUI", "RENDER", "FET", "NIGHT"
   ];
 
   if (cryptos.includes(sym)) {
@@ -79,7 +79,10 @@ function normalizeTickerForYahoo(rawTicker: string): string | null {
 
   // US Stocks or general tickers (GOOGL, TSLA, META, AMD, IONQ, RGTI, BRK-B, PETR4.SA)
   if (/^[A-Z0-9.\-]{1,10}$/.test(sym)) {
-    const ignoredWords = ["USD", "BRL", "FX", "CRIPTO", "RENDA", "FIXA", "VARIAVEL", "EXTERIOR", "BRASIL", "US$", "VALOR", "APLICADO", "CARTEIRA", "POSICOES"];
+    const ignoredWords = [
+      "USD", "BRL", "FX", "CRIPTO", "RENDA", "FIXA", "VARIAVEL", "EXTERIOR", "BRASIL",
+      "US$", "VALOR", "APLICADO", "CARTEIRA", "POSICOES", "SOFISA", "CDB", "LCI", "LCA", "BANCO", "TESOURO"
+    ];
     if (!/^\d+$/.test(sym) && !ignoredWords.includes(sym) && sym.length >= 2) {
       return sym;
     }
@@ -115,7 +118,7 @@ const RadarAssimetria = () => {
   const { data: monthlySnapshots = [] } = useSnapshots();
   const { positions: variablePositions = [] } = useVariableAssets();
 
-  // Extract tickers from both connected/manual variable assets and ALL snapshot positions
+  // Extract tickers ONLY from connected/manual variable assets and variable income snapshot positions
   const userPortfolioTickers = useMemo(() => {
     const tickerSet = new Set<string>();
 
@@ -127,10 +130,13 @@ const RadarAssimetria = () => {
       }
     });
 
-    // 2. From ALL monthly snapshots (investments & detailed positions)
+    // 2. From ALL monthly snapshots (ONLY variable income or detailed/connected positions)
     monthlySnapshots.forEach((snap) => {
       if (snap?.investments) {
         snap.investments.forEach((inv) => {
+          const isVariable = inv.incomeType === "variable" || inv.flags?.includeInVariablePositions || inv.mode === "DETAILED" || inv.mode === "CONNECTED";
+          if (!isVariable) return;
+
           // Linked Asset (e.g. connected crypto/stock asset)
           if (inv.linkedAsset?.symbol) {
             extractTickersFromText(inv.linkedAsset.symbol).forEach((t) => tickerSet.add(t));
@@ -145,8 +151,8 @@ const RadarAssimetria = () => {
             });
           }
 
-          // Investment name itself
-          if (inv.name) {
+          // Investment name itself (if no sub-positions)
+          if (inv.name && (!inv.positions || inv.positions.length === 0)) {
             extractTickersFromText(inv.name).forEach((t) => tickerSet.add(t));
           }
         });
