@@ -360,7 +360,7 @@ function buildStockDataFromMeta(userMeta: UserPositionMeta, sp500Return12m: numb
 
 async function fetchRadar(tab: string, customTickers?: string[], userPositionsMeta?: UserPositionMeta[]): Promise<RadarResponse> {
   if (tab === "my_portfolio" || (customTickers && customTickers.length > 0)) {
-    const tickersToAnalyze = customTickers || [];
+    const tickersToAnalyze = Array.from(new Set(customTickers || []));
     if (tickersToAnalyze.length === 0) {
       return {
         success: true,

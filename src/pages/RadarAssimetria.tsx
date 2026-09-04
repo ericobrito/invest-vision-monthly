@@ -127,7 +127,7 @@ const RadarAssimetria = () => {
       appliedAmountBRL: number;
       currentPrice?: number;
       averagePrice?: number;
-      source?: string;
+      sourceSet: Set<string>;
     }>();
 
     const ignoredDustTickers = new Set([
@@ -162,22 +162,30 @@ const RadarAssimetria = () => {
 
       const qty = Number(pos.quantity) || 0;
       const valBRL = Number(pos.currentValue) || 0;
-      if (valBRL < 10 && qty <= 0) return; // Skip zeroed / dust holdings (< R$ 10,00)
+      const appBRL = Number((pos as any).appliedAmountBRL || (pos as any).appliedAmount || (pos as any).investedValue || 0);
+      if (valBRL < 10 && qty <= 0) return;
 
-      const existing = map.get(norm) || {
-        ticker: norm,
-        quantity: 0,
-        currentValueBRL: 0,
-        appliedAmountBRL: 0,
-        source: pos.broker || pos.provider || "Conectado",
-      };
-
-      existing.quantity += qty;
-      existing.currentValueBRL += valBRL;
-      map.set(norm, existing);
+      const src = pos.broker || pos.provider || "Conectado";
+      const existing = map.get(norm);
+      if (existing) {
+        if (!existing.sourceSet.has(src)) {
+          existing.quantity += qty;
+          existing.currentValueBRL += valBRL;
+          existing.appliedAmountBRL += appBRL > 0 ? appBRL : valBRL;
+          existing.sourceSet.add(src);
+        }
+      } else {
+        map.set(norm, {
+          ticker: norm,
+          quantity: qty,
+          currentValueBRL: valBRL,
+          appliedAmountBRL: appBRL > 0 ? appBRL : valBRL,
+          sourceSet: new Set([src]),
+        });
+      }
     });
 
-    // 2. From LATEST monthly snapshot ONLY (Avenue-Dolar, Bybit - Cripto, etc. to avoid duplicate accumulation across months)
+    // 2. From LATEST monthly snapshot ONLY (Avenue-Dolar, Bybit - Cripto, etc.)
     const targetSnapshot = monthlySnapshots.length > 0 ? monthlySnapshots[monthlySnapshots.length - 1] : undefined;
 
     if (targetSnapshot?.investments) {
@@ -193,33 +201,40 @@ const RadarAssimetria = () => {
             const qty = Number(p.quantity) || (avenueKnownPositions[norm]?.quantity ?? 0);
             const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || (avenueKnownPositions[norm]?.currentValueBRL ?? 0);
             const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || (avenueKnownPositions[norm]?.appliedAmountBRL ?? 0);
-            const currP = Number(p.currentPrice || p.price || p.currentPriceUSD) || (avenueKnownPositions[norm]?.currentPrice);
-            const avgP = Number(p.averagePrice || p.avgPrice || p.precoMedio) || (avenueKnownPositions[norm]?.averagePrice);
+            const currP = Number(p.currentPrice || p.price || p.currentPriceUSD) || avenueKnownPositions[norm]?.currentPrice;
+            const avgP = Number(p.averagePrice || p.avgPrice || p.precoMedio) || avenueKnownPositions[norm]?.averagePrice;
 
-            if (valBRL < 10 && qty <= 0) return; // Skip zeroed / dust holdings (< R$ 10,00)
+            if (valBRL < 10 && qty <= 0) return;
 
-            const existing = map.get(norm) || {
-              ticker: norm,
-              quantity: 0,
-              currentValueBRL: 0,
-              appliedAmountBRL: 0,
-              currentPrice: currP,
-              averagePrice: avgP,
-              source: inv.name,
-            };
+            const src = inv.name || "Snapshot";
+            const existing = map.get(norm);
 
-            existing.quantity = Math.max(existing.quantity, qty);
-            existing.currentValueBRL = valBRL;
-            existing.appliedAmountBRL = appBRL;
-            if (currP) existing.currentPrice = currP;
-            if (avgP) existing.averagePrice = avgP;
-            map.set(norm, existing);
+            if (existing) {
+              if (!existing.sourceSet.has(src)) {
+                existing.quantity += qty;
+                existing.currentValueBRL += valBRL;
+                existing.appliedAmountBRL += appBRL;
+                existing.sourceSet.add(src);
+              }
+              if (currP) existing.currentPrice = currP;
+              if (avgP) existing.averagePrice = avgP;
+            } else {
+              map.set(norm, {
+                ticker: norm,
+                quantity: qty,
+                currentValueBRL: valBRL,
+                appliedAmountBRL: appBRL,
+                currentPrice: currP,
+                averagePrice: avgP,
+                sourceSet: new Set([src]),
+              });
+            }
           });
         }
       });
     }
 
-    // Ensure all user Avenue positions are present with exact Avenue metrics if missing
+    // 3. Ensure all user Avenue positions are present with exact Avenue metrics
     Object.entries(avenueKnownPositions).forEach(([tickerKey, known]) => {
       const norm = normalizeTickerForYahoo(tickerKey) || tickerKey;
       if (!map.has(norm)) {
@@ -230,7 +245,7 @@ const RadarAssimetria = () => {
           appliedAmountBRL: known.appliedAmountBRL,
           currentPrice: known.currentPrice,
           averagePrice: known.averagePrice,
-          source: "Avenue-Dolar",
+          sourceSet: new Set(["Avenue-Dolar"]),
         });
       } else {
         const existing = map.get(norm)!;
@@ -257,10 +272,17 @@ const RadarAssimetria = () => {
       if (item.currentValueBRL >= 10 || item.quantity > 0) {
         const profitBRL = item.currentValueBRL - item.appliedAmountBRL;
         const profitPct = item.appliedAmountBRL > 0 ? profitBRL / item.appliedAmountBRL : undefined;
+        const sourcesStr = Array.from(item.sourceSet).join(", ");
         list.push({
-          ...item,
+          ticker: item.ticker,
+          quantity: item.quantity,
+          currentValueBRL: item.currentValueBRL,
+          appliedAmountBRL: item.appliedAmountBRL,
+          currentPrice: item.currentPrice,
+          averagePrice: item.averagePrice,
           profitBRL,
           profitPct,
+          source: sourcesStr,
         });
       }
     });
