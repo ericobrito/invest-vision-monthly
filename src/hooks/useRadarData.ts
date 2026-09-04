@@ -128,14 +128,19 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
   const timestamps: number[] = chart?.timestamp || [];
   const quotes = chart?.indicators?.quote?.[0] || {};
   const closes: (number | null)[] = quotes.close || [];
+  const highs: (number | null)[] = quotes.high || [];
   const volumes: (number | null)[] = quotes.volume || [];
 
   const validCloses: number[] = [];
+  const validHighs: number[] = [];
   const validTimestamps: number[] = [];
   for (let i = 0; i < closes.length; i++) {
     if (closes[i] != null && closes[i]! > 0) {
       validCloses.push(closes[i]!);
       validTimestamps.push(timestamps[i] || Math.floor(Date.now() / 1000));
+    }
+    if (highs[i] != null && highs[i]! > 0) {
+      validHighs.push(highs[i]!);
     }
   }
 
@@ -153,18 +158,22 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
   };
 
   const knownAthMap: Record<string, number> = {
-    "BTC-USD": 108900,
-    "ETH-USD": 4891.7,
+    "BTC-USD": 126198.07,
+    "BTC": 126198.07,
+    "ETH-USD": 4953.73,
+    "ETH": 4953.73,
     "USDT-USD": 1.0,
-    "SOL-USD": 260.0,
-    "TSLA": 414.50,
-    "GOOGL": 342.48,
-    "META": 610.68,
-    "AMD": 456.16,
-    "IONQ": 66.90,
-    "BRK-B": 508.13,
-    "BRK.B": 508.13,
-    "RGTI": 48.87,
+    "USDT": 1.0,
+    "SOL-USD": 294.33,
+    "SOL": 294.33,
+    "TSLA": 498.83,
+    "GOOGL": 408.61,
+    "META": 796.25,
+    "AMD": 584.73,
+    "IONQ": 84.64,
+    "BRK-B": 542.07,
+    "BRK.B": 542.07,
+    "RGTI": 58.15,
   };
 
   let currentPrice = meta.regularMarketPrice || (validCloses.length > 0 ? validCloses[validCloses.length - 1] : 0);
@@ -188,8 +197,9 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
   let athFromChart = 0;
   let athIdx = 0;
   for (let i = 0; i < validCloses.length; i++) {
-    if (validCloses[i] > athFromChart) {
-      athFromChart = validCloses[i];
+    const val = Math.max(validCloses[i], highs[i] || 0);
+    if (val > athFromChart) {
+      athFromChart = val;
       athIdx = i;
     }
   }
@@ -297,17 +307,22 @@ function buildStockDataFromMeta(userMeta: UserPositionMeta, sp500Return12m: numb
   };
 
   const knownAthMap: Record<string, number> = {
-    "BTC-USD": 108900,
-    "ETH-USD": 4891.7,
+    "BTC-USD": 126198.07,
+    "BTC": 126198.07,
+    "ETH-USD": 4953.73,
+    "ETH": 4953.73,
     "USDT-USD": 1.0,
-    "TSLA": 414.50,
-    "GOOGL": 342.48,
-    "META": 610.68,
-    "AMD": 456.16,
-    "IONQ": 66.90,
-    "BRK-B": 508.13,
-    "BRK.B": 508.13,
-    "RGTI": 48.87,
+    "USDT": 1.0,
+    "SOL-USD": 294.33,
+    "SOL": 294.33,
+    "TSLA": 498.83,
+    "GOOGL": 408.61,
+    "META": 796.25,
+    "AMD": 584.73,
+    "IONQ": 84.64,
+    "BRK-B": 542.07,
+    "BRK.B": 542.07,
+    "RGTI": 58.15,
   };
 
   const currentPrice = userMeta.currentPrice || knownPriceMap[normTicker] || (userMeta.quantity > 0 && userMeta.currentValueBRL > 0 ? (userMeta.currentValueBRL / (userMeta.quantity * 5.074)) : 100);
