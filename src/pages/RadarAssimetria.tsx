@@ -9,19 +9,91 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Target, RefreshCw, Eye, EyeOff, Briefcase } from "lucide-react";
 
-function normalizeTickerForYahoo(ticker: string): string {
-  const sym = ticker.toUpperCase().trim();
-  const cryptos = ["BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT", "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC"];
-  
+function normalizeTickerForYahoo(rawTicker: string): string | null {
+  if (!rawTicker) return null;
+  let sym = rawTicker.trim().toUpperCase();
+
+  // Known Portuguese/English asset name to ticker mapping
+  const knownNameMap: Record<string, string> = {
+    BITCOIN: "BTC",
+    ETHEREUM: "ETH",
+    TETHER: "USDT",
+    SOLANA: "SOL",
+    RIPPLE: "XRP",
+    CARDANO: "ADA",
+    DOGECOIN: "DOGE",
+    BERKSHIRE: "BRK-B",
+    TESLA: "TSLA",
+    GOOGLE: "GOOGL",
+    ALPHABET: "GOOGL",
+    META: "META",
+    MICROSOFT: "MSFT",
+    APPLE: "AAPL",
+    AMAZON: "AMZN",
+    NVIDIA: "NVDA",
+  };
+
+  if (knownNameMap[sym]) {
+    sym = knownNameMap[sym];
+  }
+
+  // Handle dot notation for US stocks (BRK.B -> BRK-B, BF.B -> BF-B)
+  if (/^[A-Z]{2,5}\.[A-Z]{1,2}$/.test(sym)) {
+    sym = sym.replace(".", "-");
+  }
+
+  // Remove currency pair slash if present (e.g. BTC/USD)
+  if (sym.includes("/")) {
+    sym = sym.split("/")[0].trim();
+  }
+
+  const cryptos = [
+    "BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT",
+    "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC", "PEPE", "SHIB", "NEAR", "APT", "SUI", "RENDER", "FET"
+  ];
+
   if (cryptos.includes(sym)) {
     return `${sym}-USD`;
   }
-  
-  if (/^[A-Z]{4}[0-9]{1,2}$/.test(sym) && !sym.includes(".")) {
-    return `${sym}.SA`;
+
+  if (sym.endsWith("-USD")) {
+    return sym;
   }
-  
-  return sym;
+
+  // Brazilian stocks (PETR4, VALE3, WEGE3, ITUB4)
+  if (/^[A-Z]{4}[0-9]{1,2}F?$/.test(sym) && !sym.endsWith(".SA")) {
+    return `${sym.replace(/F$/, "")}.SA`;
+  }
+
+  // US Stocks or B3 (GOOGL, TSLA, META, AMD, IONQ, RGTI, BRK-B, PETR4.SA)
+  if (/^[A-Z0-9.\-]{1,10}$/.test(sym)) {
+    const ignoredWords = ["USD", "BRL", "FX", "CRIPTO", "RENDA", "FIXA", "VARIAVEL", "EXTERIOR", "BRASIL", "US$"];
+    if (!/^\d+$/.test(sym) && !ignoredWords.includes(sym) && sym.length >= 2) {
+      return sym;
+    }
+  }
+
+  return null;
+}
+
+function extractTickersFromText(text: string): string[] {
+  if (!text) return [];
+  const results: string[] = [];
+
+  const fullNorm = normalizeTickerForYahoo(text);
+  if (fullNorm) {
+    results.push(fullNorm);
+  }
+
+  const tokens = text.split(/[\s(),;/\\_]+/);
+  for (const tok of tokens) {
+    const norm = normalizeTickerForYahoo(tok);
+    if (norm) {
+      results.push(norm);
+    }
+  }
+
+  return results;
 }
 
 const RadarAssimetria = () => {
@@ -37,39 +109,35 @@ const RadarAssimetria = () => {
   const userPortfolioTickers = useMemo(() => {
     const tickerSet = new Set<string>();
 
-    // 1. From variable assets (connected APIs & manual assets)
+    // 1. From variable assets hook (connected APIs like Binance/Bybit + manual variable positions)
     variablePositions.forEach((pos) => {
-      if (pos.symbol) {
-        const normalized = normalizeTickerForYahoo(pos.symbol);
-        if (normalized) tickerSet.add(normalized);
+      const rawTicker = pos.ticker || (pos as any).symbol;
+      if (rawTicker) {
+        extractTickersFromText(String(rawTicker)).forEach((t) => tickerSet.add(t));
       }
     });
 
-    // 2. From latest monthly snapshot (variable income or detailed positions)
+    // 2. From latest monthly snapshot (all investments & detailed positions)
     if (latestSnapshot?.investments) {
       latestSnapshot.investments.forEach((inv) => {
-        if (inv.incomeType === "variable" || inv.positions?.length || inv.flags?.includeInVariablePositions) {
-          if (inv.linkedAsset?.symbol) {
-            const normalized = normalizeTickerForYahoo(inv.linkedAsset.symbol);
-            if (normalized) tickerSet.add(normalized);
-          }
+        // Linked Asset (e.g. connected crypto/stock asset)
+        if (inv.linkedAsset?.symbol) {
+          extractTickersFromText(inv.linkedAsset.symbol).forEach((t) => tickerSet.add(t));
+        }
 
-          if (inv.positions && inv.positions.length > 0) {
-            inv.positions.forEach((p: any) => {
-              const rawSym = p.symbol || p.ticker || p.name;
-              if (rawSym) {
-                const normalized = normalizeTickerForYahoo(String(rawSym));
-                if (normalized) tickerSet.add(normalized);
-              }
-            });
-          }
+        // Detailed positions inside this investment
+        if (inv.positions && inv.positions.length > 0) {
+          inv.positions.forEach((p: any) => {
+            if (p.symbol) extractTickersFromText(String(p.symbol)).forEach((t) => tickerSet.add(t));
+            if (p.ticker) extractTickersFromText(String(p.ticker)).forEach((t) => tickerSet.add(t));
+            if (p.name) extractTickersFromText(String(p.name)).forEach((t) => tickerSet.add(t));
+          });
+        }
 
-          if (inv.name && !inv.linkedAsset && (!inv.positions || inv.positions.length === 0)) {
-            const trimmed = inv.name.trim().toUpperCase();
-            if (/^[A-Z0-9.]{2,10}$/.test(trimmed)) {
-              const normalized = normalizeTickerForYahoo(trimmed);
-              if (normalized) tickerSet.add(normalized);
-            }
+        // Investment name itself (for single-asset investments or manual variable income items)
+        if (inv.incomeType === "variable" || inv.flags?.includeInVariablePositions || inv.mode === "DETAILED" || inv.mode === "CONNECTED") {
+          if (inv.name) {
+            extractTickersFromText(inv.name).forEach((t) => tickerSet.add(t));
           }
         }
       });

@@ -78,9 +78,9 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
     }
   }
 
-  if (validCloses.length < 200) return null;
+  if (validCloses.length < 20) return null;
 
-  const currentPrice = meta.regularMarketPrice;
+  const currentPrice = meta.regularMarketPrice || validCloses[validCloses.length - 1];
   if (!currentPrice || currentPrice <= 0) return null;
 
   // ATH from available data
@@ -114,12 +114,13 @@ function analyzeStock(chart: any, sp500Return12m: number): StockAnalysis | null 
   // Annualized return estimate (over 2 years)
   const annualizedReturn = potentialReturn / 2;
 
-  // 200-day moving average
-  const last200 = validCloses.slice(-200);
-  const ma200 = last200.reduce((a, b) => a + b, 0) / last200.length;
+  // 200-day moving average (or available days)
+  const maWindow = Math.min(200, validCloses.length);
+  const lastN = validCloses.slice(-maWindow);
+  const ma200 = lastN.reduce((a, b) => a + b, 0) / lastN.length;
 
   // Momentum
-  const momentum = currentPrice > ma200;
+  const momentum = currentPrice >= ma200;
 
   // 12-month return (~252 trading days)
   const lookback = Math.min(252, validCloses.length - 1);
