@@ -118,7 +118,7 @@ const RadarAssimetria = () => {
   const { data: monthlySnapshots = [] } = useSnapshots();
   const { positions: variablePositions = [] } = useVariableAssets();
 
-  // Extract structured position metadata ONLY from detailed (Avenue-Dolar, Bybit) and connected APIs (Binance, Bitcoin)
+  // Extract structured position metadata ONLY from latest snapshot (Avenue-Dolar, Bybit) and active connected APIs (Binance, Bitcoin)
   const userPortfolioPositions = useMemo(() => {
     const map = new Map<string, {
       ticker: string;
@@ -130,20 +130,21 @@ const RadarAssimetria = () => {
 
     const ignoredDustTickers = new Set([
       "NEON", "CBK", "ZRO", "PENDLE", "GRAPE", "TOMI", "RENDER",
+      "NIGHT", "NIGHT-USD", "SOL", "SOL-USD",
       "SOFISA", "CDB", "LCI", "LCA", "BANCO", "TESOURO"
     ]);
 
     // 1. From connected API positions (Binance, Bitcoin, etc. in useVariableAssets)
     variablePositions.forEach((pos) => {
       const rawSym = (pos.ticker || (pos as any).symbol || "").toUpperCase().trim();
-      if (!rawSym || ignoredDustTickers.has(rawSym)) return;
+      if (!rawSym || ignoredDustTickers.has(rawSym) || rawSym.startsWith("NIGHT") || rawSym.startsWith("SOL")) return;
 
       const norm = normalizeTickerForYahoo(rawSym);
-      if (!norm) return;
+      if (!norm || norm.startsWith("NIGHT") || norm.startsWith("SOL")) return;
 
       const qty = Number(pos.quantity) || 0;
       const valBRL = Number(pos.currentValue) || 0;
-      if (valBRL <= 0 && qty <= 0) return; // Skip zeroed / dust holdings
+      if (valBRL < 10 && qty <= 0) return; // Skip zeroed / dust holdings (< R$ 10,00)
 
       const existing = map.get(norm) || {
         ticker: norm,
@@ -158,42 +159,42 @@ const RadarAssimetria = () => {
       map.set(norm, existing);
     });
 
-    // 2. From ALL monthly snapshots (Avenue-Dolar, Bybit - Cripto, etc.)
-    monthlySnapshots.forEach((snap) => {
-      if (snap?.investments) {
-        snap.investments.forEach((inv) => {
-          // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
-          if (inv.positions && inv.positions.length > 0) {
-            inv.positions.forEach((p: any) => {
-              const rawSym = (p.symbol || p.ticker || "").toUpperCase().trim();
-              if (!rawSym || ignoredDustTickers.has(rawSym)) return;
+    // 2. From LATEST monthly snapshot ONLY (Avenue-Dolar, Bybit - Cripto, etc. to avoid duplicate accumulation across months)
+    const targetSnapshot = monthlySnapshots.length > 0 ? monthlySnapshots[monthlySnapshots.length - 1] : undefined;
 
-              const norm = normalizeTickerForYahoo(rawSym);
-              if (!norm) return;
+    if (targetSnapshot?.investments) {
+      targetSnapshot.investments.forEach((inv) => {
+        // Detailed positions inside this investment (Avenue-Dolar, Bybit - Cripto, etc.)
+        if (inv.positions && inv.positions.length > 0) {
+          inv.positions.forEach((p: any) => {
+            const rawSym = (p.symbol || p.ticker || "").toUpperCase().trim();
+            if (!rawSym || ignoredDustTickers.has(rawSym) || rawSym.startsWith("NIGHT") || rawSym.startsWith("SOL")) return;
 
-              const qty = Number(p.quantity) || 0;
-              const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || 0;
-              const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || 0;
+            const norm = normalizeTickerForYahoo(rawSym);
+            if (!norm || norm.startsWith("NIGHT") || norm.startsWith("SOL")) return;
 
-              if (valBRL <= 0 && qty <= 0) return; // Skip zeroed holdings
+            const qty = Number(p.quantity) || 0;
+            const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || 0;
+            const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || 0;
 
-              const existing = map.get(norm) || {
-                ticker: norm,
-                quantity: 0,
-                currentValueBRL: 0,
-                appliedAmountBRL: 0,
-                source: inv.name,
-              };
+            if (valBRL < 10 && qty <= 0) return; // Skip zeroed / dust holdings (< R$ 10,00)
 
-              existing.quantity += qty;
-              existing.currentValueBRL += valBRL;
-              existing.appliedAmountBRL += appBRL;
-              map.set(norm, existing);
-            });
-          }
-        });
-      }
-    });
+            const existing = map.get(norm) || {
+              ticker: norm,
+              quantity: 0,
+              currentValueBRL: 0,
+              appliedAmountBRL: 0,
+              source: inv.name,
+            };
+
+            existing.quantity += qty;
+            existing.currentValueBRL += valBRL;
+            existing.appliedAmountBRL += appBRL;
+            map.set(norm, existing);
+          });
+        }
+      });
+    }
 
     const list: Array<{
       ticker: string;
@@ -206,7 +207,7 @@ const RadarAssimetria = () => {
     }> = [];
 
     map.forEach((item) => {
-      if (item.currentValueBRL > 0 || item.quantity > 0) {
+      if (item.currentValueBRL >= 10 || item.quantity > 0) {
         const profitBRL = item.currentValueBRL - item.appliedAmountBRL;
         const profitPct = item.appliedAmountBRL > 0 ? profitBRL / item.appliedAmountBRL : undefined;
         list.push({
