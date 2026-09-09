@@ -33,6 +33,10 @@ export class CryptoAccountingEngine {
     this.loadDefaultHistoricalTrades();
   }
 
+  public getTaxRuleVersion() {
+    return this.taxEngine.getTaxRuleVersion();
+  }
+
   private loadDefaultHistoricalTrades() {
     // Historical executions from Bybit / Binance / Coinbase
     const historical: CryptoTrade[] = [

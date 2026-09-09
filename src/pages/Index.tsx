@@ -243,6 +243,11 @@ const Index = () => {
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
+                    <Link to="/contabilidade-cripto" className="flex items-center gap-3 px-3 py-3 rounded-md bg-blue-500/10 text-blue-400 font-medium">
+                      <Calculator className="w-4 h-4 text-blue-400" /> Contabilidade Cripto
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
                     <Link to="/radar-tesouro" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Landmark className="w-4 h-4" /> {t("nav.tesouro")}
                     </Link>

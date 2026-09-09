@@ -91,7 +91,7 @@ export function CryptoAccountingDashboard() {
         internationalEstimatedTaxBRL: 0,
         lossesCarriedForwardBRL: 0,
         status: "OK",
-        taxRuleVersion: cryptoAccountingEngine["taxEngine"].getTaxRuleVersion(),
+        taxRuleVersion: cryptoAccountingEngine.getTaxRuleVersion(),
         disposalsCount: 0,
         unknownRegimeCount: 0,
       }
@@ -174,6 +174,36 @@ export function CryptoAccountingDashboard() {
                 <Flame className="w-4 h-4 mr-1" /> Maiores Altas
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile nav drawer */}
+          <div className="flex lg:hidden items-center gap-1">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Menu">
+                  <BarChart3 className="w-5 h-5" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-xs">
+                <DialogHeader>
+                  <DialogTitle>Invest Vision - Navegação</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-2 pt-2">
+                  <Link to="/" className="flex items-center gap-2 p-2 rounded hover:bg-muted text-sm font-medium">
+                    <BarChart3 className="w-4 h-4 text-primary" /> Visão Geral Consolidação
+                  </Link>
+                  <Link to="/radar" className="flex items-center gap-2 p-2 rounded hover:bg-muted text-sm font-medium">
+                    <Target className="w-4 h-4 text-primary" /> Radar de Assimetria
+                  </Link>
+                  <Link to="/desempenho-variavel" className="flex items-center gap-2 p-2 rounded hover:bg-muted text-sm font-medium text-emerald-400">
+                    <Flame className="w-4 h-4" /> Maiores Altas e Desempenho
+                  </Link>
+                  <Link to="/contabilidade-cripto" className="flex items-center gap-2 p-2 rounded bg-blue-500/10 text-sm font-semibold text-blue-400">
+                    <Calculator className="w-4 h-4" /> Contabilidade Cripto + Radar
+                  </Link>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
