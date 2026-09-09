@@ -355,18 +355,18 @@ const RadarAssimetria = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border sticky top-0 z-50 bg-background/80 backdrop-blur-md">
         <div className="container max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <Link to="/">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-primary/20 flex items-center justify-center">
               <Target className="w-5 h-5 text-primary" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Radar de Assimetria</h1>
-              <p className="text-xs text-muted-foreground">
+            <div className="shrink-0">
+              <h1 className="text-base sm:text-xl font-bold text-foreground whitespace-nowrap">Radar de Assimetria</h1>
+              <p className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
                 Oportunidades assimétricas e análise de topo em ações e criptoativos
               </p>
             </div>

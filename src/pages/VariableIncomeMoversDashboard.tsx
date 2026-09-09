@@ -413,7 +413,7 @@ const VariableIncomeMoversDashboard = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border sticky top-0 z-50 bg-background/85 backdrop-blur-md">
         <div className="container max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 shrink-0">
             <Link to="/">
               <Button variant="ghost" size="icon" className="h-9 w-9">
                 <ArrowLeft className="w-5 h-5" />
@@ -422,14 +422,14 @@ const VariableIncomeMoversDashboard = () => {
             <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
               <Flame className="w-5 h-5 text-emerald-400" />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-bold text-foreground flex items-center gap-2 truncate">
-                <span className="truncate">Maiores Altas e Desempenho</span>
+            <div className="shrink-0">
+              <h1 className="text-base sm:text-xl font-bold text-foreground flex items-center gap-2 whitespace-nowrap">
+                <span>Maiores Altas e Desempenho</span>
                 <Badge variant="outline" className="hidden sm:inline-flex bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs font-semibold">
                   Renda Variável
                 </Badge>
               </h1>
-              <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+              <p className="text-[11px] sm:text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
                 Ranking consolidado dos seus ativos detalhados e conectados
               </p>
             </div>

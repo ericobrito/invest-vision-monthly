@@ -145,13 +145,13 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border sticky top-0 z-50 bg-background/80 backdrop-blur-md">
         <div className="container max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 shrink-0 rounded-lg bg-primary/20 flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-primary" />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-bold text-foreground truncate">{t("app.title")}</h1>
-              <p className="text-xs text-muted-foreground truncate hidden sm:block">{t("app.subtitle")}</p>
+            <div className="shrink-0">
+              <h1 className="text-base sm:text-xl font-bold text-foreground whitespace-nowrap">{t("app.title")}</h1>
+              <p className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">{t("app.subtitle")}</p>
             </div>
           </div>
 
@@ -175,16 +175,6 @@ const Index = () => {
             <Link to="/plano-acao">
               <Button variant="outline" size="sm">
                 <Lightbulb className="w-4 h-4 mr-1" /> {t("nav.plan")}
-              </Button>
-            </Link>
-            <Link to="/posicoes-variaveis">
-              <Button variant="outline" size="sm">
-                <Coins className="w-4 h-4 mr-1" /> {t("nav.variable")}
-              </Button>
-            </Link>
-            <Link to="/admin/audit">
-              <Button variant="outline" size="sm">
-                <ShieldCheck className="w-4 h-4 mr-1" /> Audit
               </Button>
             </Link>
             <Link to="/simulador-renda">
@@ -255,16 +245,6 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/plano-acao" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Lightbulb className="w-4 h-4" /> {t("nav.plan")}
-                    </Link>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Link to="/posicoes-variaveis" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
-                      <Coins className="w-4 h-4" /> {t("nav.variable")}
-                    </Link>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Link to="/admin/audit" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
-                      <ShieldCheck className="w-4 h-4" /> Integration Audit Center
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
