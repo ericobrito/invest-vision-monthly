@@ -252,6 +252,25 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                     </tbody>
                   </table>
                 </div>
+                {(investment.name.toLowerCase().includes("binance") || investment.name.toLowerCase().includes("bybit") || investment.name.toLowerCase().includes("cripto")) && (
+                  <div className="mt-2.5 p-2.5 rounded-md bg-secondary/40 border border-border/50 text-[11px] text-muted-foreground space-y-1">
+                    <p className="font-semibold text-foreground flex items-center gap-1">
+                      ℹ️ Comparativo Custo de Ordem (Bybit) vs Custo Fiscal (IRPF 2026):
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 font-mono">
+                      <div>
+                        <span className="text-foreground font-medium">Bybit Executado (USD):</span>
+                        <span className="block text-muted-foreground">BTC: US$ 29.882,78 · ETH: US$ 169,77 · USDT: US$ 0,46</span>
+                        <span className="block text-emerald-400 font-semibold mt-0.5">Aplicado: R$ 21.672,48 (+180,65%)</span>
+                      </div>
+                      <div>
+                        <span className="text-foreground font-medium">Declarado IRPF 2026 (BRL):</span>
+                        <span className="block text-muted-foreground">BTC: R$ 411.017,00/un · ETH: R$ 12.550,91/un</span>
+                        <span className="block text-primary font-semibold mt-0.5">Custo Registrado: R$ 17.806,61 (+241,58%)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
