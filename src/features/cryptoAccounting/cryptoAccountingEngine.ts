@@ -320,11 +320,11 @@ export class CryptoAccountingEngine {
   // Simulator #3: "Impacto no Custo de Aquisição"
   public simulateCostReset(
     asset: string,
-    simulatedPriceUSD: number
+    simulatedSellPriceUSD: number
   ): CostResetSimulationResult {
     const fx = this.defaultFxRateBRL;
     const stock = this.costBasisEngine.getPositionStock(asset);
-    const sellPriceBRL = simulatedPriceUSD * fx;
+    const sellPriceBRL = simulatedSellPriceUSD * fx;
     const grossProceedsBRL = stock.quantity * sellPriceBRL;
     const realizedGainLossBRL = grossProceedsBRL - stock.totalCostBRL;
 
