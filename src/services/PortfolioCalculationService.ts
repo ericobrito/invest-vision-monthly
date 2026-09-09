@@ -115,7 +115,7 @@ class PortfolioCalculationService {
    */
   calculateInvestmentMetrics(inv: InvestmentInput): PortfolioMetrics {
     const mode = inv.mode || "CONSOLIDATED";
-    if (mode === "DETAILED" && inv.positions && inv.positions.length > 0) {
+    if ((mode === "DETAILED" || mode === "CONNECTED") && inv.positions && inv.positions.length > 0) {
       let investedValue = 0;
       let currentValue = 0;
       for (const p of inv.positions) {

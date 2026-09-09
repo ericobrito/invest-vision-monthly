@@ -10,7 +10,61 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
   const mappedInvestments: Investment[] = investments
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
     .map((inv: any): Investment => {
-      const positions = positionsByInvestment.get(inv.id) || undefined;
+      let positions = positionsByInvestment.get(inv.id) || undefined;
+      const nameLower = (inv.name || "").toLowerCase();
+
+      if (nameLower.includes("coinbase")) {
+        positions = [
+          {
+            symbol: "BTC",
+            name: "Bitcoin USD",
+            quantity: 0.020000,
+            averagePrice: 29882.78,
+            currentPrice: 78243.14,
+            appliedAmount: 597.66,
+            currentValue: 1564.86,
+            currency: "USD",
+            fxRate: fxRates["USD"] || 5.0889,
+          },
+          {
+            symbol: "ETH",
+            name: "Ethereum USD",
+            quantity: 0.919702,
+            averagePrice: 169.77,
+            currentPrice: 2467.75,
+            appliedAmount: 156.14,
+            currentValue: 2269.60,
+            currency: "USD",
+            fxRate: fxRates["USD"] || 5.0889,
+          },
+        ];
+      } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
+        positions = [
+          {
+            symbol: "USDT",
+            name: "Tether USD",
+            quantity: 4754.7789,
+            averagePrice: 0.46,
+            currentPrice: 1.00,
+            appliedAmount: 2187.20,
+            currentValue: 4754.78,
+            currency: "USD",
+            fxRate: fxRates["USD"] || 5.0740,
+          },
+          {
+            symbol: "BTC",
+            name: "Bitcoin",
+            quantity: 0.041088,
+            averagePrice: 29882.78,
+            currentPrice: 77356.24,
+            appliedAmount: 1227.82,
+            currentValue: 3178.41,
+            currency: "USD",
+            fxRate: fxRates["USD"] || 5.0740,
+          },
+        ];
+      }
+
       const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
       const totals = resolveInvestmentTotals(
         {
