@@ -144,6 +144,18 @@ const VariableIncomeMoversDashboard = () => {
       "SOFISA", "CDB", "LCI", "LCA", "BANCO", "TESOURO", "CONSOLIDADOS"
     ]);
 
+const knownCryptoPositions: Record<string, {
+  name: string;
+  averagePriceUSD: number;
+}> = {
+  "BTC": { name: "Bitcoin", averagePriceUSD: 29275.00 },
+  "BTC-USD": { name: "Bitcoin", averagePriceUSD: 29275.00 },
+  "ETH": { name: "Ethereum", averagePriceUSD: 1320.00 },
+  "ETH-USD": { name: "Ethereum", averagePriceUSD: 1320.00 },
+  "USDT": { name: "Tether USD", averagePriceUSD: 1.00 },
+  "USDT-USD": { name: "Tether USD", averagePriceUSD: 1.00 },
+};
+
     // 1. From Connected APIs (Binance, Bitcoin, etc.)
     variablePositions.forEach((pos) => {
       const rawSym = (pos.ticker || (pos as any).symbol || "").toUpperCase().trim();
@@ -154,9 +166,23 @@ const VariableIncomeMoversDashboard = () => {
 
       const qty = Number(pos.quantity) || 0;
       const valBRL = Number(pos.currentValue) || 0;
-      const appBRL = Number((pos as any).appliedAmountBRL || (pos as any).appliedAmount || (pos as any).investedValue || 0);
+      const fx = DEFAULT_USD_BRL_FX;
 
       if (valBRL < 10 && qty <= 0) return;
+
+      const knownCrypto = knownCryptoPositions[norm] || knownCryptoPositions[`${norm}-USD`];
+      const avgP = Number((pos as any).averagePrice || (pos as any).avgPrice || (pos as any).precoMedio) || knownCrypto?.averagePriceUSD;
+      const currP = Number((pos as any).currentPrice || (pos as any).price) || (qty > 0 ? (valBRL / qty) / fx : undefined);
+
+      let appBRL = Number((pos as any).appliedAmountBRL || (pos as any).appliedAmount || (pos as any).investedValue || 0);
+      if (appBRL <= 0 && avgP && qty > 0) {
+        appBRL = qty * avgP * fx;
+      }
+      if (appBRL <= 0) {
+        appBRL = valBRL;
+      }
+
+      const valUSD = qty > 0 && currP ? qty * currP : valBRL / fx;
 
       const src = pos.broker || pos.provider || "Conectado";
       const existing = map.get(norm);
@@ -165,19 +191,25 @@ const VariableIncomeMoversDashboard = () => {
         if (!existing.sources.has(src)) {
           existing.quantity += qty;
           existing.currentValueBRL += valBRL;
-          existing.appliedAmountBRL += appBRL > 0 ? appBRL : valBRL;
+          existing.appliedAmountBRL += appBRL;
           existing.sources.add(src);
         }
+        if (currP) existing.currentPriceUSD = currP;
+        if (avgP) existing.averagePriceUSD = avgP;
       } else {
         map.set(norm, {
           ticker: norm,
-          name: pos.name || norm,
+          name: pos.name || knownCrypto?.name || norm,
           source: src,
           quantity: qty,
+          currentValueUSD: valUSD,
           currentValueBRL: valBRL,
-          appliedAmountBRL: appBRL > 0 ? appBRL : valBRL,
-          profitBRL: valBRL - (appBRL > 0 ? appBRL : valBRL),
+          appliedAmountBRL: appBRL,
+          profitBRL: valBRL - appBRL,
           profitPct: appBRL > 0 ? (valBRL - appBRL) / appBRL : 0,
+          currentPriceUSD: currP,
+          averagePriceUSD: avgP,
+          fxRate: fx,
           sources: new Set([src]),
         });
       }

@@ -152,6 +152,17 @@ const RadarAssimetria = () => {
       "IONQ": { quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValueBRL: 1006.21, appliedAmountBRL: 1725.03 },
     };
 
+    const knownCryptoPositions: Record<string, {
+      averagePriceUSD: number;
+    }> = {
+      "BTC-USD": { averagePriceUSD: 29275.00 },
+      "BTC": { averagePriceUSD: 29275.00 },
+      "ETH-USD": { averagePriceUSD: 1320.00 },
+      "ETH": { averagePriceUSD: 1320.00 },
+      "USDT-USD": { averagePriceUSD: 1.00 },
+      "USDT": { averagePriceUSD: 1.00 },
+    };
+
     // 1. From connected API positions (Binance, Bitcoin, etc. in useVariableAssets)
     variablePositions.forEach((pos) => {
       const rawSym = (pos.ticker || (pos as any).symbol || "").toUpperCase().trim();
@@ -162,8 +173,21 @@ const RadarAssimetria = () => {
 
       const qty = Number(pos.quantity) || 0;
       const valBRL = Number(pos.currentValue) || 0;
-      const appBRL = Number((pos as any).appliedAmountBRL || (pos as any).appliedAmount || (pos as any).investedValue || 0);
+      const fx = 5.0740;
+
       if (valBRL < 10 && qty <= 0) return;
+
+      const knownCrypto = knownCryptoPositions[norm] || knownCryptoPositions[rawSym];
+      const avgP = Number((pos as any).averagePrice || (pos as any).avgPrice || (pos as any).precoMedio) || knownCrypto?.averagePriceUSD;
+      const currP = Number((pos as any).currentPrice || (pos as any).price) || (qty > 0 ? (valBRL / qty) / fx : undefined);
+
+      let appBRL = Number((pos as any).appliedAmountBRL || (pos as any).appliedAmount || (pos as any).investedValue || 0);
+      if (appBRL <= 0 && avgP && qty > 0) {
+        appBRL = qty * avgP * fx;
+      }
+      if (appBRL <= 0) {
+        appBRL = valBRL;
+      }
 
       const src = pos.broker || pos.provider || "Conectado";
       const existing = map.get(norm);
@@ -171,15 +195,19 @@ const RadarAssimetria = () => {
         if (!existing.sourceSet.has(src)) {
           existing.quantity += qty;
           existing.currentValueBRL += valBRL;
-          existing.appliedAmountBRL += appBRL > 0 ? appBRL : valBRL;
+          existing.appliedAmountBRL += appBRL;
           existing.sourceSet.add(src);
         }
+        if (currP) existing.currentPrice = currP;
+        if (avgP) existing.averagePrice = avgP;
       } else {
         map.set(norm, {
           ticker: norm,
           quantity: qty,
           currentValueBRL: valBRL,
-          appliedAmountBRL: appBRL > 0 ? appBRL : valBRL,
+          appliedAmountBRL: appBRL,
+          currentPrice: currP,
+          averagePrice: avgP,
           sourceSet: new Set([src]),
         });
       }
