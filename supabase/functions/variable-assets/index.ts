@@ -129,7 +129,15 @@ async function fetchBinance(key: string, secret: string): Promise<NormalizedBala
     { headers: { "X-MBX-APIKEY": key } },
     BINANCE_HOSTS.filter((h) => !h.includes("binance.vision")),
   );
-  if (!res.ok) throw new Error(`Binance: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 451 || res.status === 403) {
+      throw new Error(
+        `GEO_BLOCKED: Binance bloqueia a região do servidor (HTTP ${res.status}). Saldos anteriores mantidos.`,
+      );
+    }
+    throw new Error(`Binance: ${res.status} ${body}`);
+  }
   const data = await res.json();
   return (data.balances ?? [])
     .map((b: { asset: string; free: string; locked: string }) => ({
@@ -1322,6 +1330,14 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await audit.log("ERROR", { stage: "adapter_fetch", message: msg });
+      if (msg.startsWith("GEO_BLOCKED")) {
+        // Keep the last known positions instead of failing the whole sync.
+        await admin.from("va_connections").update({
+          status: "active", last_error: msg, last_sync: new Date().toISOString(),
+        }).eq("id", connectionId);
+        await audit.finish("completed", { skipped: true, reason: msg });
+        return { count: 0, runId: audit.runId, skipped: true, warning: msg };
+      }
       await admin.from("va_connections").update({
         status: "error", last_error: msg, last_sync: new Date().toISOString(),
       }).eq("id", connectionId);
