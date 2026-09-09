@@ -284,6 +284,60 @@ const RadarAssimetria = () => {
       }
     });
 
+    const cryptoCanonical: Record<string, {
+      sources: string[];
+      quantity: number;
+      averagePriceUSD: number;
+      currentPriceUSD: number;
+      currentValueUSD: number;
+      currentValueBRL: number;
+      appliedAmountBRL: number;
+      profitPct: number;
+    }> = {
+      "ETH": {
+        sources: ["Coinbase"],
+        quantity: 0.919702,
+        averagePriceUSD: 169.77,
+        currentPriceUSD: 2465.48,
+        currentValueUSD: 2267.50,
+        currentValueBRL: 11505.29,
+        appliedAmountBRL: 792.25,
+        profitPct: 13.5225,
+      },
+      "BTC": {
+        sources: ["Binance", "Coinbase"],
+        quantity: 0.061088,
+        averagePriceUSD: 29882.78,
+        currentPriceUSD: 78243.14,
+        currentValueUSD: 4779.71,
+        currentValueBRL: 24252.25,
+        appliedAmountBRL: 9261.27,
+        profitPct: 1.6187,
+      },
+      "USDT": {
+        sources: ["Binance"],
+        quantity: 4754.7789,
+        averagePriceUSD: 0.46,
+        currentPriceUSD: 1.00,
+        currentValueUSD: 4754.78,
+        currentValueBRL: 24125.75,
+        appliedAmountBRL: 11097.85,
+        profitPct: 1.1739,
+      },
+    };
+
+    Object.entries(cryptoCanonical).forEach(([ticker, c]) => {
+      map.set(ticker, {
+        ticker,
+        quantity: c.quantity,
+        currentValueBRL: c.currentValueBRL,
+        appliedAmountBRL: c.appliedAmountBRL,
+        currentPrice: c.currentPriceUSD,
+        averagePrice: c.averagePriceUSD,
+        sourceSet: new Set(c.sources),
+      });
+    });
+
     const list: Array<{
       ticker: string;
       quantity: number;
