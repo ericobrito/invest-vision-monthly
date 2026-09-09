@@ -74,17 +74,21 @@ function formatPct(val: number) {
   return `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
 }
 
+const DEFAULT_USD_BRL_FX = 5.0740;
+
 interface PerformanceAsset {
   ticker: string;
   name: string;
   source: string;
   quantity: number;
+  currentValueUSD?: number;
   currentValueBRL: number;
   appliedAmountBRL: number;
   profitBRL: number;
   profitPct: number;
   currentPriceUSD?: number;
   averagePriceUSD?: number;
+  fxRate?: number;
   athUSD?: number;
   potentialReturnPct?: number;
 }
@@ -94,17 +98,18 @@ const avenueKnownPositions: Record<string, {
   quantity: number;
   averagePrice: number;
   currentPrice: number;
+  currentValueUSD: number;
   currentValueBRL: number;
   appliedAmountBRL: number;
   profitPct: number;
 }> = {
-  "BRK-B": { name: "Berkshire Hathaway", quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, currentValueBRL: 6697.27, appliedAmountBRL: 3020.32, profitPct: 1.2174 },
-  "RGTI": { name: "Rigetti Computing", quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, currentValueBRL: 616.19, appliedAmountBRL: 1983.87, profitPct: -0.6894 },
-  "GOOGL": { name: "Alphabet Inc (Google)", quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, currentValueBRL: 7156.03, appliedAmountBRL: 1981.68, profitPct: 2.6111 },
-  "TSLA": { name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 376.37, currentValueBRL: 26893.78, appliedAmountBRL: 22843.60, profitPct: 0.1773 },
-  "META": { name: "Meta Platforms", quantity: 4.769900, averagePrice: 210.52, currentPrice: 610.68, currentValueBRL: 14779.97, appliedAmountBRL: 5095.14, profitPct: 1.9008 },
-  "AMD": { name: "Advanced Micro Devices", quantity: 1.169470, averagePrice: 196.89, currentPrice: 456.16, currentValueBRL: 2706.80, appliedAmountBRL: 1168.33, profitPct: 1.3168 },
-  "IONQ": { name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValueBRL: 1006.21, appliedAmountBRL: 1725.03, profitPct: -0.4167 },
+  "BRK-B": { name: "Berkshire Hathaway", quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, currentValueUSD: 1319.92, currentValueBRL: 6697.27, appliedAmountBRL: 3020.32, profitPct: 1.2174 },
+  "RGTI": { name: "Rigetti Computing", quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, currentValueUSD: 121.44, currentValueBRL: 616.19, appliedAmountBRL: 1983.87, profitPct: -0.6894 },
+  "GOOGL": { name: "Alphabet Inc (Google)", quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, currentValueUSD: 1410.33, currentValueBRL: 7156.03, appliedAmountBRL: 1981.68, profitPct: 2.6111 },
+  "TSLA": { name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 376.37, currentValueUSD: 5300.31, currentValueBRL: 26893.78, appliedAmountBRL: 22843.60, profitPct: 0.1773 },
+  "META": { name: "Meta Platforms", quantity: 4.769900, averagePrice: 210.52, currentPrice: 610.68, currentValueUSD: 2912.88, currentValueBRL: 14779.97, appliedAmountBRL: 5095.14, profitPct: 1.9008 },
+  "AMD": { name: "Advanced Micro Devices", quantity: 1.169470, averagePrice: 196.89, currentPrice: 456.16, currentValueUSD: 533.47, currentValueBRL: 2706.80, appliedAmountBRL: 1168.33, profitPct: 1.3168 },
+  "IONQ": { name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValueUSD: 198.31, currentValueBRL: 1006.21, appliedAmountBRL: 1725.03, profitPct: -0.4167 },
 };
 
 const VariableIncomeMoversDashboard = () => {
@@ -191,7 +196,9 @@ const VariableIncomeMoversDashboard = () => {
 
             const known = avenueKnownPositions[norm];
             const qty = Number(p.quantity) || (known?.quantity ?? 0);
-            const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || (known?.currentValueBRL ?? 0);
+            const valUSD = Number(p.currentValueUSD || p.nativeValue) || (known?.currentValueUSD ?? 0);
+            const fx = Number(p.fxRate || p.fx) || DEFAULT_USD_BRL_FX;
+            const valBRL = Number(p.currentValueBRL != null ? p.currentValueBRL : p.currentValue) || (valUSD > 0 ? valUSD * fx : 0) || (known?.currentValueBRL ?? 0);
             const appBRL = Number(p.appliedAmountBRL != null ? p.appliedAmountBRL : p.appliedAmount) || (known?.appliedAmountBRL ?? 0);
             const currP = Number(p.currentPrice || p.price || p.currentPriceUSD) || known?.currentPrice;
             const avgP = Number(p.averagePrice || p.avgPrice || p.precoMedio) || known?.averagePrice;
@@ -206,6 +213,7 @@ const VariableIncomeMoversDashboard = () => {
                 existing.quantity += qty;
                 existing.currentValueBRL += valBRL;
                 existing.appliedAmountBRL += appBRL;
+                if (valUSD > 0) existing.currentValueUSD = (existing.currentValueUSD || 0) + valUSD;
                 existing.sources.add(src);
               }
               if (currP) existing.currentPriceUSD = currP;
@@ -216,12 +224,14 @@ const VariableIncomeMoversDashboard = () => {
                 name: p.name || known?.name || norm,
                 source: src,
                 quantity: qty,
+                currentValueUSD: valUSD > 0 ? valUSD : (known?.currentValueUSD),
                 currentValueBRL: valBRL,
                 appliedAmountBRL: appBRL,
                 profitBRL: valBRL - appBRL,
                 profitPct: appBRL > 0 ? (valBRL - appBRL) / appBRL : (known?.profitPct ?? 0),
                 currentPriceUSD: currP,
                 averagePriceUSD: avgP,
+                fxRate: fx,
                 sources: new Set([src]),
               });
             }
@@ -239,18 +249,21 @@ const VariableIncomeMoversDashboard = () => {
           name: known.name,
           source: "Avenue-Dolar",
           quantity: known.quantity,
+          currentValueUSD: known.currentValueUSD,
           currentValueBRL: known.currentValueBRL,
           appliedAmountBRL: known.appliedAmountBRL,
           profitBRL: known.currentValueBRL - known.appliedAmountBRL,
           profitPct: known.profitPct,
           currentPriceUSD: known.currentPrice,
           averagePriceUSD: known.averagePrice,
+          fxRate: DEFAULT_USD_BRL_FX,
           sources: new Set(["Avenue-Dolar"]),
         });
       } else {
         const existing = map.get(norm)!;
         if (!existing.currentPriceUSD) existing.currentPriceUSD = known.currentPrice;
         if (!existing.averagePriceUSD) existing.averagePriceUSD = known.averagePrice;
+        if (!existing.currentValueUSD) existing.currentValueUSD = known.currentValueUSD;
         if (existing.profitPct === 0 && known.profitPct !== 0) existing.profitPct = known.profitPct;
       }
     });
@@ -266,12 +279,14 @@ const VariableIncomeMoversDashboard = () => {
           name: item.name,
           source: sourcesStr,
           quantity: item.quantity,
+          currentValueUSD: item.currentValueUSD,
           currentValueBRL: item.currentValueBRL,
           appliedAmountBRL: item.appliedAmountBRL,
           profitBRL,
           profitPct,
           currentPriceUSD: item.currentPriceUSD,
           averagePriceUSD: item.averagePriceUSD,
+          fxRate: item.fxRate || DEFAULT_USD_BRL_FX,
         });
       }
     });
@@ -734,7 +749,7 @@ const VariableIncomeMoversDashboard = () => {
                         <TableCell className="text-right font-mono font-bold text-primary whitespace-nowrap">
                           {formatBRL(asset.currentValueBRL)}
                           <div className="text-[10px] text-muted-foreground font-normal">
-                            Aplicado: {formatBRL(asset.appliedAmountBRL)}
+                            {asset.currentValueUSD ? `${formatUSD(asset.currentValueUSD)} · FX ${asset.fxRate || 5.0740}` : `Aplicado: ${formatBRL(asset.appliedAmountBRL)}`}
                           </div>
                         </TableCell>
                         <TableCell className={`text-right font-mono font-bold whitespace-nowrap ${isPositive ? "text-emerald-400" : "text-destructive"}`}>
