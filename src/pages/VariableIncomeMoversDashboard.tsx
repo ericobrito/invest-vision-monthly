@@ -120,6 +120,7 @@ const VariableIncomeMoversDashboard = () => {
   const [sortBy, setSortBy] = useState<"profitPct" | "profitBRL" | "currentValue" | "potential">("profitPct");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBroker, setFilterBroker] = useState<string>("all");
+  const [displayMode, setDisplayMode] = useState<"table" | "cards">("table");
 
   const snapshotOptions = useMemo(() => {
     return [...monthlySnapshots].reverse().map((s) => ({
@@ -134,7 +135,6 @@ const VariableIncomeMoversDashboard = () => {
     return monthlySnapshots.find((s) => s.month === selectedMonth) || monthlySnapshots[monthlySnapshots.length - 1];
   }, [monthlySnapshots, selectedMonth]);
 
-  // Consolidate detailed positions + connected API positions for the selected month
   const consolidatedAssets = useMemo(() => {
     const map = new Map<string, PerformanceAsset & { sources: Set<string> }>();
 
@@ -144,19 +144,18 @@ const VariableIncomeMoversDashboard = () => {
       "SOFISA", "CDB", "LCI", "LCA", "BANCO", "TESOURO", "CONSOLIDADOS"
     ]);
 
-const knownCryptoPositions: Record<string, {
-  name: string;
-  averagePriceUSD: number;
-}> = {
-  "BTC": { name: "Bitcoin", averagePriceUSD: 29275.00 },
-  "BTC-USD": { name: "Bitcoin", averagePriceUSD: 29275.00 },
-  "ETH": { name: "Ethereum", averagePriceUSD: 1320.00 },
-  "ETH-USD": { name: "Ethereum", averagePriceUSD: 1320.00 },
-  "USDT": { name: "Tether USD", averagePriceUSD: 1.00 },
-  "USDT-USD": { name: "Tether USD", averagePriceUSD: 1.00 },
-};
+    const knownCryptoPositions: Record<string, {
+      name: string;
+      averagePriceUSD: number;
+    }> = {
+      "BTC": { name: "Bitcoin", averagePriceUSD: 29275.00 },
+      "BTC-USD": { name: "Bitcoin", averagePriceUSD: 29275.00 },
+      "ETH": { name: "Ethereum", averagePriceUSD: 1320.00 },
+      "ETH-USD": { name: "Ethereum", averagePriceUSD: 1320.00 },
+      "USDT": { name: "Tether USD", averagePriceUSD: 1.00 },
+      "USDT-USD": { name: "Tether USD", averagePriceUSD: 1.00 },
+    };
 
-    // 1. From Connected APIs (Binance, Bitcoin, etc.)
     variablePositions.forEach((pos) => {
       const rawSym = (pos.ticker || (pos as any).symbol || "").toUpperCase().trim();
       if (!rawSym || ignoredDustTickers.has(rawSym) || rawSym.startsWith("NIGHT") || rawSym.startsWith("SOL")) return;
@@ -215,7 +214,6 @@ const knownCryptoPositions: Record<string, {
       }
     });
 
-    // 2. From Selected Monthly Snapshot (Detailed Positions)
     if (effectiveSnapshot?.investments) {
       effectiveSnapshot.investments.forEach((inv) => {
         if (inv.positions && inv.positions.length > 0) {
@@ -272,7 +270,6 @@ const knownCryptoPositions: Record<string, {
       });
     }
 
-    // 3. Fallback for Avenue Stocks if missing from snapshot
     Object.entries(avenueKnownPositions).forEach(([tickerKey, known]) => {
       const norm = normalizeTicker(tickerKey);
       if (!map.has(norm)) {
@@ -326,11 +323,9 @@ const knownCryptoPositions: Record<string, {
     return list;
   }, [effectiveSnapshot, variablePositions]);
 
-  // Fetch Radar data to get ATH and potential return for all tickers
   const portfolioTickers = useMemo(() => consolidatedAssets.map((a) => a.ticker), [consolidatedAssets]);
   const { data: radarResponse } = useRadarData("my_portfolio", portfolioTickers);
 
-  // Enriched assets with radar ATH metrics
   const enrichedAssets = useMemo(() => {
     const radarMap = new Map<string, any>();
     if (radarResponse?.data) {
@@ -338,16 +333,19 @@ const knownCryptoPositions: Record<string, {
     }
 
     return consolidatedAssets.map((asset) => {
-      const radar = radarMap.get(asset.ticker);
+      const radar = radarMap.get(asset.ticker) || radarMap.get(`${asset.ticker}-USD`);
+      const currentPriceUSD = asset.currentPriceUSD || radar?.currentPrice || (asset.quantity > 0 ? (asset.currentValueBRL / asset.quantity) / (asset.fxRate || DEFAULT_USD_BRL_FX) : undefined);
+      const athUSD = asset.athUSD || radar?.ath;
+
       return {
         ...asset,
-        athUSD: radar?.ath,
-        potentialReturnPct: radar?.potentialReturn,
+        currentPriceUSD,
+        athUSD,
+        potentialReturnPct: radar?.potentialReturn || (athUSD && currentPriceUSD ? (athUSD / currentPriceUSD) - 1 : undefined),
       };
     });
   }, [consolidatedAssets, radarResponse]);
 
-  // Broker filter options
   const brokerOptions = useMemo(() => {
     const set = new Set<string>();
     enrichedAssets.forEach((a) => {
@@ -356,7 +354,6 @@ const knownCryptoPositions: Record<string, {
     return Array.from(set);
   }, [enrichedAssets]);
 
-  // Filtered & Sorted assets
   const sortedAssets = useMemo(() => {
     let result = enrichedAssets.filter((a) => {
       const q = searchQuery.trim().toLowerCase();
@@ -376,18 +373,14 @@ const knownCryptoPositions: Record<string, {
     return result;
   }, [enrichedAssets, searchQuery, filterBroker, sortBy]);
 
-  // Summary Metrics
   const summaryMetrics = useMemo(() => {
     const totalValue = enrichedAssets.reduce((s, a) => s + a.currentValueBRL, 0);
     const totalApplied = enrichedAssets.reduce((s, a) => s + a.appliedAmountBRL, 0);
     const totalProfitBRL = totalValue - totalApplied;
     const weightedProfitPct = totalApplied > 0 ? totalProfitBRL / totalApplied : 0;
 
-    // Top Gainer by %
     const topGainer = [...enrichedAssets].sort((a, b) => b.profitPct - a.profitPct)[0];
-    // Top Profit by R$
     const topProfitR$ = [...enrichedAssets].sort((a, b) => b.profitBRL - a.profitBRL)[0];
-    // Worst Performer by %
     const worstGainer = [...enrichedAssets].sort((a, b) => a.profitPct - b.profitPct)[0];
 
     return {
@@ -402,9 +395,8 @@ const knownCryptoPositions: Record<string, {
     };
   }, [enrichedAssets]);
 
-  // Bar Chart Data (Top 7 Gainers by %)
   const chartData = useMemo(() => {
-    const top7 = [...enrichedAssets]
+    const top8 = [...enrichedAssets]
       .sort((a, b) => b.profitPct - a.profitPct)
       .slice(0, 8)
       .map((a) => ({
@@ -412,50 +404,49 @@ const knownCryptoPositions: Record<string, {
         profitPct: Number((a.profitPct * 100).toFixed(2)),
         profitBRL: a.profitBRL,
       }));
-    return top7;
+    return top8;
   }, [enrichedAssets]);
 
   const isLoading = snapshotsLoading || variableLoading;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky Header */}
-      <header className="border-b border-border sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-        <div className="container max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <header className="border-b border-border sticky top-0 z-50 bg-background/85 backdrop-blur-md">
+        <div className="container max-w-7xl mx-auto px-4 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Link to="/">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
               <Flame className="w-5 h-5 text-emerald-400" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-                Maiores Altas e Desempenho
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs font-semibold">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-bold text-foreground flex items-center gap-2 truncate">
+                <span className="truncate">Maiores Altas e Desempenho</span>
+                <Badge variant="outline" className="hidden sm:inline-flex bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs font-semibold">
                   Renda Variável
                 </Badge>
               </h1>
-              <p className="text-xs text-muted-foreground">
-                Ranking consolidado dos seus ativos detalhados e conectados que mais valorizaram
+              <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+                Ranking consolidado dos seus ativos detalhados e conectados
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
             <Link to="/radar">
-              <Button variant="outline" size="sm">
-                <Target className="w-4 h-4 mr-1 text-primary" /> Radar de Assimetria
+              <Button variant="outline" size="sm" className="h-9 text-xs">
+                <Target className="w-3.5 h-3.5 mr-1.5 text-primary" /> Radar
               </Button>
             </Link>
             {snapshotOptions.length > 0 && (
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[170px] h-9 text-xs">
+                <SelectTrigger className="w-[150px] sm:w-[170px] h-9 text-xs">
                   <SelectValue placeholder="Selecione o mês" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="end">
                   <SelectItem value="latest">Mês Atual (Recente)</SelectItem>
                   {snapshotOptions.map((s) => (
                     <SelectItem key={s.month} value={s.month}>
@@ -469,14 +460,12 @@ const knownCryptoPositions: Record<string, {
         </div>
       </header>
 
-      <main className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* KPI Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Top Gainer */}
-          <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-card to-card">
+      <main className="container max-w-7xl mx-auto px-4 py-4 sm:py-6 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-card to-card hover:border-emerald-500/50 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   🥇 Maior Alta (%)
                 </span>
                 <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
@@ -494,7 +483,7 @@ const knownCryptoPositions: Record<string, {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{summaryMetrics.topGainer.name}</p>
-                  <div className="text-[11px] text-emerald-400/90 mt-1 font-mono">
+                  <div className="text-[11px] text-emerald-400/90 mt-1 font-mono truncate">
                     Lucro: {formatBRL(summaryMetrics.topGainer.profitBRL)} · {summaryMetrics.topGainer.source}
                   </div>
                 </div>
@@ -504,11 +493,10 @@ const knownCryptoPositions: Record<string, {
             </CardContent>
           </Card>
 
-          {/* Card 2: Top Profit in R$ */}
-          <Card className="border-teal-500/30 bg-gradient-to-br from-teal-500/5 via-card to-card">
+          <Card className="border-teal-500/30 bg-gradient-to-br from-teal-500/10 via-card to-card hover:border-teal-500/50 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   💰 Maior Lucro (R$)
                 </span>
                 <span className="p-1.5 rounded-lg bg-teal-500/20 text-teal-400">
@@ -526,7 +514,7 @@ const knownCryptoPositions: Record<string, {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{summaryMetrics.topProfitR$.name}</p>
-                  <div className="text-[11px] text-teal-400/90 mt-1 font-mono">
+                  <div className="text-[11px] text-teal-400/90 mt-1 font-mono truncate">
                     Rentabilidade: {formatPct(summaryMetrics.topProfitR$.profitPct)}
                   </div>
                 </div>
@@ -536,11 +524,10 @@ const knownCryptoPositions: Record<string, {
             </CardContent>
           </Card>
 
-          {/* Card 3: Weighted Return */}
-          <Card className="border-primary/30">
+          <Card className="border-primary/30 hover:border-primary/50 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   📊 Retorno Médio RV
                 </span>
                 <span className="p-1.5 rounded-lg bg-primary/20 text-primary">
@@ -563,11 +550,10 @@ const knownCryptoPositions: Record<string, {
             </CardContent>
           </Card>
 
-          {/* Card 4: Total RV Patrimony */}
-          <Card className="border-border">
+          <Card className="border-border hover:border-border/80 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   💼 Patrimônio em RV
                 </span>
                 <span className="p-1.5 rounded-lg bg-muted text-muted-foreground">
@@ -589,14 +575,13 @@ const knownCryptoPositions: Record<string, {
           </Card>
         </div>
 
-        {/* Visual Bar Chart Ranking */}
         <Card className="border-primary/20">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
+              <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-primary" /> Top Altas (%) - Renda Variável
               </CardTitle>
-              <CardDescription className="text-xs">
+              <CardDescription className="text-xs hidden sm:block">
                 Comparativo visual dos ativos que apresentaram maior valorização acumulada
               </CardDescription>
             </div>
@@ -605,11 +590,11 @@ const knownCryptoPositions: Record<string, {
             </Badge>
           </CardHeader>
           <CardContent className="pt-2">
-            <div className="h-[220px] w-full">
+            <div className="h-[180px] sm:h-[220px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
-                  <XAxis dataKey="ticker" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => `${v}%`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                <BarChart data={chartData} margin={{ top: 10, right: 5, left: -15, bottom: 20 }}>
+                  <XAxis dataKey="ticker" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `${v}%`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
                   <Tooltip
                     formatter={(value: any, _name: any, item: any) => [
                       `${value}% (${formatBRL(item.payload.profitBRL)})`,
@@ -644,16 +629,14 @@ const knownCryptoPositions: Record<string, {
           </CardContent>
         </Card>
 
-        {/* Filter Controls & Search */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-card/60 p-4 border border-border rounded-xl">
-          {/* Sorting Buttons */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card/60 p-3 sm:p-4 border border-border rounded-xl backdrop-blur-sm">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground mr-1">Ordernar por:</span>
+            <span className="text-xs font-semibold text-muted-foreground mr-1 hidden sm:inline">Ordernar por:</span>
             <Button
               variant={sortBy === "profitPct" ? "default" : "outline"}
               size="sm"
               onClick={() => setSortBy("profitPct")}
-              className="text-xs h-8"
+              className="text-xs h-8 flex-1 sm:flex-none"
             >
               🔥 Maior Alta (%)
             </Button>
@@ -661,34 +644,33 @@ const knownCryptoPositions: Record<string, {
               variant={sortBy === "profitBRL" ? "default" : "outline"}
               size="sm"
               onClick={() => setSortBy("profitBRL")}
-              className="text-xs h-8"
+              className="text-xs h-8 flex-1 sm:flex-none"
             >
-              💰 Maior Lucro (R$)
+              💰 Lucro (R$)
             </Button>
             <Button
               variant={sortBy === "currentValue" ? "default" : "outline"}
               size="sm"
               onClick={() => setSortBy("currentValue")}
-              className="text-xs h-8"
+              className="text-xs h-8 flex-1 sm:flex-none"
             >
-              📊 Maior Posição (R$)
+              📊 Posição (R$)
             </Button>
             <Button
               variant={sortBy === "potential" ? "default" : "outline"}
               size="sm"
               onClick={() => setSortBy("potential")}
-              className="text-xs h-8"
+              className="text-xs h-8 flex-1 sm:flex-none"
             >
               🎯 Potencial (ATH)
             </Button>
           </div>
 
-          {/* Search & Broker Filters */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-48">
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-48">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
               <Input
-                placeholder="Buscar ticker/corretora..."
+                placeholder="Buscar ticker..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 text-xs h-9"
@@ -696,10 +678,10 @@ const knownCryptoPositions: Record<string, {
             </div>
             {brokerOptions.length > 0 && (
               <Select value={filterBroker} onValueChange={setFilterBroker}>
-                <SelectTrigger className="w-[140px] h-9 text-xs">
+                <SelectTrigger className="w-[130px] h-9 text-xs">
                   <SelectValue placeholder="Corretora" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent align="end">
                   <SelectItem value="all">Todas Corretoras</SelectItem>
                   {brokerOptions.map((b) => (
                     <SelectItem key={b} value={b}>
@@ -709,114 +691,212 @@ const knownCryptoPositions: Record<string, {
                 </SelectContent>
               </Select>
             )}
+            <div className="flex items-center border border-border rounded-lg p-0.5 bg-muted/40 shrink-0">
+              <Button
+                variant={displayMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setDisplayMode("table")}
+                className="h-8 px-2.5 text-xs font-semibold"
+                title="Modo Tabela"
+              >
+                <Layers className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant={displayMode === "cards" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setDisplayMode("cards")}
+                className="h-8 px-2.5 text-xs font-semibold"
+                title="Modo Cards"
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Detailed Performance Table */}
-        <div className="rounded-xl border border-border overflow-hidden bg-card">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-12 text-center font-bold">Rank</TableHead>
-                  <TableHead className="font-semibold">Ativo / Ticker</TableHead>
-                  <TableHead className="font-semibold text-right">Origem / Corretora</TableHead>
-                  <TableHead className="font-semibold text-right">Preço Médio</TableHead>
-                  <TableHead className="font-semibold text-right">Preço Atual</TableHead>
-                  <TableHead className="font-semibold text-right text-primary">Valor Atual (R$)</TableHead>
-                  <TableHead className="font-semibold text-right">Lucro (R$)</TableHead>
-                  <TableHead className="font-semibold text-right">Rentabilidade</TableHead>
-                  <TableHead className="font-semibold text-right">Potencial (ATH)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
-                      Carregando posições de renda variável...
-                    </TableCell>
-                  </TableRow>
-                ) : sortedAssets.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                      Nenhum ativo encontrado com os filtros atuais.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedAssets.map((asset, index) => {
-                    const isPositive = asset.profitPct >= 0;
-                    const rankMedal =
-                      index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
+        {displayMode === "cards" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isLoading ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                Carregando posições de renda variável...
+              </div>
+            ) : sortedAssets.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                Nenhum ativo encontrado com os filtros atuais.
+              </div>
+            ) : (
+              sortedAssets.map((asset, index) => {
+                const isPositive = asset.profitPct >= 0;
+                const rankMedal =
+                  index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
 
-                    return (
-                      <TableRow key={asset.ticker} className={index < 3 ? "bg-emerald-500/5 font-medium" : ""}>
-                        <TableCell className="text-center font-bold text-base whitespace-nowrap">
-                          {rankMedal}
-                        </TableCell>
-                        <TableCell className="font-bold text-foreground whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <span>{asset.ticker}</span>
-                            {asset.profitPct >= 1.0 && (
-                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
-                                +100% 🚀
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground font-normal truncate max-w-[180px]">
-                            {asset.name} · {asset.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} un.
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap text-xs text-muted-foreground">
-                          <Badge variant="outline" className="text-[11px] font-normal">
+                return (
+                  <Card
+                    key={asset.ticker}
+                    className={`border transition-all ${
+                      index < 3 ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"
+                    }`}
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-black text-sm text-muted-foreground">{rankMedal}</span>
+                          <span className="font-black text-base text-foreground truncate">{asset.ticker}</span>
+                          <Badge variant="outline" className="text-[10px] font-normal truncate max-w-[110px]">
                             {asset.source}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono whitespace-nowrap text-xs">
-                          {asset.averagePriceUSD ? formatUSD(asset.averagePriceUSD) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono whitespace-nowrap text-xs">
-                          {asset.currentPriceUSD ? formatUSD(asset.currentPriceUSD) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-primary whitespace-nowrap">
-                          {formatBRL(asset.currentValueBRL)}
-                          <div className="text-[10px] text-muted-foreground font-normal">
-                            {asset.currentValueUSD ? `${formatUSD(asset.currentValueUSD)} · FX ${asset.fxRate || 5.0740}` : `Aplicado: ${formatBRL(asset.appliedAmountBRL)}`}
-                          </div>
-                        </TableCell>
-                        <TableCell className={`text-right font-mono font-bold whitespace-nowrap ${isPositive ? "text-emerald-400" : "text-destructive"}`}>
-                          {isPositive ? "+" : ""}{formatBRL(asset.profitBRL)}
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          <div className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-full ${
-                            isPositive ? "bg-emerald-500/15 text-emerald-400" : "bg-destructive/15 text-destructive"
-                          }`}>
-                            {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                            {formatPct(asset.profitPct)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono whitespace-nowrap text-xs">
-                          {asset.potentialReturnPct !== undefined ? (
-                            <span className="text-emerald-400 font-semibold">
-                              +{formatPct(asset.potentialReturnPct)}
-                            </span>
-                          ) : (
-                            "—"
+                        </div>
+                        <div className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                          isPositive ? "bg-emerald-500/15 text-emerald-400" : "bg-destructive/15 text-destructive"
+                        }`}>
+                          {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                          {formatPct(asset.profitPct)}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2.5 rounded-lg font-mono">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-normal">Valor Atual (R$)</p>
+                          <p className="font-bold text-primary text-sm">{formatBRL(asset.currentValueBRL)}</p>
+                          {asset.currentValueUSD && (
+                            <p className="text-[10px] text-muted-foreground">{formatUSD(asset.currentValueUSD)}</p>
                           )}
-                          {asset.athUSD && (
-                            <div className="text-[10px] text-muted-foreground">
-                              ATH: {formatUSD(asset.athUSD)}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-muted-foreground font-normal">Lucro (R$)</p>
+                          <p className={`font-bold text-sm ${isPositive ? "text-emerald-400" : "text-destructive"}`}>
+                            {isPositive ? "+" : ""}{formatBRL(asset.profitBRL)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-normal">Aplicado: {formatBRL(asset.appliedAmountBRL)}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
+                        <div>
+                          P. Médio: <strong className="text-foreground font-mono">{asset.averagePriceUSD ? formatUSD(asset.averagePriceUSD) : "—"}</strong>
+                        </div>
+                        <div>
+                          P. Atual: <strong className="text-foreground font-mono">{asset.currentPriceUSD ? formatUSD(asset.currentPriceUSD) : "—"}</strong>
+                        </div>
+                        {asset.potentialReturnPct !== undefined && (
+                          <div className="text-right">
+                            Potencial: <strong className="text-emerald-400 font-mono">+{formatPct(asset.potentialReturnPct)}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-12 text-center font-bold">Rank</TableHead>
+                    <TableHead className="font-semibold">Ativo / Ticker</TableHead>
+                    <TableHead className="font-semibold text-right">Origem / Corretora</TableHead>
+                    <TableHead className="font-semibold text-right">Preço Médio</TableHead>
+                    <TableHead className="font-semibold text-right">Preço Atual</TableHead>
+                    <TableHead className="font-semibold text-right text-primary">Valor Atual (R$)</TableHead>
+                    <TableHead className="font-semibold text-right">Lucro (R$)</TableHead>
+                    <TableHead className="font-semibold text-right">Rentabilidade</TableHead>
+                    <TableHead className="font-semibold text-right">Potencial (ATH)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                        Carregando posições de renda variável...
+                      </TableCell>
+                    </TableRow>
+                  ) : sortedAssets.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                        Nenhum ativo encontrado com os filtros atuais.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    sortedAssets.map((asset, index) => {
+                      const isPositive = asset.profitPct >= 0;
+                      const rankMedal =
+                        index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
+
+                      return (
+                        <TableRow key={asset.ticker} className={index < 3 ? "bg-emerald-500/5 font-medium" : ""}>
+                          <TableCell className="text-center font-bold text-base whitespace-nowrap">
+                            {rankMedal}
+                          </TableCell>
+                          <TableCell className="font-bold text-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span>{asset.ticker}</span>
+                              {asset.profitPct >= 1.0 && (
+                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+                                  +100% 🚀
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-normal truncate max-w-[180px]">
+                              {asset.name} · {asset.quantity.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} un.
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap text-xs text-muted-foreground">
+                            <Badge variant="outline" className="text-[11px] font-normal">
+                              {asset.source}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono whitespace-nowrap text-xs">
+                            {asset.averagePriceUSD ? formatUSD(asset.averagePriceUSD) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono whitespace-nowrap text-xs">
+                            {asset.currentPriceUSD ? formatUSD(asset.currentPriceUSD) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-primary whitespace-nowrap">
+                            {formatBRL(asset.currentValueBRL)}
+                            <div className="text-[10px] text-muted-foreground font-normal">
+                              {asset.currentValueUSD ? `${formatUSD(asset.currentValueUSD)} · FX ${asset.fxRate || 5.0740}` : `Aplicado: ${formatBRL(asset.appliedAmountBRL)}`}
+                            </div>
+                          </TableCell>
+                          <TableCell className={`text-right font-mono font-bold whitespace-nowrap ${isPositive ? "text-emerald-400" : "text-destructive"}`}>
+                            {isPositive ? "+" : ""}{formatBRL(asset.profitBRL)}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            <div className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-full ${
+                              isPositive ? "bg-emerald-500/15 text-emerald-400" : "bg-destructive/15 text-destructive"
+                            }`}>
+                              {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                              {formatPct(asset.profitPct)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono whitespace-nowrap text-xs">
+                            {asset.potentialReturnPct !== undefined ? (
+                              <span className="text-emerald-400 font-semibold">
+                                +{formatPct(asset.potentialReturnPct)}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                            {asset.athUSD && (
+                              <div className="text-[10px] text-muted-foreground">
+                                ATH: {formatUSD(asset.athUSD)}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

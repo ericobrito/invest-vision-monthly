@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { RadarStock } from "@/hooks/useRadarData";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -5,6 +6,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import MiniSparkline from "./MiniSparkline";
+import { LayoutList, Grid } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface RadarTableProps {
   stocks: RadarStock[];
@@ -29,6 +32,7 @@ function getQualityEmoji(badge: string) {
 function getOpportunityEmoji(signal: string) {
   if (signal === "Oportunidade Forte") return "🟢";
   if (signal === "Boa Assimetria") return "🟡";
+  if (signal === "Moderado") return "⚪";
   return "⚪";
 }
 
@@ -43,6 +47,8 @@ function formatBRL(value: number) {
 }
 
 const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
   if (stocks.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -56,8 +62,119 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
   const hasUserPositions = stocks.some((s) => s.userValueBRL !== undefined);
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className="rounded-xl border border-border overflow-hidden bg-card/40">
+      <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between gap-2">
+        <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
+          {stocks.length} ativo{stocks.length > 1 ? "s" : ""} listado{stocks.length > 1 ? "s" : ""}
+        </span>
+        <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg border border-border/50">
+          <Button
+            variant={viewMode === "table" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs font-medium gap-1.5"
+            onClick={() => setViewMode("table")}
+          >
+            <LayoutList className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Tabela</span>
+          </Button>
+          <Button
+            variant={viewMode === "cards" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5 text-xs font-medium gap-1.5"
+            onClick={() => setViewMode("cards")}
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cards</span>
+          </Button>
+        </div>
+      </div>
+
+      {viewMode === "cards" ? (
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {stocks.map((stock, index) => (
+            <div key={stock.ticker} className={`rounded-xl border border-border/60 p-4 flex flex-col justify-between transition-all ${getRowHighlight(stock.annualizedReturn)} bg-card/80`}>
+              <div>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <h3 className="font-bold text-foreground text-base leading-tight">{stock.ticker}</h3>
+                      <span className="text-[11px] text-muted-foreground">
+                        {stock.momentum ? "▲ Acima MA200" : "▼ Abaixo MA200"}
+                      </span>
+                    </div>
+                  </div>
+                  <Badge variant={stock.score >= 90 ? "default" : stock.score >= 80 ? "secondary" : "outline"}>
+                    Score {stock.score}
+                  </Badge>
+                </div>
+
+                {/* User holding indicator if exists */}
+                {stock.userValueBRL !== undefined && (
+                  <div className="my-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Sua Posição</span>
+                      <span className="font-bold text-primary font-mono">{formatBRL(stock.userValueBRL)}</span>
+                    </div>
+                    {stock.userProfitPct !== undefined && (
+                      <span className={`font-mono font-semibold ${stock.userProfitPct >= 0 ? "text-primary" : "text-destructive"}`}>
+                        {stock.userProfitPct >= 0 ? "+" : ""}{(stock.userProfitPct * 100).toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 text-xs my-3">
+                  <div>
+                    <span className="text-muted-foreground block mb-0.5">Preço Atual</span>
+                    <span className="font-mono font-semibold text-foreground">{formatCurrency(stock.currentPrice)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block mb-0.5">Topo Histórico (ATH)</span>
+                    <span className="font-mono text-muted-foreground">{formatCurrency(stock.ath)}</span>
+                    <span className="block text-[10px] text-destructive font-mono">-{formatPct(stock.distanceFromAth)} do topo</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 my-3 pt-2 border-t border-border/40">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Potencial de Retorno</span>
+                    <span className="font-mono font-bold text-primary">{formatPct(stock.potentialReturn)}</span>
+                  </div>
+                  <Progress value={Math.min(100, stock.potentialReturn * 100)} className="h-1.5 bg-muted" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-border/40">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Ret. Anualizado</span>
+                    <span className={`font-mono font-bold ${
+                      stock.annualizedReturn >= 0.30 ? "text-primary" : stock.annualizedReturn >= 0.20 ? "text-yellow-500" : "text-foreground"
+                    }`}>
+                      {formatPct(stock.annualizedReturn)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Sinal</span>
+                    <span className="font-medium text-foreground flex items-center gap-1">
+                      {getOpportunityEmoji(stock.opportunitySignal)} {stock.opportunitySignal}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">
+                  {getQualityEmoji(stock.qualityBadge)} {stock.qualityBadge}
+                </span>
+                <MiniSparkline data={stock.sparklineData} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -186,6 +303,7 @@ const RadarTable = ({ stocks, showAll }: RadarTableProps) => {
           </TableBody>
         </Table>
       </div>
+      )}
     </div>
   );
 };

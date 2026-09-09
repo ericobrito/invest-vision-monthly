@@ -243,6 +243,11 @@ const Index = () => {
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
+                    <Link to="/desempenho-variavel" className="flex items-center gap-3 px-3 py-3 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">
+                      <Flame className="w-4 h-4 text-emerald-400" /> Maiores Altas e Desempenho
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
                     <Link to="/radar-tesouro" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Landmark className="w-4 h-4" /> {t("nav.tesouro")}
                     </Link>

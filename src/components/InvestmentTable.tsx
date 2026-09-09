@@ -1,6 +1,6 @@
 import { formatBRL, formatCurrency, CHART_COLORS, type MonthlySnapshot, type Investment } from "@/data/investments";
 import { useState, useMemo } from "react";
-import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Layers, Zap, LayoutList, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
@@ -15,6 +15,7 @@ interface InvestmentTableProps {
 }
 
 const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: InvestmentTableProps) => {
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const showActions = Boolean(onEditInvestment || onDetailInvestment);
   const hasApplied = snapshot.investments.some(i => i.applied !== undefined);
   const hasAnnualReturn = snapshot.investments.some(i => i.annualReturn !== undefined);
@@ -203,10 +204,141 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
 
   return (
     <div className="gradient-card rounded-xl border border-border overflow-hidden">
-      <div className="p-5 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground">Detalhamento dos Investimentos</h2>
+      <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+        <h2 className="text-base sm:text-lg font-semibold text-foreground">Detalhamento dos Investimentos</h2>
+        <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-lg border border-border/50">
+          <Button
+            variant={viewMode === "table" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-8 px-2.5 text-xs font-medium gap-1.5"
+            onClick={() => setViewMode("table")}
+          >
+            <LayoutList className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Tabela</span>
+          </Button>
+          <Button
+            variant={viewMode === "cards" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-8 px-2.5 text-xs font-medium gap-1.5"
+            onClick={() => setViewMode("cards")}
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cards</span>
+          </Button>
+        </div>
       </div>
-      <div className="overflow-x-auto">
+
+      {viewMode === "cards" ? (
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedInvestments.map((inv) => {
+            const originalIndex = originalOrder.indexOf(inv.name);
+            const tr = displayedTotalReturn(inv);
+            const ar = displayedAnnualReturn(inv);
+            const appliedBRL = brlAppliedOf(inv);
+
+            return (
+              <div key={inv.name} className="bg-card/60 hover:bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between transition-all shadow-sm">
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-3.5 h-3.5 rounded-full shrink-0 mt-0.5"
+                        style={{ backgroundColor: CHART_COLORS[originalIndex % CHART_COLORS.length] }}
+                      />
+                      <span className="font-semibold text-foreground text-sm truncate">{inv.name}</span>
+                      {inv.mode === "DETAILED" && <Layers className="w-3.5 h-3.5 text-accent-foreground shrink-0" />}
+                      {inv.mode === "CONNECTED" && <Zap className="w-3.5 h-3.5 text-primary shrink-0" />}
+                    </div>
+                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-secondary/80 text-muted-foreground shrink-0">
+                      {inv.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  {/* Allocation bar */}
+                  <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mb-4">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(inv.percentage, 100)}%`,
+                        backgroundColor: CHART_COLORS[originalIndex % CHART_COLORS.length]
+                      }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs mb-3">
+                    <div>
+                      <span className="text-muted-foreground block mb-0.5">Valor Atual</span>
+                      <span className="font-mono font-bold text-foreground text-sm">{formatBRL(brlValueOf(inv))}</span>
+                      {isForeign(inv) && (
+                        <span className="block text-[11px] text-muted-foreground font-mono">
+                          {formatCurrency(inv.value, nativeCurrencyOf(inv))}
+                        </span>
+                      )}
+                    </div>
+
+                    {hasApplied && (
+                      <div>
+                        <span className="text-muted-foreground block mb-0.5">Valor Aplicado</span>
+                        <span className="font-mono text-foreground">
+                          {appliedBRL !== undefined ? formatBRL(appliedBRL) : "—"}
+                        </span>
+                        {isForeign(inv) && inv.applied !== undefined && (
+                          <span className="block text-[11px] text-muted-foreground font-mono">
+                            {formatCurrency(inv.applied, nativeCurrencyOf(inv))}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap text-xs pt-2 border-t border-border/40">
+                    {tr !== undefined && (
+                      <span className={`inline-flex items-center font-mono font-medium px-2 py-0.5 rounded ${
+                        tr >= 0 ? "bg-positive/10 text-positive border border-positive/20" : "bg-negative/10 text-negative border border-negative/20"
+                      }`}>
+                        Total: {tr >= 0 ? "+" : ""}{tr.toFixed(2)}%
+                      </span>
+                    )}
+                    {ar !== undefined && (
+                      <span className={`inline-flex items-center font-mono font-medium px-2 py-0.5 rounded ${
+                        ar >= 0 ? "bg-positive/10 text-positive border border-positive/20" : "bg-negative/10 text-negative border border-negative/20"
+                      }`}>
+                        Anual: {ar >= 0 ? "+" : ""}{ar.toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {showActions && (
+                  <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border/40">
+                    {onDetailInvestment && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => onDetailInvestment(inv)}
+                      >
+                        Detalhar
+                      </Button>
+                    )}
+                    {onEditInvestment && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => onEditInvestment(inv)}
+                      >
+                        Editar
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
@@ -381,6 +513,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 };

@@ -11,28 +11,28 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
   const isPositive = snapshot.change && snapshot.change.value >= 0;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {/* Total */}
-      <div className="gradient-card rounded-xl border border-border p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-          <Wallet className="w-4 h-4" />
+      <div className="gradient-card rounded-xl border border-border p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2">
+          <Wallet className="w-4 h-4 shrink-0" />
           {t("summary.totalWealth")}
         </div>
-        <p className="text-2xl font-bold text-foreground">{formatBRL(snapshot.total)}</p>
+        <p className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">{formatBRL(snapshot.total)}</p>
       </div>
 
       {/* Change */}
-      <div className="gradient-card rounded-xl border border-border p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-          {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+      <div className="gradient-card rounded-xl border border-border p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2">
+          {isPositive ? <TrendingUp className="w-4 h-4 shrink-0" /> : <TrendingDown className="w-4 h-4 shrink-0" />}
           {t("summary.monthlyChange")}
         </div>
         {snapshot.change ? (
           <>
-            <p className={`text-2xl font-bold ${isPositive ? "text-positive" : "text-negative"}`}>
+            <p className={`text-xl sm:text-2xl font-bold tracking-tight ${isPositive ? "text-positive" : "text-negative"}`}>
               {formatPercent(snapshot.change.percentage)}
             </p>
-            <p className={`text-sm mt-1 ${isPositive ? "text-positive" : "text-negative"}`}>
+            <p className={`text-xs sm:text-sm mt-1 font-medium ${isPositive ? "text-positive" : "text-negative"}`}>
               {formatBRL(snapshot.change.value)}
             </p>
           </>
@@ -42,15 +42,15 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
       </div>
 
       {/* Fixed vs Variable */}
-      <div className="gradient-card rounded-xl border border-border p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-          <PieChart className="w-4 h-4" />
+      <div className="gradient-card rounded-xl border border-border p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2">
+          <PieChart className="w-4 h-4 shrink-0" />
           {t("summary.fixedVsVariable")}
         </div>
         {snapshot.fixedIncome ? (
           <div className="space-y-2">
             <div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-foreground">{t("summary.fixed")}</span>
                 <span className="text-primary font-medium">{snapshot.fixedIncome.toFixed(1)}%</span>
               </div>
@@ -59,7 +59,7 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-foreground">{t("summary.variable")}</span>
                 <span className="text-accent-foreground font-medium">{snapshot.variableIncome?.toFixed(1)}%</span>
               </div>
@@ -74,16 +74,16 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
       </div>
 
       {/* Brazil vs Exterior */}
-      <div className="gradient-card rounded-xl border border-border p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-          <Globe className="w-4 h-4" />
+      <div className="gradient-card rounded-xl border border-border p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2">
+          <Globe className="w-4 h-4 shrink-0" />
           {t("summary.brazilVsExterior")}
         </div>
         {snapshot.brazil ? (
           <div className="space-y-2">
             <div>
-              <div className="flex justify-between text-sm">
-                <span className="text-foreground flex items-center gap-1"><Home className="w-3 h-3" /> {t("summary.brazil")}</span>
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-foreground flex items-center gap-1"><Home className="w-3 h-3 shrink-0" /> {t("summary.brazil")}</span>
                 <span className="text-primary font-medium">{snapshot.brazil.toFixed(1)}%</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-secondary mt-1">
@@ -91,8 +91,8 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-sm">
-                <span className="text-foreground flex items-center gap-1"><Globe className="w-3 h-3" /> {t("summary.exterior")}</span>
+              <div className="flex justify-between text-xs sm:text-sm">
+                <span className="text-foreground flex items-center gap-1"><Globe className="w-3 h-3 shrink-0" /> {t("summary.exterior")}</span>
                 <span className="text-accent-foreground font-medium">{snapshot.exterior?.toFixed(1)}%</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-secondary mt-1">
