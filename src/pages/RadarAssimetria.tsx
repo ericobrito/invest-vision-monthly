@@ -155,12 +155,12 @@ const RadarAssimetria = () => {
     const knownCryptoPositions: Record<string, {
       averagePriceUSD: number;
     }> = {
-      "BTC-USD": { averagePriceUSD: 29275.00 },
-      "BTC": { averagePriceUSD: 29275.00 },
-      "ETH-USD": { averagePriceUSD: 1320.00 },
-      "ETH": { averagePriceUSD: 1320.00 },
-      "USDT-USD": { averagePriceUSD: 1.00 },
-      "USDT": { averagePriceUSD: 1.00 },
+      "BTC-USD": { averagePriceUSD: 29882.78 },
+      "BTC": { averagePriceUSD: 29882.78 },
+      "ETH-USD": { averagePriceUSD: 169.77 },
+      "ETH": { averagePriceUSD: 169.77 },
+      "USDT-USD": { averagePriceUSD: 0.46 },
+      "USDT": { averagePriceUSD: 0.46 },
     };
 
     // 1. From connected API positions (Binance, Bitcoin, etc. in useVariableAssets)
