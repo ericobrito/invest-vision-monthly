@@ -16,7 +16,7 @@ import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
 import LanguageToggle from "@/components/LanguageToggle";
 import ThemeToggle from "@/components/ThemeToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -160,6 +160,11 @@ const Index = () => {
             <Link to="/radar">
               <Button variant="outline" size="sm">
                 <Target className="w-4 h-4 mr-1" /> {t("nav.radar")}
+              </Button>
+            </Link>
+            <Link to="/desempenho-variavel">
+              <Button variant="outline" size="sm" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 font-semibold">
+                <Flame className="w-4 h-4 mr-1 text-emerald-400" /> Maiores Altas
               </Button>
             </Link>
             <Link to="/radar-tesouro">

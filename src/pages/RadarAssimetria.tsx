@@ -7,7 +7,7 @@ import RadarTable from "@/components/radar/RadarTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Target, RefreshCw, Eye, EyeOff, Briefcase } from "lucide-react";
+import { ArrowLeft, Target, RefreshCw, Eye, EyeOff, Briefcase, Flame } from "lucide-react";
 
 function normalizeTickerForYahoo(rawTicker: string): string | null {
   if (!rawTicker) return null;
@@ -344,6 +344,11 @@ const RadarAssimetria = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link to="/desempenho-variavel">
+              <Button variant="outline" size="sm" className="border-emerald-500/30 text-emerald-400 font-semibold">
+                <Flame className="w-4 h-4 mr-1 text-emerald-400" /> Maiores Altas
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"

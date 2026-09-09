@@ -16,6 +16,7 @@ import AdminAuditCenter from "./pages/AdminAuditCenter";
 import IncidentCenter from "./pages/IncidentCenter";
 import PassiveIncomeSimulator from "./pages/PassiveIncomeSimulator";
 import WealthGoalsManager from "./pages/WealthGoalsManager";
+import VariableIncomeMoversDashboard from "./pages/VariableIncomeMoversDashboard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -99,6 +100,8 @@ const App = () => {
                 <Route path="/admin/incidents" element={<IncidentCenter />} />
                 <Route path="/simulador-renda" element={<PassiveIncomeSimulator />} />
                 <Route path="/metas" element={<WealthGoalsManager />} />
+                <Route path="/desempenho-variavel" element={<VariableIncomeMoversDashboard />} />
+                <Route path="/maiores-altas" element={<VariableIncomeMoversDashboard />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
