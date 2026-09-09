@@ -122,7 +122,7 @@ const VariableIncomeMoversDashboard = () => {
   const [filterBroker, setFilterBroker] = useState<string>("all");
 
   const snapshotOptions = useMemo(() => {
-    return monthlySnapshots.map((s) => ({
+    return [...monthlySnapshots].reverse().map((s) => ({
       month: s.month,
       label: s.label,
     }));
