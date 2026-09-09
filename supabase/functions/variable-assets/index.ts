@@ -129,7 +129,15 @@ async function fetchBinance(key: string, secret: string): Promise<NormalizedBala
     { headers: { "X-MBX-APIKEY": key } },
     BINANCE_HOSTS.filter((h) => !h.includes("binance.vision")),
   );
-  if (!res.ok) throw new Error(`Binance: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 451 || res.status === 403) {
+      throw new Error(
+        `GEO_BLOCKED: Binance bloqueia a região do servidor (HTTP ${res.status}). Saldos anteriores mantidos.`,
+      );
+    }
+    throw new Error(`Binance: ${res.status} ${body}`);
+  }
   const data = await res.json();
   return (data.balances ?? [])
     .map((b: { asset: string; free: string; locked: string }) => ({
