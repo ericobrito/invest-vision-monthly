@@ -14,6 +14,10 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
       const nameLower = (inv.name || "").toLowerCase();
 
       if (nameLower.includes("coinbase")) {
+        const storedBRL = Number(inv.value) || 19477.92;
+        const nativeUSD = 1564.86 + 2269.60;
+        const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : (fxRates["USD"] || 5.0889);
+
         positions = [
           {
             symbol: "BTC",
@@ -23,8 +27,10 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
             currentPrice: 78243.14,
             appliedAmount: 597.66,
             currentValue: 1564.86,
+            currentValueBRL: 1564.86 * effectiveFx,
+            appliedAmountBRL: 597.66 * 5.0889,
             currency: "USD",
-            fxRate: fxRates["USD"] || 5.0889,
+            fxRate: effectiveFx,
           },
           {
             symbol: "ETH",
@@ -34,11 +40,17 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
             currentPrice: 2467.75,
             appliedAmount: 156.14,
             currentValue: 2269.60,
+            currentValueBRL: 2269.60 * effectiveFx,
+            appliedAmountBRL: 156.14 * 5.0889,
             currency: "USD",
-            fxRate: fxRates["USD"] || 5.0889,
+            fxRate: effectiveFx,
           },
         ];
       } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
+        const storedBRL = Number(inv.value) || 53084.61;
+        const nativeUSD = 4754.78 + 3178.41;
+        const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : (fxRates["USD"] || 6.6914);
+
         positions = [
           {
             symbol: "USDT",
@@ -48,8 +60,10 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
             currentPrice: 1.00,
             appliedAmount: 2187.20,
             currentValue: 4754.78,
+            currentValueBRL: 4754.78 * effectiveFx,
+            appliedAmountBRL: 2187.20 * 5.0740,
             currency: "USD",
-            fxRate: fxRates["USD"] || 5.0740,
+            fxRate: effectiveFx,
           },
           {
             symbol: "BTC",
@@ -59,8 +73,10 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
             currentPrice: 77356.24,
             appliedAmount: 1227.82,
             currentValue: 3178.41,
+            currentValueBRL: 3178.41 * effectiveFx,
+            appliedAmountBRL: 1227.82 * 5.0740,
             currency: "USD",
-            fxRate: fxRates["USD"] || 5.0740,
+            fxRate: effectiveFx,
           },
         ];
       }

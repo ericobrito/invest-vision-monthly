@@ -33,6 +33,10 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
 
   // Fallback positions for CONNECTED investments if snapshot didn't populate positions array directly
   if (nameLower.includes("coinbase")) {
+    const storedBRL = Number(investment.valueBRL ?? investment.value) || 19477.92;
+    const nativeUSD = 1564.86 + 2269.60;
+    const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 5.0889;
+
     effectivePositions = [
       {
         symbol: "BTC",
@@ -42,8 +46,10 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         currentPrice: 78243.14,
         appliedAmount: 597.66,
         currentValue: 1564.86,
+        currentValueBRL: 1564.86 * effectiveFx,
+        appliedAmountBRL: 597.66 * 5.0889,
         currency: "USD",
-        fxRate: 5.0889,
+        fxRate: effectiveFx,
       },
       {
         symbol: "ETH",
@@ -53,11 +59,17 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         currentPrice: 2467.75,
         appliedAmount: 156.14,
         currentValue: 2269.60,
+        currentValueBRL: 2269.60 * effectiveFx,
+        appliedAmountBRL: 156.14 * 5.0889,
         currency: "USD",
-        fxRate: 5.0889,
+        fxRate: effectiveFx,
       },
     ];
   } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
+    const storedBRL = Number(investment.valueBRL ?? investment.value) || 53084.61;
+    const nativeUSD = 4754.78 + 3178.41;
+    const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
+
     effectivePositions = [
       {
         symbol: "USDT",
@@ -67,8 +79,10 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         currentPrice: 1.00,
         appliedAmount: 2187.20,
         currentValue: 4754.78,
+        currentValueBRL: 4754.78 * effectiveFx,
+        appliedAmountBRL: 2187.20 * 5.0740,
         currency: "USD",
-        fxRate: 5.0740,
+        fxRate: effectiveFx,
       },
       {
         symbol: "BTC",
@@ -78,8 +92,10 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         currentPrice: 77356.24,
         appliedAmount: 1227.82,
         currentValue: 3178.41,
+        currentValueBRL: 3178.41 * effectiveFx,
+        appliedAmountBRL: 1227.82 * 5.0740,
         currency: "USD",
-        fxRate: 5.0740,
+        fxRate: effectiveFx,
       },
     ];
   } else if (effectivePositions.length === 0 && nameLower.includes("avenue")) {
@@ -105,6 +121,8 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
       currentPrice: p.currentPrice,
       currency: p.currency,
       fxRate: p.fxRate ?? 1,
+      currentValueBRL: p.currentValueBRL,
+      appliedAmountBRL: p.appliedAmountBRL,
     })),
     appliedBRL: effectivePositions.length > 0 ? undefined : (investment.appliedBRL ?? investment.applied),
     currentValueBRL: investment.valueBRL ?? investment.value,

@@ -39,6 +39,8 @@ export interface PositionInput {
   currency?: string;
   /** Units of BRL per 1 unit of the position currency. */
   fxRate?: number;
+  currentValueBRL?: number;
+  appliedAmountBRL?: number;
 }
 
 export interface InvestmentInput {
@@ -91,7 +93,8 @@ class PortfolioCalculationService {
 
   /**
    * BRL-normalized per-position metrics. Multiplies native invested /
-   * current by the supplied fxRate (1 for BRL positions).
+   * current by the supplied fxRate (1 for BRL positions), or uses pre-computed
+   * BRL amounts if provided.
    */
   calculatePositionMetricsBRL(p: PositionInput): PositionMetrics {
     const native = this.calculatePositionMetrics(
@@ -101,8 +104,12 @@ class PortfolioCalculationService {
       p.symbol,
     );
     const rate = safe(p.fxRate) > 0 ? Number(p.fxRate) : 1;
-    const investedValue = native.investedValue * rate;
-    const currentValue = native.currentValue * rate;
+    const investedValue = p.appliedAmountBRL != null && p.appliedAmountBRL > 0
+      ? Number(p.appliedAmountBRL)
+      : native.investedValue * rate;
+    const currentValue = p.currentValueBRL != null && p.currentValueBRL > 0
+      ? Number(p.currentValueBRL)
+      : native.currentValue * rate;
     const profit = currentValue - investedValue;
     const profitPercent = investedValue > 0 ? (profit / investedValue) * 100 : 0;
     return { investedValue, currentValue, profit, profitPercent };
@@ -110,8 +117,8 @@ class PortfolioCalculationService {
 
   /**
    * Investment-level metrics in BRL.
-   * - DETAILED → sum of position BRL metrics.
-   * - CONSOLIDATED / CONNECTED → use supplied appliedBRL / currentValueBRL.
+   * - DETAILED / CONNECTED → sum of position BRL metrics.
+   * - CONSOLIDATED → use supplied appliedBRL / currentValueBRL.
    */
   calculateInvestmentMetrics(inv: InvestmentInput): PortfolioMetrics {
     const mode = inv.mode || "CONSOLIDATED";
@@ -123,6 +130,14 @@ class PortfolioCalculationService {
         investedValue += m.investedValue;
         currentValue += m.currentValue;
       }
+
+      if (inv.currentValueBRL != null && inv.currentValueBRL > 0) {
+        currentValue = Number(inv.currentValueBRL);
+      }
+      if (inv.appliedBRL != null && inv.appliedBRL > 0) {
+        investedValue = Number(inv.appliedBRL);
+      }
+
       const profit = currentValue - investedValue;
       const profitPercent = investedValue > 0 ? (profit / investedValue) * 100 : 0;
       return { investedValue, currentValue, profit, profitPercent };

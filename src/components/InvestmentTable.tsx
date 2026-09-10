@@ -36,6 +36,8 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
             currentPrice: p.currentPrice,
             currency: p.currency,
             fxRate: p.fxRate ?? 1,
+            currentValueBRL: p.currentValueBRL,
+            appliedAmountBRL: p.appliedAmountBRL,
           })),
           appliedBRL: inv.appliedBRL ?? inv.applied,
           currentValueBRL: inv.valueBRL ?? inv.value,

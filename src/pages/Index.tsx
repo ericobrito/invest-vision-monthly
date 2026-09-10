@@ -16,9 +16,10 @@ import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
 import LanguageToggle from "@/components/LanguageToggle";
 import ThemeToggle from "@/components/ThemeToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator, ChevronDown } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -156,45 +157,56 @@ const Index = () => {
           </div>
 
           {/* Desktop nav */}
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-1.5">
             <Link to="/radar">
-              <Button variant="outline" size="sm">
+              <Button variant="ghost" size="sm">
                 <Target className="w-4 h-4 mr-1" /> {t("nav.radar")}
               </Button>
             </Link>
             <Link to="/desempenho-variavel">
-              <Button variant="outline" size="sm" className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 font-semibold">
+              <Button variant="ghost" size="sm" className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 font-medium">
                 <Flame className="w-4 h-4 mr-1 text-emerald-400" /> Maiores Altas
               </Button>
             </Link>
             <Link to="/contabilidade-cripto">
-              <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 font-semibold">
+              <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 font-semibold shadow-sm">
                 <Calculator className="w-4 h-4 mr-1 text-blue-400" /> Contabilidade Cripto
               </Button>
             </Link>
-            <Link to="/radar-tesouro">
-              <Button variant="outline" size="sm">
-                <Landmark className="w-4 h-4 mr-1" /> {t("nav.tesouro")}
-              </Button>
-            </Link>
-            <Link to="/plano-acao">
-              <Button variant="outline" size="sm">
-                <Lightbulb className="w-4 h-4 mr-1" /> {t("nav.plan")}
-              </Button>
-            </Link>
-            <Link to="/simulador-renda">
-              <Button variant="outline" size="sm">
-                <PiggyBank className="w-4 h-4 mr-1" /> Simulador
-              </Button>
-            </Link>
-            <Link to="/metas">
-              <Button variant="outline" size="sm">
-                <Trophy className="w-4 h-4 mr-1" /> {t("nav.goals")}
-              </Button>
-            </Link>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  Mais <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/radar-tesouro" className="flex items-center gap-2">
+                    <Landmark className="w-4 h-4" /> {t("nav.tesouro")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/plano-acao" className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4" /> {t("nav.plan")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/simulador-renda" className="flex items-center gap-2">
+                    <PiggyBank className="w-4 h-4" /> Simulador
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/metas" className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4" /> {t("nav.goals")}
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {snapshot && (
-              <>
-                <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")}>
+              <div className="flex items-center border-l border-border pl-1.5 ml-0.5 gap-0.5">
+                <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")} className="w-8 h-8">
                   <Pencil className="w-4 h-4" />
                 </Button>
                 <Button
@@ -202,28 +214,45 @@ const Index = () => {
                   size="icon"
                   onClick={() => setDeleteMonth(snapshot.month)}
                   title={t("nav.deleteMonth")}
+                  className="w-8 h-8 text-destructive hover:text-destructive"
                 >
-                  <Trash2 className="w-4 h-4 text-destructive" />
+                  <Trash2 className="w-4 h-4" />
                 </Button>
-              </>
+              </div>
             )}
-            <Button onClick={openAdd} size="sm">
+            <Button onClick={openAdd} size="sm" className="ml-1">
               <Plus className="w-4 h-4 mr-1" /> {t("nav.newMonth")}
             </Button>
             <LanguageToggle />
             <ThemeToggle />
           </div>
 
-          {/* Mobile actions */}
-          <div className="flex lg:hidden items-center gap-1">
-            <Button onClick={openAdd} size="icon" title={t("nav.newMonth")}>
+          {/* Mobile/Tablet actions */}
+          <div className="flex xl:hidden items-center gap-1">
+            {snapshot && (
+              <>
+                <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")} className="w-8 h-8">
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDeleteMonth(snapshot.month)}
+                  title={t("nav.deleteMonth")}
+                  className="w-8 h-8 text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+            <Button onClick={openAdd} size="icon" title={t("nav.newMonth")} className="w-8 h-8">
               <Plus className="w-4 h-4" />
             </Button>
             <LanguageToggle />
             <ThemeToggle />
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Menu">
+                <Button variant="ghost" size="icon" aria-label="Menu" className="w-8 h-8 ml-1">
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
