@@ -55,12 +55,12 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         symbol: "ETH",
         name: "Ethereum USD",
         quantity: 0.919702,
-        averagePrice: 169.77,
+        averagePrice: 2160.00,
         currentPrice: 2467.75,
-        appliedAmount: 156.14,
+        appliedAmount: 1986.56,
         currentValue: 2269.60,
         currentValueBRL: 2269.60 * effectiveFx,
-        appliedAmountBRL: 156.14 * 5.0889,
+        appliedAmountBRL: 1986.56 * 5.0889,
         currency: "USD",
         fxRate: effectiveFx,
       },
@@ -284,7 +284,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                     ℹ️ Transferência de Custódia (Bybit → Binance / Coinbase):
                   </p>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Como as compras originais via PIX e ordens executadas foram realizadas na Bybit, o histórico de Preço Médio original (BTC US$ 29.882,78 / ETH US$ 169,77 / USDT US$ 0,46) é propagado automaticamente para Binance e Coinbase, preservando o valor aplicado real acumulado.
+                    Como as compras originais via PIX e ordens executadas foram realizadas na Bybit, o histórico de Preço Médio original (BTC US$ 29.882,78 / ETH US$ 2.160,00 [R$ 10.974,38] / USDT US$ 0,46) é propagado automaticamente para Binance e Coinbase, preservando o valor aplicado real acumulado.
                   </p>
                 </div>
               )}

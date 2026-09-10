@@ -150,8 +150,8 @@ const VariableIncomeMoversDashboard = () => {
     }> = {
       "BTC": { name: "Bitcoin", averagePriceUSD: 29882.78 },
       "BTC-USD": { name: "Bitcoin", averagePriceUSD: 29882.78 },
-      "ETH": { name: "Ethereum", averagePriceUSD: 169.77 },
-      "ETH-USD": { name: "Ethereum", averagePriceUSD: 169.77 },
+      "ETH": { name: "Ethereum", averagePriceUSD: 2160.00 },
+      "ETH-USD": { name: "Ethereum", averagePriceUSD: 2160.00 },
       "USDT": { name: "Tether USD", averagePriceUSD: 0.46 },
       "USDT-USD": { name: "Tether USD", averagePriceUSD: 0.46 },
     };
