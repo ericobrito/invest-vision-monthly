@@ -83,6 +83,19 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
     if (m && m.investedValue > 0) return m.investedValue;
     return inv.appliedBRL ?? inv.applied;
   };
+  const nativeValueOf = (inv: Investment): number => {
+    if (inv.positions && inv.positions.length > 0) {
+      return inv.positions.reduce((s, p) => s + (Number(p.currentValue) || 0), 0);
+    }
+    return inv.value;
+  };
+  const nativeAppliedOf = (inv: Investment): number | undefined => {
+    if (inv.positions && inv.positions.length > 0) {
+      const sum = inv.positions.reduce((s, p) => s + (Number(p.appliedAmount) || 0), 0);
+      return sum > 0 ? sum : inv.applied;
+    }
+    return inv.applied;
+  };
   const isForeign = (inv: Investment): boolean => {
     const c = (inv.currency || "BRL").toUpperCase();
     if (c !== "BRL") return true;
@@ -273,7 +286,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                       <span className="font-mono font-bold text-foreground text-sm">{formatBRL(brlValueOf(inv))}</span>
                       {isForeign(inv) && (
                         <span className="block text-[11px] text-muted-foreground font-mono">
-                          {formatCurrency(inv.value, nativeCurrencyOf(inv))}
+                          {formatCurrency(nativeValueOf(inv), nativeCurrencyOf(inv))}
                         </span>
                       )}
                     </div>
@@ -401,7 +414,7 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                   {isForeign(inv) ? (
                     <div className="flex flex-col items-end leading-tight">
                       <span className="text-xs text-muted-foreground">
-                        {formatCurrency(inv.value, nativeCurrencyOf(inv))}
+                        {formatCurrency(nativeValueOf(inv), nativeCurrencyOf(inv))}
                       </span>
                       <span>{formatBRL(brlValueOf(inv))}</span>
                     </div>
@@ -415,12 +428,13 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
                     <td className="text-right p-4 text-muted-foreground font-mono">
                       {(() => {
                         const appliedBRL = brlAppliedOf(inv);
+                        const nativeApp = nativeAppliedOf(inv);
                         if (appliedBRL === undefined) return "—";
-                        if (isForeign(inv) && inv.applied !== undefined) {
+                        if (isForeign(inv) && nativeApp !== undefined) {
                           return (
                             <div className="flex flex-col items-end leading-tight">
                               <span className="text-xs text-muted-foreground">
-                                {formatCurrency(inv.applied, nativeCurrencyOf(inv))}
+                                {formatCurrency(nativeApp, nativeCurrencyOf(inv))}
                               </span>
                               <span className="text-foreground">{formatBRL(appliedBRL)}</span>
                             </div>

@@ -79,6 +79,11 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         ];
       }
 
+      const isForeignPos = positions?.some((p) => (p.currency || "BRL").toUpperCase() !== "BRL");
+      const invCurrency = inv.currency && inv.currency.toUpperCase() !== 'BRL'
+        ? inv.currency.toUpperCase()
+        : (isForeignPos ? 'USD' : 'BRL');
+
       const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
       const totals = resolveInvestmentTotals(
         {
@@ -86,7 +91,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
           value: Number(inv.value),
           applied: inv.applied != null ? Number(inv.applied) : undefined,
           positions,
-          currency: inv.currency || 'BRL',
+          currency: invCurrency,
         },
         undefined,
         fxRates,
@@ -105,7 +110,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         value: totals.value,
         valueBRL: totals.valueBRL,
         appliedBRL: totals.appliedBRL,
-        currency: inv.currency || 'BRL',
+        currency: invCurrency,
         percentage: Number(inv.percentage),
         applied: totals.applied,
         totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
