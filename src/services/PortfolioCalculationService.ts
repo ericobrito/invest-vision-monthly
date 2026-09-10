@@ -131,13 +131,6 @@ class PortfolioCalculationService {
         currentValue += m.currentValue;
       }
 
-      if (inv.currentValueBRL != null && inv.currentValueBRL > 0) {
-        currentValue = Number(inv.currentValueBRL);
-      }
-      if (inv.appliedBRL != null && inv.appliedBRL > 0) {
-        investedValue = Number(inv.appliedBRL);
-      }
-
       const profit = currentValue - investedValue;
       const profitPercent = investedValue > 0 ? (profit / investedValue) * 100 : 0;
       return { investedValue, currentValue, profit, profitPercent };

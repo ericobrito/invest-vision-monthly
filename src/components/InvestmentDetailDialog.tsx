@@ -33,9 +33,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
 
   // Fallback positions for CONNECTED investments if snapshot didn't populate positions array directly
   if (nameLower.includes("coinbase")) {
-    const storedBRL = Number(investment.valueBRL ?? investment.value) || 19477.92;
-    const nativeUSD = 1564.86 + 2269.60;
-    const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 5.0889;
+    const effectiveFx = 5.0889;
 
     effectivePositions = [
       {
@@ -66,9 +64,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
       },
     ];
   } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-    const storedBRL = Number(investment.valueBRL ?? investment.value) || 53084.61;
-    const nativeUSD = 4754.78 + 3178.41;
-    const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
+    const effectiveFx = 5.0889;
 
     effectivePositions = [
       {
