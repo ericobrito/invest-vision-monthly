@@ -228,7 +228,7 @@ const Index = () => {
           </div>
 
           {/* Mobile/Tablet actions */}
-          <div className="flex xl:hidden items-center gap-1">
+          <div className="flex lg:hidden items-center gap-1">
             {snapshot && (
               <>
                 <Button variant="ghost" size="icon" onClick={openEdit} title={t("nav.editMonth")} className="w-8 h-8">

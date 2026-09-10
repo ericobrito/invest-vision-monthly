@@ -200,7 +200,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
               <div className="rounded-lg border border-border overflow-x-auto bg-card/60">
                 <table className="w-full text-xs sm:text-sm">
                   <thead>
-                    <tr className="border-b border-border text-muted-foreground bg-muted/40 font-medium">
+                    <tr className="border-b border-border text-muted-foreground bg-muted/40 font-medium whitespace-nowrap">
                       <th className="text-left p-2.5">Ativo</th>
                       <th className="text-right p-2.5">Qtd</th>
                       <th className="text-right p-2.5">Preço Médio</th>
@@ -247,7 +247,7 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                       const valBRL = posMetrics.currentValue * (p.fxRate ?? 1);
 
                       return (
-                        <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                        <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors whitespace-nowrap">
                           <td className="p-2.5">
                             <div className="font-bold text-foreground">{p.symbol}</div>
                             {p.name && <div className="text-[11px] text-muted-foreground truncate max-w-[140px]">{p.name}</div>}
