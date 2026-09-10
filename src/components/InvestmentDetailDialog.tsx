@@ -64,7 +64,9 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
       },
     ];
   } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-    const effectiveFx = 5.0889;
+    const storedBRL = Number(investment.valueBRL ?? investment.value) || 53084.61;
+    const nativeUSD = 4754.78 + 3178.41;
+    const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
 
     effectivePositions = [
       {

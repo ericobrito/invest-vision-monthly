@@ -45,7 +45,9 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
           },
         ];
       } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-        const effectiveFx = fxRates["USD"] || 5.0889;
+        const storedBRL = Number(inv.value) || 53084.61;
+        const nativeUSD = 4754.78 + 3178.41;
+        const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
 
         positions = [
           {
