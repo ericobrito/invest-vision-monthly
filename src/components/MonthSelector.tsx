@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { MonthlySnapshot } from "@/data/investments";
+import { getCleanMonthLabel, type MonthlySnapshot } from "@/data/investments";
 
 interface MonthSelectorProps {
   currentIndex: number;
@@ -45,7 +45,7 @@ const MonthSelector = ({ currentIndex, onChange, months }: MonthSelectorProps) =
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
-            {m.label}
+            {getCleanMonthLabel(m.month, m.label)}
           </button>
         ))}
       </div>

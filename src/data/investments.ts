@@ -689,3 +689,21 @@ export function formatCurrency(value: number, currency?: string): string {
 export function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
+
+const MONTH_NAMES_PT: Record<string, string> = {
+  "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+  "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+  "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
+};
+
+export function getCleanMonthLabel(monthStr: string, fallbackLabel?: string): string {
+  if (!monthStr || !monthStr.includes("-")) return fallbackLabel || monthStr;
+  const parts = monthStr.split("-");
+  if (parts.length >= 2) {
+    const year = parts[0];
+    const month = parts[1];
+    const monthName = MONTH_NAMES_PT[month];
+    if (monthName) return `${monthName} ${year}`;
+  }
+  return fallbackLabel || monthStr;
+}

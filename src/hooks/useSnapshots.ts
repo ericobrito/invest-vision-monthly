@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
-import { resolveInvestmentTotals } from "@/data/investments";
+import { resolveInvestmentTotals, getCleanMonthLabel, monthlyData as fallbackMonthlyData } from "@/data/investments";
 import { fetchFxRatesToBRL, getFxRate, type FxRates } from "@/lib/fx";
 import { MarketDataService } from "@/services/MarketDataService";
 
@@ -164,7 +164,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 
   return {
     month: row.month,
-    label: row.label,
+    label: getCleanMonthLabel(row.month, row.label),
     total: totalBRL > 0 ? totalBRL : Number(row.total),
     change: row.change_value != null ? { value: Number(row.change_value), percentage: Number(row.change_percentage) } : undefined,
     fixedIncome: row.fixed_income != null ? Number(row.fixed_income) : undefined,
@@ -184,6 +184,8 @@ export function useSnapshots() {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["snapshots"],
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<MonthlySnapshot[]> => {
       // Self-heal: Ensure all investments in the database are set to BRL currency since we store everything in BRL
       try {
@@ -208,8 +210,11 @@ export function useSnapshots() {
         supabase.from("investments").select("*"),
         fetchFxRatesToBRL(),
       ]);
-      if (sErr) throw sErr;
-      if (iErr) throw iErr;
+
+      if (sErr || iErr || !snapshots || snapshots.length === 0) {
+        console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty table:", { sErr, iErr });
+        return fallbackMonthlyData;
+      }
 
       const investmentIds = (investments || []).map((i: any) => i.id);
       const positionsByInvestment = new Map<string, Position[]>();

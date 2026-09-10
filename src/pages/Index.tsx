@@ -157,7 +157,7 @@ const Index = () => {
           </div>
 
           {/* Desktop nav */}
-          <div className="hidden xl:flex items-center gap-1.5">
+          <div className="hidden lg:flex items-center gap-1.5">
             <Link to="/radar">
               <Button variant="ghost" size="sm">
                 <Target className="w-4 h-4 mr-1" /> {t("nav.radar")}
@@ -168,9 +168,14 @@ const Index = () => {
                 <Flame className="w-4 h-4 mr-1 text-emerald-400" /> Maiores Altas
               </Button>
             </Link>
-            <Link to="/contabilidade-cripto">
-              <Button variant="outline" size="sm" className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 font-semibold shadow-sm">
-                <Calculator className="w-4 h-4 mr-1 text-blue-400" /> Contabilidade Cripto
+            <Link to="/radar-tesouro">
+              <Button variant="ghost" size="sm">
+                <Landmark className="w-4 h-4 mr-1" /> {t("nav.tesouro")}
+              </Button>
+            </Link>
+            <Link to="/plano-acao">
+              <Button variant="ghost" size="sm">
+                <Lightbulb className="w-4 h-4 mr-1" /> {t("nav.plan")}
               </Button>
             </Link>
 
@@ -180,15 +185,10 @@ const Index = () => {
                   Mais <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/radar-tesouro" className="flex items-center gap-2">
-                    <Landmark className="w-4 h-4" /> {t("nav.tesouro")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/plano-acao" className="flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4" /> {t("nav.plan")}
+                  <Link to="/contabilidade-cripto" className="flex items-center gap-2 text-blue-400 font-medium">
+                    <Calculator className="w-4 h-4 text-blue-400" /> Contabilidade Cripto
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
@@ -272,11 +272,6 @@ const Index = () => {
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
-                    <Link to="/contabilidade-cripto" className="flex items-center gap-3 px-3 py-3 rounded-md bg-blue-500/10 text-blue-400 font-medium">
-                      <Calculator className="w-4 h-4 text-blue-400" /> Contabilidade Cripto
-                    </Link>
-                  </SheetClose>
-                  <SheetClose asChild>
                     <Link to="/radar-tesouro" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Landmark className="w-4 h-4" /> {t("nav.tesouro")}
                     </Link>
@@ -284,6 +279,12 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/plano-acao" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Lightbulb className="w-4 h-4" /> {t("nav.plan")}
+                    </Link>
+                  </SheetClose>
+                  <div className="my-1 border-t border-border" />
+                  <SheetClose asChild>
+                    <Link to="/contabilidade-cripto" className="flex items-center gap-3 px-3 py-3 rounded-md bg-blue-500/10 text-blue-400 font-medium">
+                      <Calculator className="w-4 h-4 text-blue-400" /> Contabilidade Cripto
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>

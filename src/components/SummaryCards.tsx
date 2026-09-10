@@ -43,9 +43,9 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
 
       {/* Fixed vs Variable */}
       <div className="gradient-card rounded-xl border border-border p-4 sm:p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2 min-w-0">
           <PieChart className="w-4 h-4 shrink-0" />
-          {t("summary.fixedVsVariable")}
+          <span className="truncate">{t("summary.fixedVsVariable")}</span>
         </div>
         {snapshot.fixedIncome ? (
           <div className="space-y-2">
@@ -75,9 +75,9 @@ const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
 
       {/* Brazil vs Exterior */}
       <div className="gradient-card rounded-xl border border-border p-4 sm:p-5">
-        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm mb-2 min-w-0">
           <Globe className="w-4 h-4 shrink-0" />
-          {t("summary.brazilVsExterior")}
+          <span className="truncate">{t("summary.brazilVsExterior")}</span>
         </div>
         {snapshot.brazil ? (
           <div className="space-y-2">
