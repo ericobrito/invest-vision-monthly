@@ -45,21 +45,19 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
           },
         ];
       } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-        const storedBRL = Number(inv.value) || 53084.61;
-        const nativeUSD = 4754.78 + 3178.41;
-        const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
+        const effectiveFx = fxRates["USD"] || 5.0889;
 
         positions = [
           {
             symbol: "USDT",
             name: "Tether USD",
             quantity: 4754.7789,
-            averagePrice: 0.46,
+            averagePrice: 1.00,
             currentPrice: 1.00,
-            appliedAmount: 2187.20,
+            appliedAmount: 4754.78,
             currentValue: 4754.78,
             currentValueBRL: 4754.78 * effectiveFx,
-            appliedAmountBRL: 2187.20 * 5.0740,
+            appliedAmountBRL: 4754.78 * 5.0740,
             currency: "USD",
             fxRate: effectiveFx,
           },

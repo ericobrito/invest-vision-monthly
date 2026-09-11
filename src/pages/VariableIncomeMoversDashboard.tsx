@@ -152,8 +152,8 @@ const VariableIncomeMoversDashboard = () => {
       "BTC-USD": { name: "Bitcoin", averagePriceUSD: 29882.78 },
       "ETH": { name: "Ethereum", averagePriceUSD: 2160.00 },
       "ETH-USD": { name: "Ethereum", averagePriceUSD: 2160.00 },
-      "USDT": { name: "Tether USD", averagePriceUSD: 0.46 },
-      "USDT-USD": { name: "Tether USD", averagePriceUSD: 0.46 },
+      "USDT": { name: "Tether USD", averagePriceUSD: 1.00 },
+      "USDT-USD": { name: "Tether USD", averagePriceUSD: 1.00 },
     };
 
     variablePositions.forEach((pos) => {
@@ -334,12 +334,12 @@ const VariableIncomeMoversDashboard = () => {
         name: "Tether USD",
         sources: ["Binance"],
         quantity: 4754.7789,
-        averagePriceUSD: 0.46,
+        averagePriceUSD: 1.00,
         currentPriceUSD: 1.00,
         currentValueUSD: 4754.78,
         currentValueBRL: 24125.75,
-        appliedAmountBRL: 11097.85,
-        profitPct: 1.1739,
+        appliedAmountBRL: 24125.75,
+        profitPct: 0.0029,
       },
     };
 
