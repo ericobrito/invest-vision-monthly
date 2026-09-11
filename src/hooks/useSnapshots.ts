@@ -10,71 +10,74 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
   const mappedInvestments: Investment[] = investments
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
     .map((inv: any): Investment => {
-      let positions = positionsByInvestment.get(inv.id) || undefined;
+      let positions = positionsByInvestment.get(inv.id);
       const nameLower = (inv.name || "").toLowerCase();
 
-      if (nameLower.includes("coinbase")) {
-        const effectiveFx = fxRates["USD"] || 5.0889;
+      // Fallback template positions ONLY if no database positions exist for this investment
+      if (!positions || positions.length === 0) {
+        if (nameLower.includes("coinbase")) {
+          const effectiveFx = fxRates["USD"] || 5.0889;
 
-        positions = [
-          {
-            symbol: "BTC",
-            name: "Bitcoin USD",
-            quantity: 0.020000,
-            averagePrice: 29882.78,
-            currentPrice: 78243.14,
-            appliedAmount: 597.66,
-            currentValue: 1564.86,
-            currentValueBRL: 1564.86 * effectiveFx,
-            appliedAmountBRL: 597.66 * 5.0889,
-            currency: "USD",
-            fxRate: effectiveFx,
-          },
-          {
-            symbol: "ETH",
-            name: "Ethereum USD",
-            quantity: 0.919702,
-            averagePrice: 2160.00,
-            currentPrice: 2467.75,
-            appliedAmount: 1986.56,
-            currentValue: 2269.60,
-            currentValueBRL: 2269.60 * effectiveFx,
-            appliedAmountBRL: 1986.56 * 5.0889,
-            currency: "USD",
-            fxRate: effectiveFx,
-          },
-        ];
-      } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-        const effectiveFx = fxRates["USD"] || 5.0889;
+          positions = [
+            {
+              symbol: "BTC",
+              name: "Bitcoin USD",
+              quantity: 0.020000,
+              averagePrice: 29882.78,
+              currentPrice: 78243.14,
+              appliedAmount: 597.66,
+              currentValue: 1564.86,
+              currentValueBRL: 1564.86 * effectiveFx,
+              appliedAmountBRL: 597.66 * 5.0889,
+              currency: "USD",
+              fxRate: effectiveFx,
+            },
+            {
+              symbol: "ETH",
+              name: "Ethereum USD",
+              quantity: 0.919702,
+              averagePrice: 2160.00,
+              currentPrice: 2467.75,
+              appliedAmount: 1986.56,
+              currentValue: 2269.60,
+              currentValueBRL: 2269.60 * effectiveFx,
+              appliedAmountBRL: 1986.56 * 5.0889,
+              currency: "USD",
+              fxRate: effectiveFx,
+            },
+          ];
+        } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
+          const effectiveFx = fxRates["USD"] || 5.0889;
 
-        positions = [
-          {
-            symbol: "USDT",
-            name: "Tether USD",
-            quantity: 4754.7789,
-            averagePrice: 1.00,
-            currentPrice: 1.00,
-            appliedAmount: 4754.78,
-            currentValue: 4754.78,
-            currentValueBRL: 4754.78 * effectiveFx,
-            appliedAmountBRL: 4754.78 * 5.0740,
-            currency: "USD",
-            fxRate: effectiveFx,
-          },
-          {
-            symbol: "BTC",
-            name: "Bitcoin",
-            quantity: 0.041088,
-            averagePrice: 29882.78,
-            currentPrice: 77356.24,
-            appliedAmount: 1227.82,
-            currentValue: 3178.41,
-            currentValueBRL: 3178.41 * effectiveFx,
-            appliedAmountBRL: 1227.82 * 5.0740,
-            currency: "USD",
-            fxRate: effectiveFx,
-          },
-        ];
+          positions = [
+            {
+              symbol: "USDT",
+              name: "Tether USD",
+              quantity: 4754.7789,
+              averagePrice: 1.00,
+              currentPrice: 1.00,
+              appliedAmount: 4754.78,
+              currentValue: 4754.78,
+              currentValueBRL: 4754.78 * effectiveFx,
+              appliedAmountBRL: 4754.78 * 5.0740,
+              currency: "USD",
+              fxRate: effectiveFx,
+            },
+            {
+              symbol: "BTC",
+              name: "Bitcoin",
+              quantity: 0.041088,
+              averagePrice: 29882.78,
+              currentPrice: 77356.24,
+              appliedAmount: 1227.82,
+              currentValue: 3178.41,
+              currentValueBRL: 3178.41 * effectiveFx,
+              appliedAmountBRL: 1227.82 * 5.0740,
+              currency: "USD",
+              fxRate: effectiveFx,
+            },
+          ];
+        }
       }
 
       const isForeignPos = positions?.some((p) => (p.currency || "BRL").toUpperCase() !== "BRL");

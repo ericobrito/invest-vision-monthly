@@ -31,79 +31,81 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
 
   let effectivePositions = investment.positions || [];
 
-  // Fallback positions for CONNECTED investments if snapshot didn't populate positions array directly
-  if (nameLower.includes("coinbase")) {
-    const effectiveFx = 5.0889;
+  // Fallback positions ONLY if snapshot/investment didn't populate positions array
+  if (effectivePositions.length === 0) {
+    if (nameLower.includes("coinbase")) {
+      const effectiveFx = 5.0889;
 
-    effectivePositions = [
-      {
-        symbol: "BTC",
-        name: "Bitcoin USD",
-        quantity: 0.020000,
-        averagePrice: 29882.78,
-        currentPrice: 78243.14,
-        appliedAmount: 597.66,
-        currentValue: 1564.86,
-        currentValueBRL: 1564.86 * effectiveFx,
-        appliedAmountBRL: 597.66 * 5.0889,
-        currency: "USD",
-        fxRate: effectiveFx,
-      },
-      {
-        symbol: "ETH",
-        name: "Ethereum USD",
-        quantity: 0.919702,
-        averagePrice: 2160.00,
-        currentPrice: 2467.75,
-        appliedAmount: 1986.56,
-        currentValue: 2269.60,
-        currentValueBRL: 2269.60 * effectiveFx,
-        appliedAmountBRL: 1986.56 * 5.0889,
-        currency: "USD",
-        fxRate: effectiveFx,
-      },
-    ];
-  } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-    const effectiveFx = 5.0889;
+      effectivePositions = [
+        {
+          symbol: "BTC",
+          name: "Bitcoin USD",
+          quantity: 0.020000,
+          averagePrice: 29882.78,
+          currentPrice: 78243.14,
+          appliedAmount: 597.66,
+          currentValue: 1564.86,
+          currentValueBRL: 1564.86 * effectiveFx,
+          appliedAmountBRL: 597.66 * 5.0889,
+          currency: "USD",
+          fxRate: effectiveFx,
+        },
+        {
+          symbol: "ETH",
+          name: "Ethereum USD",
+          quantity: 0.919702,
+          averagePrice: 2160.00,
+          currentPrice: 2467.75,
+          appliedAmount: 1986.56,
+          currentValue: 2269.60,
+          currentValueBRL: 2269.60 * effectiveFx,
+          appliedAmountBRL: 1986.56 * 5.0889,
+          currency: "USD",
+          fxRate: effectiveFx,
+        },
+      ];
+    } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
+      const effectiveFx = 5.0889;
 
-    effectivePositions = [
-      {
-        symbol: "USDT",
-        name: "Tether USD",
-        quantity: 4754.7789,
-        averagePrice: 1.00,
-        currentPrice: 1.00,
-        appliedAmount: 4754.78,
-        currentValue: 4754.78,
-        currentValueBRL: 4754.78 * effectiveFx,
-        appliedAmountBRL: 4754.78 * 5.0740,
-        currency: "USD",
-        fxRate: effectiveFx,
-      },
-      {
-        symbol: "BTC",
-        name: "Bitcoin",
-        quantity: 0.041088,
-        averagePrice: 29882.78,
-        currentPrice: 77356.24,
-        appliedAmount: 1227.82,
-        currentValue: 3178.41,
-        currentValueBRL: 3178.41 * effectiveFx,
-        appliedAmountBRL: 1227.82 * 5.0740,
-        currency: "USD",
-        fxRate: effectiveFx,
-      },
-    ];
-  } else if (effectivePositions.length === 0 && nameLower.includes("avenue")) {
-    effectivePositions = [
-      { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, appliedAmount: 595.27, currentValue: 1319.92, currency: "USD", fxRate: 5.0740 },
-      { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, appliedAmount: 390.96, currentValue: 121.44, currency: "USD", fxRate: 5.0740 },
-      { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, appliedAmount: 390.55, currentValue: 1410.33, currency: "USD", fxRate: 5.0740 },
-      { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 376.37, appliedAmount: 4502.18, currentValue: 5300.31, currency: "USD", fxRate: 5.0740 },
-      { symbol: "META", name: "Meta Platforms Inc Class A", quantity: 4.769900, averagePrice: 210.52, currentPrice: 610.68, appliedAmount: 1004.16, currentValue: 2912.88, currency: "USD", fxRate: 5.0740 },
-      { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 1.169470, averagePrice: 196.89, currentPrice: 456.16, appliedAmount: 230.26, currentValue: 533.47, currency: "USD", fxRate: 5.0740 },
-      { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValue: 198.31, appliedAmount: 340.00, currency: "USD", fxRate: 5.0740 },
-    ];
+      effectivePositions = [
+        {
+          symbol: "USDT",
+          name: "Tether USD",
+          quantity: 4754.7789,
+          averagePrice: 1.00,
+          currentPrice: 1.00,
+          appliedAmount: 4754.78,
+          currentValue: 4754.78,
+          currentValueBRL: 4754.78 * effectiveFx,
+          appliedAmountBRL: 4754.78 * 5.0740,
+          currency: "USD",
+          fxRate: effectiveFx,
+        },
+        {
+          symbol: "BTC",
+          name: "Bitcoin",
+          quantity: 0.041088,
+          averagePrice: 29882.78,
+          currentPrice: 77356.24,
+          appliedAmount: 1227.82,
+          currentValue: 3178.41,
+          currentValueBRL: 3178.41 * effectiveFx,
+          appliedAmountBRL: 1227.82 * 5.0740,
+          currency: "USD",
+          fxRate: effectiveFx,
+        },
+      ];
+    } else if (nameLower.includes("avenue")) {
+      effectivePositions = [
+        { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, appliedAmount: 595.27, currentValue: 1319.92, currency: "USD", fxRate: 5.0740 },
+        { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, appliedAmount: 390.96, currentValue: 121.44, currency: "USD", fxRate: 5.0740 },
+        { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, appliedAmount: 390.55, currentValue: 1410.33, currency: "USD", fxRate: 5.0740 },
+        { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 376.37, appliedAmount: 4502.18, currentValue: 5300.31, currency: "USD", fxRate: 5.0740 },
+        { symbol: "META", name: "Meta Platforms Inc Class A", quantity: 4.769900, averagePrice: 210.52, currentPrice: 610.68, appliedAmount: 1004.16, currentValue: 2912.88, currency: "USD", fxRate: 5.0740 },
+        { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 1.169470, averagePrice: 196.89, currentPrice: 456.16, appliedAmount: 230.26, currentValue: 533.47, currency: "USD", fxRate: 5.0740 },
+        { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValue: 198.31, appliedAmount: 340.00, currency: "USD", fxRate: 5.0740 },
+      ];
+    }
   }
 
   // All performance metrics flow through PortfolioCalculationService using effectivePositions.
