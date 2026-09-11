@@ -6,15 +6,43 @@ import { resolveInvestmentTotals, getCleanMonthLabel, monthlyData as fallbackMon
 import { fetchFxRatesToBRL, getFxRate, type FxRates } from "@/lib/fx";
 import { MarketDataService } from "@/services/MarketDataService";
 
+function inferIncomeType(name: string, explicitType?: string): IncomeType {
+  if (explicitType === 'fixed' || explicitType === 'variable') return explicitType;
+  const n = (name || "").toLowerCase();
+  if (
+    n.includes("ações") || n.includes("fii") || n.includes("bitcoin") ||
+    n.includes("cripto") || n.includes("bybit") || n.includes("binance") ||
+    n.includes("coinbase") || n.includes("dólar") || n.includes("avenue") ||
+    n.includes("robo")
+  ) {
+    return 'variable';
+  }
+  return 'fixed';
+}
+
+function inferRegion(name: string, explicitRegion?: string): Region {
+  if (explicitRegion === 'brazil' || explicitRegion === 'exterior') return explicitRegion;
+  const n = (name || "").toLowerCase();
+  if (
+    n.includes("dólar") || n.includes("avenue") || n.includes("bitcoin") ||
+    n.includes("cripto") || n.includes("bybit") || n.includes("binance") ||
+    n.includes("coinbase") || n.includes("exterior")
+  ) {
+    return 'exterior';
+  }
+  return 'brazil';
+}
+
 function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>, fxRates: FxRates): MonthlySnapshot {
   const mappedInvestments: Investment[] = investments
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
     .map((inv: any): Investment => {
       let positions = positionsByInvestment.get(inv.id);
+      const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
       const nameLower = (inv.name || "").toLowerCase();
 
-      // Fallback template positions ONLY if no database positions exist for this investment
-      if (!positions || positions.length === 0) {
+      // Fallback template positions ONLY for current DETAILED/CONNECTED investments with no DB positions
+      if ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED')) {
         if (nameLower.includes("coinbase")) {
           const effectiveFx = fxRates["USD"] || 5.0889;
 
@@ -87,7 +115,6 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         ? inv.currency.toUpperCase()
         : (isForeignPos ? 'USD' : 'BRL');
 
-      const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
       const totals = resolveInvestmentTotals(
         {
           mode,
@@ -99,13 +126,9 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         undefined,
         fxRates,
       );
-      // eslint-disable-next-line no-console
-      console.debug("[audit/investment]", {
-        investmentName: inv.name,
-        mode,
-        valueNative: totals.value,
-        valueBRL: totals.valueBRL,
-      });
+
+      const incomeType = inferIncomeType(inv.name, inv.income_type);
+      const region = inferRegion(inv.name, inv.region);
       const annualRateVal = inv.annual_rate != null ? Number(inv.annual_rate) : inv.annual_return != null ? Number(inv.annual_return) : undefined;
       return {
         id: inv.id,
@@ -129,8 +152,8 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
         benchmarkReturn: inv.benchmark_return != null ? Number(inv.benchmark_return) : undefined,
         benchmarkReturnPercent: inv.benchmark_return_percent != null ? Number(inv.benchmark_return_percent) : undefined,
         yearStarted: inv.year_started ? (inv.year_started.length === 4 ? `${inv.year_started}-01-01` : inv.year_started) : undefined,
-        incomeType: (inv.income_type as IncomeType) || 'fixed',
-        region: (inv.region as Region) || 'brazil',
+        incomeType,
+        region,
         flags: {
           includeInVariablePositions: inv.include_in_variable_positions === true,
         },
@@ -152,6 +175,21 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 
   // Portfolio aggregation MUST use BRL-normalized values.
   const totalBRL = mappedInvestments.reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+  const fixedBRL = mappedInvestments
+    .filter((i) => i.incomeType === "fixed")
+    .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+  const variableBRL = totalBRL - fixedBRL;
+
+  const brazilBRL = mappedInvestments
+    .filter((i) => i.region === "brazil")
+    .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+  const exteriorBRL = totalBRL - brazilBRL;
+
+  const derivedFixedIncome = totalBRL > 0 ? (fixedBRL / totalBRL) * 100 : undefined;
+  const derivedVariableIncome = totalBRL > 0 ? (variableBRL / totalBRL) * 100 : undefined;
+  const derivedBrazil = totalBRL > 0 ? (brazilBRL / totalBRL) * 100 : undefined;
+  const derivedExterior = totalBRL > 0 ? (exteriorBRL / totalBRL) * 100 : undefined;
+
   const portfolioRealizedIncome = mappedInvestments.reduce(
     (s, i) => s + (i.realizedIncome != null ? Number(i.realizedIncome) : 0),
     0
@@ -173,10 +211,18 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
     label: getCleanMonthLabel(row.month, row.label),
     total: totalBRL > 0 ? totalBRL : Number(row.total),
     change: row.change_value != null ? { value: Number(row.change_value), percentage: Number(row.change_percentage) } : undefined,
-    fixedIncome: row.fixed_income != null ? Number(row.fixed_income) : undefined,
-    variableIncome: row.variable_income != null ? Number(row.variable_income) : undefined,
-    brazil: row.brazil != null ? Number(row.brazil) : undefined,
-    exterior: row.exterior != null ? Number(row.exterior) : undefined,
+    fixedIncome: row.fixed_income != null && Number(row.fixed_income) > 0 && Number(row.fixed_income) < 100
+      ? Number(row.fixed_income)
+      : derivedFixedIncome,
+    variableIncome: row.variable_income != null && Number(row.variable_income) > 0 && Number(row.variable_income) < 100
+      ? Number(row.variable_income)
+      : derivedVariableIncome,
+    brazil: row.brazil != null && Number(row.brazil) > 0 && Number(row.brazil) < 100
+      ? Number(row.brazil)
+      : derivedBrazil,
+    exterior: row.exterior != null && Number(row.exterior) > 0 && Number(row.exterior) < 100
+      ? Number(row.exterior)
+      : derivedExterior,
     growth2025: row.growth_2025 != null ? Number(row.growth_2025) : undefined,
     portfolioRealizedIncome: portfolioRealizedIncome > 0 ? portfolioRealizedIncome : undefined,
     portfolioProjectedIncome: portfolioProjectedIncome > 0 ? portfolioProjectedIncome : undefined,
