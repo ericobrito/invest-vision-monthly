@@ -401,11 +401,19 @@ const VariableIncomeMoversDashboard = () => {
       const currentPriceUSD = asset.currentPriceUSD || radar?.currentPrice || (asset.quantity > 0 ? (asset.currentValueBRL / asset.quantity) / (asset.fxRate || DEFAULT_USD_BRL_FX) : undefined);
       const athUSD = asset.athUSD || radar?.ath;
 
+      let potentialReturnPct: number | undefined = undefined;
+      if (athUSD && currentPriceUSD && currentPriceUSD > 0) {
+        potentialReturnPct = (athUSD / currentPriceUSD) - 1;
+      } else if (radar?.potentialReturn != null) {
+        const raw = Number(radar.potentialReturn);
+        potentialReturnPct = raw > 10 ? raw / 100 : raw;
+      }
+
       return {
         ...asset,
         currentPriceUSD,
         athUSD,
-        potentialReturnPct: radar?.potentialReturn || (athUSD && currentPriceUSD ? (athUSD / currentPriceUSD) - 1 : undefined),
+        potentialReturnPct,
       };
     });
   }, [consolidatedAssets, radarResponse]);
@@ -845,7 +853,7 @@ const VariableIncomeMoversDashboard = () => {
                         </div>
                         {asset.potentialReturnPct !== undefined && (
                           <div className="text-right">
-                            Potencial: <strong className="text-emerald-400 font-mono">+{formatPct(asset.potentialReturnPct)}</strong>
+                            Potencial: <strong className="text-emerald-400 font-mono">{formatPct(asset.potentialReturnPct)}</strong>
                           </div>
                         )}
                       </div>
@@ -941,7 +949,7 @@ const VariableIncomeMoversDashboard = () => {
                           <TableCell className="text-right font-mono whitespace-nowrap text-xs">
                             {asset.potentialReturnPct !== undefined ? (
                               <span className="text-emerald-400 font-semibold">
-                                +{formatPct(asset.potentialReturnPct)}
+                                {formatPct(asset.potentialReturnPct)}
                               </span>
                             ) : (
                               "—"
