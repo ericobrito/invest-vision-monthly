@@ -946,6 +946,112 @@ export function useDeleteSnapshot() {
   });
 }
 
+export function useImportSnapshots() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      snapshots,
+      overwrite = true,
+    }: {
+      snapshots: MonthlySnapshot[];
+      overwrite?: boolean;
+    }) => {
+      for (const snap of snapshots) {
+        const { data: existing } = await supabase
+          .from("monthly_snapshots")
+          .select("id")
+          .eq("month", snap.month)
+          .maybeSingle();
+
+        let snapId: string;
+
+        if (existing) {
+          snapId = existing.id;
+          if (overwrite) {
+            await supabase.from("investments").delete().eq("snapshot_id", snapId);
+            await supabase
+              .from("monthly_snapshots")
+              .update({
+                label: snap.label,
+                cdi_rate: snap.cdiRate,
+                ipca_rate: snap.ipcaRate,
+              })
+              .eq("id", snapId);
+          }
+        } else {
+          const { data: inserted, error: insertErr } = await supabase
+            .from("monthly_snapshots")
+            .insert({
+              month: snap.month,
+              label: snap.label,
+              cdi_rate: snap.cdiRate || 10.75,
+              ipca_rate: snap.ipcaRate || 4.50,
+            })
+            .select("id")
+            .single();
+          if (insertErr) throw insertErr;
+          snapId = inserted.id;
+        }
+
+        if (snap.investments && snap.investments.length > 0) {
+          const invsToInsert = snap.investments.map((inv, idx) => ({
+            snapshot_id: snapId,
+            name: inv.name,
+            value: inv.value,
+            applied: inv.appliedAmount != null ? inv.appliedAmount : inv.value,
+            income_type: inv.incomeType || "fixed",
+            region: inv.region || "brazil",
+            mode: inv.mode || "CONSOLIDATED",
+            sort_order: idx + 1,
+            currency: "BRL",
+          }));
+
+          const { data: insertedInvs, error: invErr } = await supabase
+            .from("investments")
+            .insert(invsToInsert)
+            .select("id, name");
+          if (invErr) throw invErr;
+
+          const positionsToInsert: any[] = [];
+          for (const inv of snap.investments) {
+            if (inv.positions && inv.positions.length > 0) {
+              const matchedDbInv = insertedInvs?.find((dbInv) => dbInv.name === inv.name);
+              if (matchedDbInv) {
+                for (const pos of inv.positions) {
+                  positionsToInsert.push({
+                    investment_id: matchedDbInv.id,
+                    symbol: pos.symbol || pos.ticker,
+                    name: pos.name ?? null,
+                    quantity: pos.quantity || 0,
+                    average_price: pos.averagePrice || 0,
+                    current_price: pos.currentPrice || 0,
+                    applied_amount: pos.appliedAmount || 0,
+                    current_value: pos.currentValue || 0,
+                    currency: pos.currency || "BRL",
+                    current_value_brl: pos.currentValueBRL ?? null,
+                    applied_amount_brl: pos.appliedAmountBRL ?? null,
+                    fx_rate: pos.fxRate ?? null,
+                  });
+                }
+              }
+            }
+          }
+
+          if (positionsToInsert.length > 0) {
+            await supabase.from("investment_positions").insert(positionsToInsert);
+          }
+        }
+      }
+
+      await recalculateAllSnapshotVariations();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["snapshots"] });
+    },
+  });
+}
+
 export async function propagateConnectionValues(connectionId: string) {
   try {
     const { data: positions, error: pErr } = await supabase

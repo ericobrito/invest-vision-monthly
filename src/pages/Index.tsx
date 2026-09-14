@@ -14,9 +14,10 @@ import ContributionEvolutionChart from "@/components/ContributionEvolutionChart"
 import SnapshotDialog from "@/components/SnapshotDialog";
 import InvestmentEditDialog from "@/components/InvestmentEditDialog";
 import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
+import ExportImportDialog from "@/components/ExportImportDialog";
 import LanguageToggle from "@/components/LanguageToggle";
 import ThemeToggle from "@/components/ThemeToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator, ChevronDown } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator, ChevronDown, FileSpreadsheet, Download, Upload } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -48,6 +49,7 @@ const Index = () => {
   const [investmentDialogOpen, setInvestmentDialogOpen] = useState(false);
   const [detailInvestment, setDetailInvestment] = useState<Investment | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [exportImportOpen, setExportImportOpen] = useState(false);
 
   const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
   const snapshot = monthlyData[effectiveIndex];
@@ -186,6 +188,9 @@ const Index = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={() => setExportImportOpen(true)} className="cursor-pointer font-medium text-emerald-400">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400 mr-2" /> Exportar / Importar
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <Link to="/contabilidade-cripto" className="flex items-center gap-2 text-blue-400 font-medium">
                     <Calculator className="w-4 h-4 text-blue-400" /> Contabilidade Cripto
@@ -332,12 +337,23 @@ const Index = () => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <MonthSelector
-                currentIndex={effectiveIndex}
-                onChange={setCurrentIndex}
-                months={monthlyData}
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="overflow-x-auto">
+                <MonthSelector
+                  currentIndex={effectiveIndex}
+                  onChange={setCurrentIndex}
+                  months={monthlyData}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExportImportOpen(true)}
+                className="h-9 text-xs font-semibold gap-1.5 shrink-0 hover:bg-emerald-500/10 hover:border-emerald-500/40 text-foreground"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <span>Exportar / Importar CSV/XLS</span>
+              </Button>
             </div>
 
             {snapshot && (() => {
@@ -509,6 +525,12 @@ const Index = () => {
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
         investment={detailInvestment}
+      />
+
+      <ExportImportDialog
+        open={exportImportOpen}
+        onOpenChange={setExportImportOpen}
+        monthlyData={monthlyData}
       />
 
       <AlertDialog open={!!deleteMonth} onOpenChange={() => setDeleteMonth(null)}>
