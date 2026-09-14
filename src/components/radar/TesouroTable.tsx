@@ -3,9 +3,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calculator } from "lucide-react";
 
 interface TesouroTableProps {
   bonds: TesouroBond[];
+  onSelectBond?: (bondName: string) => void;
 }
 
 function formatCurrency(value: number) {
@@ -18,7 +21,7 @@ function getRowHighlight(score: number): string {
   return "";
 }
 
-const TesouroTable = ({ bonds }: TesouroTableProps) => {
+const TesouroTable = ({ bonds, onSelectBond }: TesouroTableProps) => {
   if (bonds.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -40,6 +43,7 @@ const TesouroTable = ({ bonds }: TesouroTableProps) => {
               <TableHead className="whitespace-nowrap font-semibold text-right">Preço</TableHead>
               <TableHead className="whitespace-nowrap font-semibold text-center">Score</TableHead>
               <TableHead className="whitespace-nowrap font-semibold text-center">Status</TableHead>
+              <TableHead className="whitespace-nowrap font-semibold text-center">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,6 +91,21 @@ const TesouroTable = ({ bonds }: TesouroTableProps) => {
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {bond.statusLabel}
                   </div>
+                </TableCell>
+
+                <TableCell className="text-center whitespace-nowrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (onSelectBond) onSelectBond(bond.name);
+                      document.getElementById("mark-to-market-simulator")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="h-8 text-xs font-semibold gap-1 hover:bg-primary/10 hover:border-primary/40"
+                  >
+                    <Calculator className="w-3.5 h-3.5 text-primary" />
+                    Simular
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

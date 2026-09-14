@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTesouroData } from "@/hooks/useTesouroData";
 import TesouroTable from "@/components/radar/TesouroTable";
+import MarkToMarketSimulator from "@/components/radar/MarkToMarketSimulator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Landmark, RefreshCw } from "lucide-react";
 
 const RadarTesouro = () => {
   const { data: response, isLoading, error, refetch, isFetching } = useTesouroData();
+  const [selectedBondName, setSelectedBondName] = useState<string | undefined>(undefined);
 
   const bonds = response?.data ?? [];
 
@@ -77,18 +80,30 @@ const RadarTesouro = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {bonds.length} títulos analisados (IPCA+ e Prefixado)
-              </p>
-              {response?.updatedAt && (
-                <p className="text-xs text-muted-foreground">
-                  Atualizado {new Date(response.updatedAt).toLocaleString("pt-BR")}
+          <div className="space-y-6">
+            {/* Integrated Mark to Market Simulator */}
+            <MarkToMarketSimulator
+              bonds={bonds}
+              selectedBondName={selectedBondName}
+              onSelectBondName={setSelectedBondName}
+            />
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground font-medium">
+                  {bonds.length} títulos analisados (IPCA+ e Prefixado)
                 </p>
-              )}
+                {response?.updatedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Atualizado {new Date(response.updatedAt).toLocaleString("pt-BR")}
+                  </p>
+                )}
+              </div>
+              <TesouroTable
+                bonds={bonds}
+                onSelectBond={(bondName) => setSelectedBondName(bondName)}
+              />
             </div>
-            <TesouroTable bonds={bonds} />
           </div>
         )}
 

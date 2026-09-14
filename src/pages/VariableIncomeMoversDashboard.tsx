@@ -112,6 +112,21 @@ const avenueKnownPositions: Record<string, {
   "IONQ": { name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValueUSD: 198.31, currentValueBRL: 1006.21, appliedAmountBRL: 1725.03, profitPct: -0.4167 },
 };
 
+const knownAthMap: Record<string, number> = {
+  "BTC": 126198.07,
+  "ETH": 4953.73,
+  "USDT": 1.00,
+  "SOL": 294.33,
+  "GOOGL": 408.61,
+  "META": 796.25,
+  "AMD": 584.73,
+  "TSLA": 498.83,
+  "BRK-B": 542.07,
+  "BRK.B": 542.07,
+  "RGTI": 58.15,
+  "IONQ": 84.64,
+};
+
 const VariableIncomeMoversDashboard = () => {
   const { data: monthlySnapshots = [], isLoading: snapshotsLoading } = useSnapshots();
   const { positions: variablePositions = [], isLoading: variableLoading } = useVariableAssets();
@@ -397,13 +412,17 @@ const VariableIncomeMoversDashboard = () => {
     }
 
     return consolidatedAssets.map((asset) => {
-      const radar = radarMap.get(asset.ticker) || radarMap.get(`${asset.ticker}-USD`);
+      const normTicker = asset.ticker.toUpperCase().replace(".", "-");
+      const radar = radarMap.get(normTicker) || radarMap.get(`${normTicker}-USD`);
+      
       const currentPriceUSD = asset.currentPriceUSD || radar?.currentPrice || (asset.quantity > 0 ? (asset.currentValueBRL / asset.quantity) / (asset.fxRate || DEFAULT_USD_BRL_FX) : undefined);
-      const athUSD = asset.athUSD || radar?.ath;
+      
+      const knownAth = knownAthMap[normTicker] || knownAthMap[asset.ticker];
+      const athUSD = Math.max(knownAth || 0, asset.athUSD || 0, radar?.ath || 0);
 
       let potentialReturnPct: number | undefined = undefined;
-      if (athUSD && currentPriceUSD && currentPriceUSD > 0) {
-        potentialReturnPct = (athUSD / currentPriceUSD) - 1;
+      if (athUSD > 0 && currentPriceUSD && currentPriceUSD > 0) {
+        potentialReturnPct = Math.max(0, (athUSD / currentPriceUSD) - 1);
       } else if (radar?.potentialReturn != null) {
         const raw = Number(radar.potentialReturn);
         potentialReturnPct = raw > 10 ? raw / 100 : raw;
@@ -412,7 +431,7 @@ const VariableIncomeMoversDashboard = () => {
       return {
         ...asset,
         currentPriceUSD,
-        athUSD,
+        athUSD: athUSD > 0 ? athUSD : undefined,
         potentialReturnPct,
       };
     });
