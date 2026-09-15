@@ -11,6 +11,8 @@ export interface LinkedAsset {
 export interface Position {
   id?: string;
   symbol: string;
+  /** Legacy alias for `symbol` used by import/export utilities. */
+  ticker?: string;
   name?: string;
   quantity: number;
   averagePrice: number;
