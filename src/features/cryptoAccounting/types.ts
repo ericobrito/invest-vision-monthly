@@ -206,6 +206,13 @@ export interface HybridBuybackSimulationResult {
   sellPriceBRL: number;
   totalSaleQty: number;
   
+  // Tax Safety & Installments
+  isLimitExceeded: boolean;
+  monthsRequiredForTaxExemption: number;
+  monthlyExemptInstallmentBRL: number;
+  monthlyImmediateAmountBRL: number;
+  monthlyReserveAmountBRL: number;
+
   // Fatia A: Recompra Imediata
   immediateAmountBRL: number;
   immediateQtyRebought: number;

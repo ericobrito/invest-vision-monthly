@@ -442,6 +442,15 @@ export class CryptoAccountingEngine {
     const extraCryptoGainedPct =
       totalQtyIfImmediateOnly > 0 ? (extraCryptoQtyGained / totalQtyIfImmediateOnly) * 100 : 0;
 
+    // Tax Safety & Monthly Installments
+    const isLimitExceeded = totalSaleValueBRL > 35000;
+    const monthsRequiredForTaxExemption = isLimitExceeded
+      ? Math.max(1, Math.ceil(totalSaleValueBRL / 34500))
+      : 1;
+    const monthlyExemptInstallmentBRL = totalSaleValueBRL / monthsRequiredForTaxExemption;
+    const monthlyImmediateAmountBRL = monthlyExemptInstallmentBRL * splitImmediateRatio;
+    const monthlyReserveAmountBRL = monthlyExemptInstallmentBRL * splitReserveRatio;
+
     // Reserve Yield: 0.8% a.m. (approx. 9.6% p.a. in USDT yield / CDI)
     const projectedReserveYieldMonthlyBRL = reserveAmountBRL * 0.008;
 
@@ -453,6 +462,11 @@ export class CryptoAccountingEngine {
       sellPriceUSD,
       sellPriceBRL,
       totalSaleQty,
+      isLimitExceeded,
+      monthsRequiredForTaxExemption,
+      monthlyExemptInstallmentBRL,
+      monthlyImmediateAmountBRL,
+      monthlyReserveAmountBRL,
       immediateAmountBRL,
       immediateQtyRebought,
       newAvgCostBRL: sellPriceBRL,

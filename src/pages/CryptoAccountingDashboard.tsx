@@ -1056,26 +1056,68 @@ export function CryptoAccountingDashboard() {
 
                 {/* Action Plan Guidance */}
                 <div className="p-3 bg-muted/30 rounded-lg space-y-2 border border-border/50">
-                  <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Plano de Operações Recomendado na Corretora:
+                  <div className="font-semibold text-xs text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Plano de Operações Recomendado na Corretora:
+                    </span>
+                    {hybridSimulation.isLimitExceeded ? (
+                      <Badge variant="destructive" className="text-[10px]">
+                        ⚠️ REQUER PARCELAMENTO EM {hybridSimulation.monthsRequiredForTaxExemption} MESES
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/40">
+                        🟢 100% ISENTO NESTE MÊS
+                      </Badge>
+                    )}
                   </div>
-                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-muted-foreground">
-                    <li>
-                      Vender até <strong className="text-foreground">{fmtBRL(hybridSimulation.totalSaleValueBRL)}</strong> de {hybridSimulation.asset} sem incidência de imposto (isenção mensal R$ 35k).
-                    </li>
-                    <li>
-                      Recomprar imediatamente <strong className="text-foreground">{fmtBRL(hybridSimulation.immediateAmountBRL)}</strong> em {hybridSimulation.asset} na ordem a mercado (sobe PM imediatamente).
-                    </li>
-                    <li>
-                      Deixar <strong className="text-foreground">{fmtBRL(hybridSimulation.reserveAmountBRL)}</strong> em USDT rendendo em Earn/Staking.
-                    </li>
+
+                  {hybridSimulation.isLimitExceeded && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/40 rounded-lg text-xs space-y-1">
+                      <div className="font-bold text-red-400 flex items-center gap-1.5">
+                        <ShieldAlert className="w-4 h-4" /> 🚨 ATENÇÃO FISCAL: Venda acima do teto isento de R$ 35.000,00!
+                      </div>
+                      <div className="text-foreground">
+                        Vender {fmtBRL(hybridSimulation.totalSaleValueBRL)} em um único mês <strong>ultrapassa o limite de R$ 35.000,00</strong> e faria você pagar 15% de imposto sobre todo o lucro.
+                      </div>
+                      <div className="text-emerald-300 font-semibold pt-0.5">
+                        💡 Solução: Execute a estratégia em <strong>{hybridSimulation.monthsRequiredForTaxExemption} parcelas mensais de {fmtBRL(hybridSimulation.monthlyExemptInstallmentBRL)}/mês</strong> para garantir 100% de isenção de IR.
+                      </div>
+                    </div>
+                  )}
+
+                  <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-muted-foreground">
+                    {hybridSimulation.isLimitExceeded ? (
+                      <>
+                        <li>
+                          <strong className="text-emerald-400">Dividir em {hybridSimulation.monthsRequiredForTaxExemption} Meses Fiscais:</strong> Vender no máximo <strong className="text-foreground">{fmtBRL(hybridSimulation.monthlyExemptInstallmentBRL)}</strong> por mês de {hybridSimulation.asset} para não ultrapassar o teto isento de R$ 35.000/mês.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Recompra Imediata Mensal (Fatia A):</strong> A cada mês, recomprar imediatamente <strong className="text-foreground">{fmtBRL(hybridSimulation.monthlyImmediateAmountBRL)}</strong> em {hybridSimulation.asset} a mercado (subindo o Preço Médio gradualmente).
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Caixa Tático Mensal (Fatia B):</strong> A cada mês, destinar <strong className="text-foreground">{fmtBRL(hybridSimulation.monthlyReserveAmountBRL)}</strong> para USDT rendendo em Staking/Earn.
+                        </li>
+                      </>
+                    ) : (
+                      <>
+                        <li>
+                          Vender até <strong className="text-foreground">{fmtBRL(hybridSimulation.totalSaleValueBRL)}</strong> de {hybridSimulation.asset} dentro do mês sem pagar IR (abaixo do teto de R$ 35k).
+                        </li>
+                        <li>
+                          Recomprar imediatamente <strong className="text-foreground">{fmtBRL(hybridSimulation.immediateAmountBRL)}</strong> em {hybridSimulation.asset} a mercado (eleva o Preço Médio no dia).
+                        </li>
+                        <li>
+                          Deixar <strong className="text-foreground">{fmtBRL(hybridSimulation.reserveAmountBRL)}</strong> em USDT rendendo em Earn/Staking.
+                        </li>
+                      </>
+                    )}
                     <li>
                       Configurar 2 Ordens Limites de Compra na exchange:
                       <span className="block pl-4 text-emerald-300">
-                        • 50% do caixa em <strong className="text-foreground">{fmtUSD(hybridSimulation.target1PriceUSD)}</strong> (-{hybridSimulation.target1DropPct}%)
+                        • 50% do caixa guardado em <strong className="text-foreground">{fmtUSD(hybridSimulation.target1PriceUSD)}</strong> (-{hybridSimulation.target1DropPct}%)
                       </span>
                       <span className="block pl-4 text-emerald-300">
-                        • 50% do caixa em <strong className="text-foreground">{fmtUSD(hybridSimulation.target2PriceUSD)}</strong> (-{hybridSimulation.target2DropPct}%)
+                        • 50% do caixa guardado em <strong className="text-foreground">{fmtUSD(hybridSimulation.target2PriceUSD)}</strong> (-{hybridSimulation.target2DropPct}%)
                       </span>
                     </li>
                   </ol>
