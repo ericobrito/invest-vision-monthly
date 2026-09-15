@@ -235,7 +235,18 @@ export interface CryptoReconciliationResult {
   confidenceScorePct: number;
   totalOrders: number;
   totalVolumeBRL: number;
+  totalVolumeUSD: number;
+  totalFeesUSD: number;
   reconciledAssetsCount: number;
+  portfolioComparison?: Array<{
+    asset: string;
+    bookQuantity: number;
+    portfolioQuantity: number;
+    diffQuantity: number;
+    bookAvgPriceUSD: number;
+    portfolioAvgPriceUSD: number;
+    status: "MATCH" | "MISMATCH_QTY" | "MISMATCH_PM";
+  }>;
   issues: Array<{
     id: string;
     asset: string;
@@ -245,7 +256,10 @@ export interface CryptoReconciliationResult {
       | "UNLINKED_TRANSFER"
       | "MISSING_PRICE"
       | "MISSING_COUNTRY"
-      | "DUPLICATE_ORDER";
+      | "DUPLICATE_ORDER"
+      | "PORTFOLIO_MISMATCH"
+      | "FALSE_DISPOSAL_TRANSFER"
+      | "AVERAGE_PRICE_MISMATCH";
     severity: "LOW" | "MEDIUM" | "HIGH";
     description: string;
     suggestedAction: string;

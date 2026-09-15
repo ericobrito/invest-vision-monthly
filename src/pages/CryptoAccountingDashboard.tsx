@@ -451,6 +451,7 @@ export function CryptoAccountingDashboard() {
                       ) : (
                         trades.map((t) => {
                           const isSell = t.side === "SELL";
+                          const isTransfer = t.transactionType === "TRANSFER" || t.notes?.toLowerCase().includes("transfer");
                           return (
                             <tr key={t.id} className="border-b border-border/50 hover:bg-muted/20">
                               <td className="p-2.5 font-mono text-muted-foreground">
@@ -459,9 +460,19 @@ export function CryptoAccountingDashboard() {
                               <td className="p-2.5 font-medium">{t.broker}</td>
                               <td className="p-2.5 font-bold">{t.asset}</td>
                               <td className="p-2.5">
-                                <Badge variant={isSell ? "destructive" : "default"} className="text-[10px] py-0">
-                                  {isSell ? "Venda" : "Compra"}
-                                </Badge>
+                                {isTransfer ? (
+                                  <Badge variant="outline" className="text-[10px] py-0 border-blue-500/50 text-blue-400 bg-blue-500/10">
+                                    Transferência
+                                  </Badge>
+                                ) : isSell ? (
+                                  <Badge variant="destructive" className="text-[10px] py-0">
+                                    Venda
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="default" className="text-[10px] py-0">
+                                    Compra
+                                  </Badge>
+                                )}
                               </td>
                               <td className="p-2.5 text-right font-mono">{t.quantity}</td>
                               <td className="p-2.5 text-right font-mono">{fmtUSD(t.price)}</td>
@@ -477,6 +488,27 @@ export function CryptoAccountingDashboard() {
                         })
                       )}
                     </tbody>
+                    {trades.length > 0 && (
+                      <tfoot className="border-t-2 border-border bg-muted/60 font-bold text-xs">
+                        <tr>
+                          <td colSpan={4} className="p-2.5 font-semibold text-foreground uppercase tracking-wider">
+                            Valor Total Acumulado no Livro ({trades.length} ordens)
+                          </td>
+                          <td className="p-2.5 text-right font-mono text-muted-foreground">-</td>
+                          <td className="p-2.5 text-right font-mono text-muted-foreground">-</td>
+                          <td className="p-2.5 text-right font-mono font-bold text-emerald-400">
+                            {fmtUSD(processed.reconciliation.totalVolumeUSD)}
+                            <span className="block text-[10px] text-muted-foreground font-normal">
+                              ({fmtBRL(processed.reconciliation.totalVolumeBRL)})
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-right font-mono text-amber-400">
+                            {fmtUSD(processed.reconciliation.totalFeesUSD)}
+                          </td>
+                          <td className="p-2.5 text-center text-muted-foreground">-</td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </CardContent>
               </Card>
@@ -676,6 +708,104 @@ export function CryptoAccountingDashboard() {
                 ))
               )}
             </div>
+
+            {/* Fiscal Incoherency Audit & Reconciliation Card */}
+            <Card className="border-amber-500/40 bg-card">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ShieldAlert className="w-4.5 h-4.5 text-amber-400" /> Auditoria & Validação de Incoerências Fiscais
+                  </CardTitle>
+                  <Badge
+                    variant={processed.reconciliation.confidenceScorePct === 100 ? "default" : "destructive"}
+                    className="font-mono"
+                  >
+                    {processed.reconciliation.confidenceScorePct}% Coerência Fiscal
+                  </Badge>
+                </div>
+                <CardDescription>
+                  Validação cruzada entre os lançamentos do Livro Contábil e as posições reais da sua Carteira de Investimentos.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                {/* Portfolio Comparison Table */}
+                <div className="border border-border/50 rounded-lg overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/40 text-muted-foreground text-left">
+                        <th className="p-2.5">Ativo</th>
+                        <th className="p-2.5 text-right">Qtd no Livro Contábil</th>
+                        <th className="p-2.5 text-right">Qtd nos Investimentos</th>
+                        <th className="p-2.5 text-right">Diferença</th>
+                        <th className="p-2.5 text-right">PM Livro (USD)</th>
+                        <th className="p-2.5 text-right">PM Investimentos (USD)</th>
+                        <th className="p-2.5 text-center">Status Fiscal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {processed.reconciliation.portfolioComparison?.map((comp) => {
+                        const isMatch = comp.status === "MATCH";
+                        const isQtyMismatch = comp.status === "MISMATCH_QTY";
+                        return (
+                          <tr key={comp.asset} className="border-b border-border/40 hover:bg-muted/20">
+                            <td className="p-2.5 font-bold">{comp.asset}</td>
+                            <td className="p-2.5 text-right font-mono">{comp.bookQuantity.toFixed(6)}</td>
+                            <td className="p-2.5 text-right font-mono font-medium">{comp.portfolioQuantity.toFixed(6)}</td>
+                            <td className={`p-2.5 text-right font-mono font-bold ${isQtyMismatch ? "text-red-400" : "text-emerald-400"}`}>
+                              {comp.diffQuantity > 0 ? `+${comp.diffQuantity.toFixed(6)}` : comp.diffQuantity.toFixed(6)}
+                            </td>
+                            <td className="p-2.5 text-right font-mono">{fmtUSD(comp.bookAvgPriceUSD)}</td>
+                            <td className="p-2.5 text-right font-mono">{fmtUSD(comp.portfolioAvgPriceUSD)}</td>
+                            <td className="p-2.5 text-center">
+                              {isMatch ? (
+                                <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/40">
+                                  🟢 100% Coerente
+                                </Badge>
+                              ) : isQtyMismatch ? (
+                                <Badge variant="destructive" className="text-[10px]">
+                                  🔴 Incoerência de Custódia
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/40">
+                                  🟡 Divergência de PM
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Fiscal Issues List */}
+                {processed.reconciliation.issues.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                      <Info className="w-4 h-4 text-amber-400" /> Alertas de Incoerência Fiscal Detectados ({processed.reconciliation.issues.length}):
+                    </h4>
+                    <div className="space-y-2">
+                      {processed.reconciliation.issues.map((iss) => (
+                        <div key={iss.id} className={`p-3 rounded-lg border text-xs space-y-1 ${iss.severity === "HIGH" ? "bg-red-500/10 border-red-500/40" : "bg-amber-500/10 border-amber-500/40"}`}>
+                          <div className="flex items-center justify-between font-bold">
+                            <span className={iss.severity === "HIGH" ? "text-red-400" : "text-amber-400"}>
+                              {iss.asset}: {iss.type}
+                            </span>
+                            <Badge variant={iss.severity === "HIGH" ? "destructive" : "outline"} className="text-[9px]">
+                              {iss.severity === "HIGH" ? "ALTA GRAVIDADE" : "MÉDIA GRAVIDADE"}
+                            </Badge>
+                          </div>
+                          <div className="text-foreground">{iss.description}</div>
+                          <div className="text-muted-foreground text-[11px] italic font-mono pt-1">
+                            💡 Ação Sugerida: {iss.suggestedAction}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Sale Simulator: "O que acontece se eu vender?" */}
             <Card className="border-primary/30">
