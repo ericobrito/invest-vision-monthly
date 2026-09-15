@@ -213,7 +213,7 @@ const VariableIncomeMoversDashboard = () => {
       } else {
         map.set(norm, {
           ticker: norm,
-          name: pos.name || knownCrypto?.name || norm,
+          name: (pos as any).name || knownCrypto?.name || norm,
           source: src,
           quantity: qty,
           currentValueUSD: valUSD,
