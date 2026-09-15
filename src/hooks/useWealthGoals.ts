@@ -66,7 +66,7 @@ export function useWealthGoals() {
         return DEFAULT_GOALS;
       }
 
-      return data || DEFAULT_GOALS;
+      return (data as unknown as WealthGoals) || DEFAULT_GOALS;
     },
   });
 
@@ -139,7 +139,7 @@ export function useWealthGoals() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as unknown as WealthGoals;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wealth-goals"] });

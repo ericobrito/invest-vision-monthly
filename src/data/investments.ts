@@ -11,6 +11,8 @@ export interface LinkedAsset {
 export interface Position {
   id?: string;
   symbol: string;
+  /** Legacy alias for `symbol` used by import/export utilities. */
+  ticker?: string;
   name?: string;
   quantity: number;
   averagePrice: number;
@@ -37,6 +39,8 @@ export interface Investment {
   /** BRL-normalized value used for portfolio aggregation. */
   valueBRL?: number;
   appliedBRL?: number;
+  /** Legacy alias for `applied` used by import/export utilities. */
+  appliedAmount?: number;
   percentage: number;
   applied?: number;
   /** Currency of the CONSOLIDATED `value` / `applied` fields (default BRL). */
@@ -101,6 +105,9 @@ export interface MonthlySnapshot {
   portfolioProjectedIncome?: number;
   benchmarkRealizedReturn?: number;
   excessReturnVsBenchmark?: number;
+  /** Reference benchmark rates for the month (optional). */
+  cdiRate?: number;
+  ipcaRate?: number;
 }
 
 /** Internal FX helper (avoid importing the hook to keep this file framework-agnostic). */

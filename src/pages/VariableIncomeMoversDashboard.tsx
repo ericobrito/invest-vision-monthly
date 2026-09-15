@@ -129,7 +129,7 @@ const knownAthMap: Record<string, number> = {
 
 const VariableIncomeMoversDashboard = () => {
   const { data: monthlySnapshots = [], isLoading: snapshotsLoading } = useSnapshots();
-  const { positions: variablePositions = [], isLoading: variableLoading } = useVariableAssets();
+  const { positions: variablePositions = [], loading: variableLoading } = useVariableAssets();
 
   const [selectedMonth, setSelectedMonth] = useState<string>("latest");
   const [sortBy, setSortBy] = useState<"profitPct" | "profitBRL" | "currentValue" | "potential">("profitPct");
@@ -213,7 +213,7 @@ const VariableIncomeMoversDashboard = () => {
       } else {
         map.set(norm, {
           ticker: norm,
-          name: pos.name || knownCrypto?.name || norm,
+          name: (pos as any).name || knownCrypto?.name || norm,
           source: src,
           quantity: qty,
           currentValueUSD: valUSD,

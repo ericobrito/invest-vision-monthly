@@ -86,12 +86,13 @@ export function simulateMarkToMarket(input: SimulationInput): SimulationResult {
   });
 
   const priceVariationPercent = shiftResult.priceVariationPercent;
-  const currentTheoreticalPrice = shiftResult.currentRealPrice != null
-    ? shiftResult.currentRealPrice
-    : (shiftResult as any).currentPrice;
-  const simulatedTheoreticalPrice = shiftResult.simulatedRealPrice != null
-    ? shiftResult.simulatedRealPrice
-    : (shiftResult as any).simulatedPrice;
+  const shiftAny = shiftResult as any;
+  const currentTheoreticalPrice = shiftAny.currentRealPrice != null
+    ? shiftAny.currentRealPrice
+    : shiftAny.currentPrice;
+  const simulatedTheoreticalPrice = shiftAny.simulatedRealPrice != null
+    ? shiftAny.simulatedRealPrice
+    : shiftAny.simulatedPrice;
 
   // Real & Nominal Evolution Calculations
   const mtmMultiplier = 1 + priceVariationPercent;
