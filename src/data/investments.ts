@@ -105,6 +105,9 @@ export interface MonthlySnapshot {
   portfolioProjectedIncome?: number;
   benchmarkRealizedReturn?: number;
   excessReturnVsBenchmark?: number;
+  /** Reference benchmark rates for the month (optional). */
+  cdiRate?: number;
+  ipcaRate?: number;
 }
 
 /** Internal FX helper (avoid importing the hook to keep this file framework-agnostic). */
