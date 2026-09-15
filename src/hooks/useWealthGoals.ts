@@ -139,7 +139,7 @@ export function useWealthGoals() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as unknown as WealthGoals;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wealth-goals"] });
