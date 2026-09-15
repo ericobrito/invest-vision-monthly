@@ -91,7 +91,7 @@ export function GCAPGuideCard() {
           <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-3">
             <div className="flex items-center justify-between font-bold text-amber-400">
               <span className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <Calculator className="w-4 h-4 shrink-0" /> 🟠 Vendas Tributáveis (> R$ 35.000 ou Internacional)
+                <Calculator className="w-4 h-4 shrink-0" /> 🟠 Vendas Tributáveis {"(>"} R$ 35.000 ou Internacional)
               </span>
               <Badge variant="destructive" className="text-[10px]">Exige GCAP + DARF (15%)</Badge>
             </div>
