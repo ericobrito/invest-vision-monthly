@@ -659,6 +659,91 @@ export function CryptoAccountingDashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* GCAP & IRPF Step-by-Step Guide Card */}
+            <Card className="border-primary/40 bg-card">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileSpreadsheet className="w-4.5 h-4.5 text-primary" /> Guia Passo a Passo: Declaração no GCAP & IRPF (Receita Federal)
+                  </CardTitle>
+                  <Badge variant="outline" className="text-primary border-primary/40 font-mono">
+                    Receita Federal BR
+                  </Badge>
+                </div>
+                <CardDescription>
+                  Instruções oficiais para declaração de operações isentas (até R$ 35k/mês) e tributáveis no programa GCAP e no Imposto de Renda.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* CENÁRIO 1: ISENTO (<= 35K) */}
+                  <div className="p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+                    <div className="flex items-center justify-between font-bold text-emerald-400">
+                      <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                        <ShieldCheck className="w-4 h-4 shrink-0" /> 🟢 Vendas Isentas (≤ R$ 35.000,00/mês)
+                      </span>
+                      <Badge className="bg-emerald-500 text-black font-bold text-[10px]">Sem Imposto / Sem GCAP Mensal</Badge>
+                    </div>
+                    <p className="text-muted-foreground text-[11px]">
+                      Se as alienações totais no mês em corretoras nacionais ficaram em <strong>até R$ 35.000,00</strong>, você <strong>NÃO precisa preencher o GCAP nem emitir DARF mensal</strong>.
+                    </p>
+
+                    <div className="space-y-2 pt-1 border-t border-emerald-500/20">
+                      <div className="font-semibold text-foreground">Como informar na Declaração Anual de Ajuste (IRPF):</div>
+                      <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
+                        <li>
+                          <strong className="text-foreground">Ficha "Rendimentos Isentos e Não Tributáveis":</strong> Clique em <em>Novo</em> e selecione o <strong>Código 05</strong> (<em>Ganho de capital na alienação de bem [...] até o limite de isenção</em>).
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Lucro Isento Acumulado:</strong> Informe o lucro total isento acumulado nas vendas dos meses que ficaram dentro dos R$ 35k.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Ficha "Bens e Direitos":</strong> No Grupo <strong>08 (Criptoativos)</strong>, informe o código do ativo (ex: 01-BTC, 02-Altcoins, 03-Stablecoins) e atualize a Situação em 31/12 com o <strong>Custo de Aquisição Total acumulado</strong>.
+                        </li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* CENÁRIO 2: TRIBUTÁVEL (> 35K ou INTERNACIONAL) */}
+                  <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-3">
+                    <div className="flex items-center justify-between font-bold text-amber-400">
+                      <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                        <Calculator className="w-4 h-4 shrink-0" /> 🟠 Vendas Tributáveis (> R$ 35.000 ou Internacional)
+                      </span>
+                      <Badge variant="destructive" className="text-[10px]">Exige GCAP + DARF (15%)</Badge>
+                    </div>
+                    <p className="text-muted-foreground text-[11px]">
+                      Se as vendas ultrapassarem R$ 35.000,00 em um mês em corretoras nacionais, <strong>100% do lucro é tributado a 15%</strong>.
+                    </p>
+
+                    <div className="space-y-2 pt-1 border-t border-amber-500/20">
+                      <div className="font-semibold text-foreground">Passo a Passo Oficial no Programa GCAP:</div>
+                      <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-[11px]">
+                        <li>
+                          <strong className="text-foreground">Baixar o GCAP:</strong> Baixe o programa <em>GCAP (do ano da venda)</em> no site da Receita Federal.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Nova Ficha:</strong> Escolha a aba <strong>Bens Móveis / Criptoativos</strong>.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Dados de Custo:</strong> Copie do Invest Vision o <strong>Custo de Aquisição (Preço Médio)</strong> e a data de compra.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Dados de Venda:</strong> Informe a data da venda, o <strong>Valor de Alienação (R$)</strong> e as taxas da exchange.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Gerar DARF 4600:</strong> Na aba <em>Imposto Devido</em>, clique em <strong>Gerar DARF (Código 4600)</strong> e pague até o último dia útil do mês seguinte.
+                        </li>
+                        <li>
+                          <strong className="text-foreground">Importar no IRPF:</strong> Na declaração anual do IR do ano seguinte, use a função <em>Importar Dados do GCAP</em>.
+                        </li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* TAB 4: RADAR, ALERTAS & SIMULAÇÕES */}
