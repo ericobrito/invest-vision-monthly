@@ -55,18 +55,45 @@ export interface RadarResponse {
   error?: string;
 }
 
+const CRYPTO_SET = new Set([
+  "BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT",
+  "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC", "PEPE", "SHIB", "NEAR", "APT", "SUI", "RENDER", "FET", "NIGHT"
+]);
+
+const knownAthDateMap: Record<string, string> = {
+  "BTC": "2024-11-20T00:00:00.000Z",
+  "BTC-USD": "2024-11-20T00:00:00.000Z",
+  "ETH": "2021-11-16T00:00:00.000Z",
+  "ETH-USD": "2021-11-16T00:00:00.000Z",
+  "USDT": "2017-11-01T00:00:00.000Z",
+  "USDT-USD": "2017-11-01T00:00:00.000Z",
+  "SOL": "2021-11-06T00:00:00.000Z",
+  "SOL-USD": "2021-11-06T00:00:00.000Z",
+  "TSLA": "2021-11-04T00:00:00.000Z",
+  "GOOGL": "2024-07-10T00:00:00.000Z",
+  "META": "2025-02-14T00:00:00.000Z",
+  "AMD": "2024-03-08T00:00:00.000Z",
+  "BRK-B": "2024-05-03T00:00:00.000Z",
+  "BRK.B": "2024-05-03T00:00:00.000Z",
+  "RGTI": "2021-11-18T00:00:00.000Z",
+  "IONQ": "2021-11-17T00:00:00.000Z",
+};
+
 async function fetchChartData(symbol: string): Promise<any> {
-  const trySymbols = [symbol];
-  
-  if (symbol.includes(".")) {
-    trySymbols.push(symbol.replace(".", "-"));
-  }
-  if (symbol.endsWith("-USD")) {
-    trySymbols.push(symbol.replace("-USD", ""));
-  }
-  if (!symbol.includes("-") && !symbol.includes(".")) {
-    trySymbols.push(`${symbol}-USD`);
-    trySymbols.push(`${symbol}.SA`);
+  const upper = symbol.toUpperCase().trim();
+  const cleanSym = upper.replace("-USD", "");
+
+  const trySymbols: string[] = [];
+  if (CRYPTO_SET.has(cleanSym)) {
+    trySymbols.push(`${cleanSym}-USD`);
+  } else {
+    trySymbols.push(upper);
+    if (upper.includes(".")) {
+      trySymbols.push(upper.replace(".", "-"));
+    }
+    if (!upper.includes("-") && !upper.includes(".")) {
+      trySymbols.push(`${upper}.SA`);
+    }
   }
 
   for (const sym of Array.from(new Set(trySymbols))) {
@@ -144,7 +171,9 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
     }
   }
 
-  const normTicker = (userMeta?.ticker || meta.symbol || "").toUpperCase().replace(".", "-");
+  const rawTicker = userMeta?.ticker || meta.symbol || "";
+  let normTicker = rawTicker.toUpperCase().replace(".", "-");
+  if (normTicker.endsWith("-USD")) normTicker = normTicker.replace("-USD", "");
 
   const knownPriceMap: Record<string, number> = {
     "BRK-B": 508.13,
@@ -209,7 +238,15 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
     ath = currentPrice;
   }
 
-  const athDate = validTimestamps[athIdx] ? new Date(validTimestamps[athIdx] * 1000) : new Date();
+  let athDate: Date;
+  if (athFromChart > 0 && validTimestamps[athIdx]) {
+    athDate = new Date(validTimestamps[athIdx] * 1000);
+  } else if (knownAthDateMap[normTicker]) {
+    athDate = new Date(knownAthDateMap[normTicker]);
+  } else {
+    athDate = new Date("2024-11-01T00:00:00.000Z");
+  }
+
   const distanceFromAth = ath > 0 ? (ath - currentPrice) / ath : 0;
   const potentialReturn = currentPrice > 0 ? (ath / currentPrice) - 1 : 0;
   const annualizedReturn = potentialReturn / 2;
@@ -222,11 +259,15 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
   const lookback = Math.min(252, validCloses.length - 1);
   const idx12m = Math.max(0, validCloses.length - 1 - lookback);
   const price12mAgo = validCloses[idx12m] || validCloses[0];
-  const stockReturn12m = price12mAgo > 0 ? (currentPrice - price12mAgo) / price12mAgo : 0;
+  const stockReturn12m = price12mAgo > 0 ? (currentPrice - price12mAgo) / price12mAgo : (userMeta?.profitPct ? Math.min(1.5, Math.max(-0.8, userMeta.profitPct)) : 0.15);
 
-  const relativeStrength = (sp500Return12m && sp500Return12m !== 0 && Number.isFinite(sp500Return12m)) 
-    ? stockReturn12m / sp500Return12m 
-    : 0;
+  const effectiveSp500Return = (sp500Return12m && sp500Return12m > 0 && Number.isFinite(sp500Return12m))
+    ? sp500Return12m
+    : 0.15; // 15% S&P 500 annual return baseline
+
+  const relativeStrength = stockReturn12m !== 0
+    ? Math.max(0.1, (1 + stockReturn12m) / (1 + effectiveSp500Return))
+    : 1.0;
 
   const logReturns: number[] = [];
   for (let i = 1; i < validCloses.length; i++) {
@@ -270,7 +311,7 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
   else if (score >= 80) opportunitySignal = 'Boa Assimetria';
 
   return {
-    ticker: userMeta?.ticker || meta.symbol || meta.name || 'UNKNOWN',
+    ticker: userMeta?.ticker || normTicker,
     currentPrice,
     ath,
     athDate: athDate.toISOString(),
@@ -279,7 +320,7 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
     annualizedReturn: Number.isFinite(annualizedReturn) ? annualizedReturn : 0,
     momentum,
     ma200: Number.isFinite(ma200) ? ma200 : currentPrice,
-    relativeStrength: Number.isFinite(relativeStrength) ? relativeStrength : 0,
+    relativeStrength: Number.isFinite(relativeStrength) ? relativeStrength : 1.0,
     revenueGrowth: null,
     probability30,
     score,
@@ -293,7 +334,8 @@ function analyzeStockData(chart: any, sp500Return12m: number, userMeta?: UserPos
 }
 
 function buildStockDataFromMeta(userMeta: UserPositionMeta, sp500Return12m: number): RadarStock {
-  const normTicker = userMeta.ticker.toUpperCase().replace(".", "-");
+  let normTicker = userMeta.ticker.toUpperCase().replace(".", "-");
+  if (normTicker.endsWith("-USD")) normTicker = normTicker.replace("-USD", "");
   
   const knownPriceMap: Record<string, number> = {
     "BRK-B": 508.13,
@@ -331,36 +373,49 @@ function buildStockDataFromMeta(userMeta: UserPositionMeta, sp500Return12m: numb
   let ath = Math.max(currentPrice, knownAth, userAvgPrice);
   if (ath <= 0) ath = currentPrice;
 
+  const athDateStr = knownAthDateMap[normTicker] || "2024-11-01T00:00:00.000Z";
   const distanceFromAth = ath > 0 ? (ath - currentPrice) / ath : 0;
   const potentialReturn = currentPrice > 0 ? (ath / currentPrice) - 1 : 0;
   const annualizedReturn = potentialReturn / 2;
+
+  const stockReturn12m = userMeta.profitPct != null ? Math.min(1.5, Math.max(-0.8, userMeta.profitPct)) : 0.15;
+  const effectiveSp500Return = (sp500Return12m && sp500Return12m > 0 && Number.isFinite(sp500Return12m))
+    ? sp500Return12m
+    : 0.15;
+  const relativeStrength = Math.max(0.1, (1 + stockReturn12m) / (1 + effectiveSp500Return));
 
   return {
     ticker: userMeta.ticker,
     currentPrice,
     ath,
-    athDate: new Date().toISOString(),
+    athDate: athDateStr,
     distanceFromAth: Number.isFinite(distanceFromAth) ? distanceFromAth : 0,
     potentialReturn: Number.isFinite(potentialReturn) ? potentialReturn : 0,
     annualizedReturn: Number.isFinite(annualizedReturn) ? annualizedReturn : 0,
     momentum: true,
     ma200: currentPrice,
-    relativeStrength: 1.0,
+    relativeStrength: Number.isFinite(relativeStrength) ? relativeStrength : 1.0,
     revenueGrowth: null,
     probability30: Math.min(100, Math.max(0, potentialReturn * 50)),
-    score: 85,
+    score: 74,
     volatility: 0.25,
     avgVolume: 1000000,
     sparklineData: [currentPrice, currentPrice],
-    stockReturn12m: 0.15,
-    qualityBadge: "Forte",
-    opportunitySignal: "Boa Assimetria",
+    stockReturn12m,
+    qualityBadge: "Moderado",
+    opportunitySignal: "Observação",
   };
 }
 
 async function fetchRadar(tab: string, customTickers?: string[], userPositionsMeta?: UserPositionMeta[]): Promise<RadarResponse> {
   if (tab === "my_portfolio" || (customTickers && customTickers.length > 0)) {
-    const tickersToAnalyze = Array.from(new Set(customTickers || []));
+    const rawTickers = (customTickers || []).map(t => {
+      let norm = t.toUpperCase().replace(".", "-");
+      if (norm.endsWith("-USD")) norm = norm.replace("-USD", "");
+      return norm;
+    });
+
+    const tickersToAnalyze = Array.from(new Set(rawTickers));
     if (tickersToAnalyze.length === 0) {
       return {
         success: true,
@@ -375,22 +430,27 @@ async function fetchRadar(tab: string, customTickers?: string[], userPositionsMe
 
     try {
       const sp500Chart = await fetchChartData('^GSPC');
-      let sp500Return12m = 0;
+      let sp500Return12m = 0.15;
       if (sp500Chart) {
         const spCloses = (sp500Chart.indicators?.quote?.[0]?.close || []).filter((c: any) => c != null && c > 0);
         if (spCloses.length >= 252) {
           const spNow = spCloses[spCloses.length - 1];
           const spYearAgo = spCloses[spCloses.length - 252];
-          sp500Return12m = (spNow - spYearAgo) / spYearAgo;
+          const calculated = (spNow - spYearAgo) / spYearAgo;
+          if (calculated > 0) sp500Return12m = calculated;
         }
       }
 
       const metaMap = new Map<string, UserPositionMeta>();
       if (userPositionsMeta) {
-        userPositionsMeta.forEach(m => metaMap.set(m.ticker, m));
+        userPositionsMeta.forEach(m => {
+          let cleanKey = m.ticker.toUpperCase().replace(".", "-");
+          if (cleanKey.endsWith("-USD")) cleanKey = cleanKey.replace("-USD", "");
+          metaMap.set(cleanKey, { ...m, ticker: cleanKey });
+        });
       }
 
-      const results: RadarStock[] = [];
+      const resultsMap = new Map<string, RadarStock>();
       await Promise.all(
         tickersToAnalyze.map(async (ticker) => {
           const meta = metaMap.get(ticker);
@@ -413,13 +473,12 @@ async function fetchRadar(tab: string, customTickers?: string[], userPositionsMe
               analysis.userAveragePrice = meta.averagePrice;
               analysis.userSource = meta.source;
             }
-            results.push(analysis);
+            resultsMap.set(analysis.ticker, analysis);
           }
         })
       );
 
-      // Strictly filter out any items with 0 price
-      const validResults = results.filter(s => s.currentPrice > 0 && s.ath > 0);
+      const validResults = Array.from(resultsMap.values());
 
       // Sort by user value BRL desc if available, or score desc
       validResults.sort((a, b) => {
@@ -444,7 +503,7 @@ async function fetchRadar(tab: string, customTickers?: string[], userPositionsMe
         success: true,
         data: [],
         allData: [],
-        sp500Return12m: 0,
+        sp500Return12m: 0.15,
         updatedAt: new Date().toISOString(),
         totalAnalyzed: tickersToAnalyze.length,
         totalPassed: 0,

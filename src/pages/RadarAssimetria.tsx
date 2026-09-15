@@ -61,10 +61,12 @@ function normalizeTickerForYahoo(rawTicker: string): string | null {
   ];
 
   if (cryptos.includes(sym)) {
-    return `${sym}-USD`;
+    return sym;
   }
 
   if (sym.endsWith("-USD")) {
+    const base = sym.replace("-USD", "");
+    if (cryptos.includes(base)) return base;
     return sym;
   }
 
@@ -297,12 +299,12 @@ const RadarAssimetria = () => {
       "ETH": {
         sources: ["Coinbase"],
         quantity: 0.919702,
-        averagePriceUSD: 169.77,
+        averagePriceUSD: 2160.00,
         currentPriceUSD: 2465.48,
         currentValueUSD: 2267.50,
         currentValueBRL: 11505.29,
-        appliedAmountBRL: 792.25,
-        profitPct: 13.5225,
+        appliedAmountBRL: 10079.80,
+        profitPct: 0.1414,
       },
       "BTC": {
         sources: ["Binance", "Coinbase"],
@@ -317,12 +319,12 @@ const RadarAssimetria = () => {
       "USDT": {
         sources: ["Binance"],
         quantity: 4754.7789,
-        averagePriceUSD: 0.46,
+        averagePriceUSD: 1.00,
         currentPriceUSD: 1.00,
         currentValueUSD: 4754.78,
         currentValueBRL: 24125.75,
-        appliedAmountBRL: 11097.85,
-        profitPct: 1.1739,
+        appliedAmountBRL: 24125.75,
+        profitPct: 0.0029,
       },
     };
 
