@@ -66,7 +66,7 @@ export function useWealthGoals() {
         return DEFAULT_GOALS;
       }
 
-      return data || DEFAULT_GOALS;
+      return (data as unknown as WealthGoals) || DEFAULT_GOALS;
     },
   });
 
