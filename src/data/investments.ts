@@ -39,6 +39,8 @@ export interface Investment {
   /** BRL-normalized value used for portfolio aggregation. */
   valueBRL?: number;
   appliedBRL?: number;
+  /** Legacy alias for `applied` used by import/export utilities. */
+  appliedAmount?: number;
   percentage: number;
   applied?: number;
   /** Currency of the CONSOLIDATED `value` / `applied` fields (default BRL). */
