@@ -129,7 +129,7 @@ const knownAthMap: Record<string, number> = {
 
 const VariableIncomeMoversDashboard = () => {
   const { data: monthlySnapshots = [], isLoading: snapshotsLoading } = useSnapshots();
-  const { positions: variablePositions = [], isLoading: variableLoading } = useVariableAssets();
+  const { positions: variablePositions = [], loading: variableLoading } = useVariableAssets();
 
   const [selectedMonth, setSelectedMonth] = useState<string>("latest");
   const [sortBy, setSortBy] = useState<"profitPct" | "profitBRL" | "currentValue" | "potential">("profitPct");
