@@ -197,6 +197,40 @@ export interface CostResetSimulationResult {
   disclaimer: string;
 }
 
+export interface HybridBuybackSimulationResult {
+  asset: string;
+  totalSaleValueBRL: number;
+  splitImmediatePct: number;
+  splitReservePct: number;
+  sellPriceUSD: number;
+  sellPriceBRL: number;
+  totalSaleQty: number;
+  
+  // Fatia A: Recompra Imediata
+  immediateAmountBRL: number;
+  immediateQtyRebought: number;
+  newAvgCostBRL: number;
+  upsideProtectionPct: number;
+
+  // Fatia B: Caixa Tático & Limit Orders
+  reserveAmountBRL: number;
+  target1DropPct: number;
+  target1PriceUSD: number;
+  target1PriceBRL: number;
+  target1QtyRebought: number;
+  target2DropPct: number;
+  target2PriceUSD: number;
+  target2PriceBRL: number;
+  target2QtyRebought: number;
+
+  // Comparison & Savings
+  totalQtyIfImmediateOnly: number;
+  totalQtyIfHybridDropExecuted: number;
+  extraCryptoQtyGained: number;
+  extraCryptoGainedPct: number;
+  projectedReserveYieldMonthlyBRL: number;
+}
+
 export interface CryptoReconciliationResult {
   confidenceScorePct: number;
   totalOrders: number;

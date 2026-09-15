@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
+  ArrowDownRight,
   BarChart3,
   BookOpen,
   Calculator,
+  CheckCircle2,
+  Coins,
   Compass,
   FileSpreadsheet,
   Flame,
@@ -26,7 +29,10 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Sliders,
+  Sparkles,
   Target,
+  TrendingUp,
   Upload,
   Zap,
 } from "lucide-react";
@@ -58,6 +64,14 @@ export function CryptoAccountingDashboard() {
   // Cost Reset Simulator State
   const [resetAsset, setResetAsset] = useState("BTC");
   const [resetPriceUSD, setResetPriceUSD] = useState("78000");
+
+  // Hybrid Buyback Simulator State (Reset & Limit DCA)
+  const [hybridAsset, setHybridAsset] = useState("BTC");
+  const [hybridSaleValueBRL, setHybridSaleValueBRL] = useState("30000");
+  const [hybridSplitImmediatePct, setHybridSplitImmediatePct] = useState("70");
+  const [hybridSellPriceUSD, setHybridSellPriceUSD] = useState("78000");
+  const [hybridTarget1DropPct, setHybridTarget1DropPct] = useState("10");
+  const [hybridTarget2DropPct, setHybridTarget2DropPct] = useState("20");
 
   // Trigger re-render when trades change
   const [refreshKey, setRefreshKey] = useState(0);
@@ -110,6 +124,25 @@ export function CryptoAccountingDashboard() {
   const costResetSimulation = useMemo(() => {
     return cryptoAccountingEngine.simulateCostReset(resetAsset, parseFloat(resetPriceUSD) || 0);
   }, [resetAsset, resetPriceUSD, refreshKey]);
+
+  const hybridSimulation = useMemo(() => {
+    return cryptoAccountingEngine.simulateHybridBuyback(
+      hybridAsset,
+      parseFloat(hybridSaleValueBRL) || 0,
+      parseFloat(hybridSplitImmediatePct) || 70,
+      parseFloat(hybridSellPriceUSD) || 0,
+      parseFloat(hybridTarget1DropPct) || 10,
+      parseFloat(hybridTarget2DropPct) || 20
+    );
+  }, [
+    hybridAsset,
+    hybridSaleValueBRL,
+    hybridSplitImmediatePct,
+    hybridSellPriceUSD,
+    hybridTarget1DropPct,
+    hybridTarget2DropPct,
+    refreshKey,
+  ]);
 
   const handleImportCSV = () => {
     if (!csvText.trim()) return;
@@ -734,6 +767,188 @@ export function CryptoAccountingDashboard() {
 
                 <div className="text-[11px] text-muted-foreground italic bg-muted/20 p-2 rounded border border-border/40">
                   ⚠️ {costResetSimulation.disclaimer}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Hybrid Buyback Simulator: "Metodologia Híbrida (Reset & Limit DCA)" */}
+            <Card className="border-emerald-500/40 bg-gradient-to-b from-card via-card to-emerald-950/10 shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" /> Simulador: "Metodologia Híbrida de Recompra (Reset & Limit DCA)"
+                  </CardTitle>
+                  <Badge variant="outline" className="text-emerald-400 border-emerald-500/40 font-mono">
+                    Escudo Fiscal + Liquidez
+                  </Badge>
+                </div>
+                <CardDescription>
+                  Combine a elevação do Preço Médio (recompra imediata) com compras parceladas em caso de queda do mercado (caixa em yield).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                {/* Inputs Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-3 p-3 bg-muted/40 rounded-lg border border-border/50">
+                  <div>
+                    <Label className="text-[11px] font-semibold">Ativo</Label>
+                    <Input
+                      value={hybridAsset}
+                      onChange={(e) => setHybridAsset(e.target.value)}
+                      className="h-8 text-xs font-bold uppercase"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-semibold">Valor da Venda (R$)</Label>
+                    <Input
+                      value={hybridSaleValueBRL}
+                      onChange={(e) => setHybridSaleValueBRL(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-semibold">Preço Venda (US$)</Label>
+                    <Input
+                      value={hybridSellPriceUSD}
+                      onChange={(e) => setHybridSellPriceUSD(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-semibold">Divisão (% Imediato)</Label>
+                    <Select
+                      value={hybridSplitImmediatePct}
+                      onValueChange={setHybridSplitImmediatePct}
+                    >
+                      <SelectTrigger className="h-8 text-xs font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="50">50% / 50% (Equilibrado)</SelectItem>
+                        <SelectItem value="70">70% / 30% (Recomendado)</SelectItem>
+                        <SelectItem value="80">80% / 20% (Conservador)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-semibold">Alvo 1 Queda (%)</Label>
+                    <Input
+                      value={hybridTarget1DropPct}
+                      onChange={(e) => setHybridTarget1DropPct(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-semibold">Alvo 2 Queda (%)</Label>
+                    <Input
+                      value={hybridTarget2DropPct}
+                      onChange={(e) => setHybridTarget2DropPct(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Result Split Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Fatia A Card */}
+                  <div className="p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                    <div className="flex items-center justify-between font-bold text-emerald-400">
+                      <span className="flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4" /> Fatia A: Recompra Imediata ({hybridSimulation.splitImmediatePct}%)
+                      </span>
+                      <span className="font-mono text-sm">{fmtBRL(hybridSimulation.immediateAmountBRL)}</span>
+                    </div>
+                    <div className="space-y-1 text-muted-foreground font-mono">
+                      <div className="flex justify-between">
+                        <span>Preço Executado:</span>
+                        <span className="text-foreground">{fmtUSD(hybridSimulation.sellPriceUSD)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Moedas Recompradas:</span>
+                        <span className="text-foreground font-bold">{hybridSimulation.immediateQtyRebought.toFixed(6)} {hybridSimulation.asset}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-emerald-500/20 pt-1">
+                        <span>Proteção Contra Alta (FOMO):</span>
+                        <span className="text-emerald-300 font-bold">{hybridSimulation.upsideProtectionPct}% posicionado</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fatia B Card */}
+                  <div className="p-3.5 rounded-lg border border-blue-500/30 bg-blue-500/5 space-y-2">
+                    <div className="flex items-center justify-between font-bold text-blue-400">
+                      <span className="flex items-center gap-1.5">
+                        <ArrowDownRight className="w-4 h-4" /> Fatia B: Caixa & Ordens Limite ({hybridSimulation.splitReservePct}%)
+                      </span>
+                      <span className="font-mono text-sm">{fmtBRL(hybridSimulation.reserveAmountBRL)}</span>
+                    </div>
+                    <div className="space-y-1 text-muted-foreground font-mono">
+                      <div className="flex justify-between">
+                        <span>Ordem Limite 1 (-{hybridSimulation.target1DropPct}%):</span>
+                        <span className="text-foreground">{fmtUSD(hybridSimulation.target1PriceUSD)} ({hybridSimulation.target1QtyRebought.toFixed(6)} {hybridSimulation.asset})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Ordem Limite 2 (-{hybridSimulation.target2DropPct}%):</span>
+                        <span className="text-foreground">{fmtUSD(hybridSimulation.target2PriceUSD)} ({hybridSimulation.target2QtyRebought.toFixed(6)} {hybridSimulation.asset})</span>
+                      </div>
+                      <div className="flex justify-between border-t border-blue-500/20 pt-1">
+                        <span>Rendimento Estimado do Caixa:</span>
+                        <span className="text-blue-300 font-bold">~{fmtBRL(hybridSimulation.projectedReserveYieldMonthlyBRL)} / mês em USDT/Selic</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulation Comparison Output Banner */}
+                <div className="p-3 bg-card border border-emerald-500/40 rounded-lg space-y-2">
+                  <div className="font-bold text-sm text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-emerald-400" /> Comparativo de Acúmulo de Moedas na Queda
+                    </span>
+                    <Badge className="bg-emerald-500 text-black font-bold">
+                      +{hybridSimulation.extraCryptoGainedPct.toFixed(2)}% mais {hybridSimulation.asset}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-xs pt-1">
+                    <div className="bg-background/60 p-2 rounded border border-border/50">
+                      <span className="text-muted-foreground block text-[10px]">Recompra 100% Imediata:</span>
+                      <span className="font-bold">{hybridSimulation.totalQtyIfImmediateOnly.toFixed(6)} {hybridSimulation.asset}</span>
+                    </div>
+                    <div className="bg-background/60 p-2 rounded border border-border/50">
+                      <span className="text-muted-foreground block text-[10px]">Recompra na Metodologia Híbrida:</span>
+                      <span className="font-bold text-emerald-400">{hybridSimulation.totalQtyIfHybridDropExecuted.toFixed(6)} {hybridSimulation.asset}</span>
+                    </div>
+                    <div className="bg-background/60 p-2 rounded border border-border/50">
+                      <span className="text-muted-foreground block text-[10px]">Ganho Extra em Queda:</span>
+                      <span className="font-bold text-emerald-300">+{hybridSimulation.extraCryptoQtyGained.toFixed(6)} {hybridSimulation.asset}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Plan Guidance */}
+                <div className="p-3 bg-muted/30 rounded-lg space-y-2 border border-border/50">
+                  <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Plano de Operações Recomendado na Corretora:
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-muted-foreground">
+                    <li>
+                      Vender até <strong className="text-foreground">{fmtBRL(hybridSimulation.totalSaleValueBRL)}</strong> de {hybridSimulation.asset} sem incidência de imposto (isenção mensal R$ 35k).
+                    </li>
+                    <li>
+                      Recomprar imediatamente <strong className="text-foreground">{fmtBRL(hybridSimulation.immediateAmountBRL)}</strong> em {hybridSimulation.asset} na ordem a mercado (sobe PM imediatamente).
+                    </li>
+                    <li>
+                      Deixar <strong className="text-foreground">{fmtBRL(hybridSimulation.reserveAmountBRL)}</strong> em USDT rendendo em Earn/Staking.
+                    </li>
+                    <li>
+                      Configurar 2 Ordens Limites de Compra na exchange:
+                      <span className="block pl-4 text-emerald-300">
+                        • 50% do caixa em <strong className="text-foreground">{fmtUSD(hybridSimulation.target1PriceUSD)}</strong> (-{hybridSimulation.target1DropPct}%)
+                      </span>
+                      <span className="block pl-4 text-emerald-300">
+                        • 50% do caixa em <strong className="text-foreground">{fmtUSD(hybridSimulation.target2PriceUSD)}</strong> (-{hybridSimulation.target2DropPct}%)
+                      </span>
+                    </li>
+                  </ol>
                 </div>
               </CardContent>
             </Card>

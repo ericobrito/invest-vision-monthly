@@ -6,6 +6,7 @@ import type {
   CryptoTaxAlert,
   CryptoTaxMonthSummary,
   CryptoTrade,
+  HybridBuybackSimulationResult,
   RebalanceItem,
   RebalanceSimulationResult,
   SimulationResult,
@@ -346,6 +347,79 @@ export class CryptoAccountingEngine {
       futureTaxShieldBRL,
       disclaimer:
         "Simulação informativa. Operações de venda e recompra possuem consequências econômicas, operacionais e tributárias e devem ser avaliadas antes da execução.",
+    };
+  }
+
+  // Simulator #4: "Metodologia Híbrida de Recompra (Reset & Limit DCA)"
+  public simulateHybridBuyback(
+    asset: string,
+    totalSaleValueBRL: number,
+    splitImmediatePct: number,
+    sellPriceUSD: number,
+    target1DropPct = 10,
+    target2DropPct = 20
+  ): HybridBuybackSimulationResult {
+    const fx = this.defaultFxRateBRL;
+    const sellPriceBRL = sellPriceUSD * fx;
+    const totalSaleQty = sellPriceBRL > 0 ? totalSaleValueBRL / sellPriceBRL : 0;
+
+    const splitImmediateRatio = Math.max(0, Math.min(100, splitImmediatePct)) / 100;
+    const splitReserveRatio = 1 - splitImmediateRatio;
+
+    const immediateAmountBRL = totalSaleValueBRL * splitImmediateRatio;
+    const reserveAmountBRL = totalSaleValueBRL * splitReserveRatio;
+
+    const immediateQtyRebought = sellPriceBRL > 0 ? immediateAmountBRL / sellPriceBRL : 0;
+
+    // Target 1 (-10% default)
+    const target1PriceUSD = sellPriceUSD * (1 - target1DropPct / 100);
+    const target1PriceBRL = target1PriceUSD * fx;
+    const target1AmountBRL = reserveAmountBRL * 0.5;
+    const target1QtyRebought = target1PriceBRL > 0 ? target1AmountBRL / target1PriceBRL : 0;
+
+    // Target 2 (-20% default)
+    const target2PriceUSD = sellPriceUSD * (1 - target2DropPct / 100);
+    const target2PriceBRL = target2PriceUSD * fx;
+    const target2AmountBRL = reserveAmountBRL * 0.5;
+    const target2QtyRebought = target2PriceBRL > 0 ? target2AmountBRL / target2PriceBRL : 0;
+
+    const totalQtyIfHybridDropExecuted =
+      immediateQtyRebought + target1QtyRebought + target2QtyRebought;
+    const totalQtyIfImmediateOnly = totalSaleQty;
+
+    const extraCryptoQtyGained = totalQtyIfHybridDropExecuted - totalQtyIfImmediateOnly;
+    const extraCryptoGainedPct =
+      totalQtyIfImmediateOnly > 0 ? (extraCryptoQtyGained / totalQtyIfImmediateOnly) * 100 : 0;
+
+    // Reserve Yield: 0.8% a.m. (approx. 9.6% p.a. in USDT yield / CDI)
+    const projectedReserveYieldMonthlyBRL = reserveAmountBRL * 0.008;
+
+    return {
+      asset,
+      totalSaleValueBRL,
+      splitImmediatePct: splitImmediateRatio * 100,
+      splitReservePct: splitReserveRatio * 100,
+      sellPriceUSD,
+      sellPriceBRL,
+      totalSaleQty,
+      immediateAmountBRL,
+      immediateQtyRebought,
+      newAvgCostBRL: sellPriceBRL,
+      upsideProtectionPct: splitImmediateRatio * 100,
+      reserveAmountBRL,
+      target1DropPct,
+      target1PriceUSD,
+      target1PriceBRL,
+      target1QtyRebought,
+      target2DropPct,
+      target2PriceUSD,
+      target2PriceBRL,
+      target2QtyRebought,
+      totalQtyIfImmediateOnly,
+      totalQtyIfHybridDropExecuted,
+      extraCryptoQtyGained,
+      extraCryptoGainedPct,
+      projectedReserveYieldMonthlyBRL,
     };
   }
 }
