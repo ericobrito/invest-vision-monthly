@@ -158,16 +158,28 @@ export default function IntelligentPlan() {
       return "Ação Brasil" as const;
     };
 
+    const isExcludedAsset = (symbol: string, name: string): boolean => {
+      const symUpper = (symbol || "").toUpperCase();
+      const nameLower = (name || "").toLowerCase();
+      if (["PETR4", "PETR3", "VALE3", "SMH"].includes(symUpper)) return true;
+      if (nameLower.includes("pedro") || symUpper.includes("PEDRO")) return true;
+      return false;
+    };
+
     const rawItems: StockPositionInput[] = [];
 
     for (const inv of latestSnapshot.investments || []) {
+      const invNameLower = (inv.name || "").toLowerCase();
+      if (invNameLower.includes("pedro")) continue;
+
       if (inv.positions && inv.positions.length > 0) {
         for (const p of inv.positions) {
           const rawSym = p.symbol || p.ticker || "ATIVO";
           const sym = normalizeTicker(rawSym, p.name || "");
-          if (["PETR4", "PETR3", "VALE3", "SMH"].includes(sym)) continue;
-
           const pName = p.name || sym;
+
+          if (isExcludedAsset(sym, pName)) continue;
+
           const currency = p.currency || inv.currency || "BRL";
           const fxRate = p.fxRate || 1.0;
           const currentValueBRL = p.currentValueBRL ?? (p.currentValue * fxRate);
@@ -189,7 +201,7 @@ export default function IntelligentPlan() {
       } else if (inv.incomeType === "variable" || inv.flags?.includeInVariablePositions) {
         const rawSym = inv.linkedAsset?.symbol || inv.name || "ATIVO";
         const sym = normalizeTicker(rawSym, inv.name || "");
-        if (["PETR4", "PETR3", "VALE3", "SMH"].includes(sym)) continue;
+        if (isExcludedAsset(sym, inv.name || "")) continue;
 
         const currency = inv.currency || "BRL";
         const valBRL = inv.valueBRL ?? inv.value;
