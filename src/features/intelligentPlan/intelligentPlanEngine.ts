@@ -120,7 +120,8 @@ export class IntelligentPlanEngine {
    */
   public analyzeVariableIncomePortfolio(
     stockPositions: StockPositionInput[],
-    config: IntelligentPlanConfig = DEFAULT_PLAN_CONFIG
+    config: IntelligentPlanConfig = DEFAULT_PLAN_CONFIG,
+    extraCash: { nubankCashBRL?: number } = {}
   ) {
     // 1. Calculate Single Source of Truth metrics per individual stock position
     let totalVariableIncomeBRL = 0;
@@ -319,8 +320,9 @@ export class IntelligentPlanEngine {
       }
     });
 
-    // Opportunity Cash Overview (including stablecoins like USDT, USDC)
-    const totalOpportunityCashBRL = config.currentOpportunityCashBRL + stablecoinCashBRL;
+    // Opportunity Cash Overview (including stablecoins like USDT, USDC & daily liquidity Nubank)
+    const nubankCashBRL = extraCash.nubankCashBRL || 0;
+    const totalOpportunityCashBRL = config.currentOpportunityCashBRL + stablecoinCashBRL + nubankCashBRL;
 
     const opportunityCash: OpportunityCashOverview = {
       targetBRL: config.opportunityCashTargetBRL,
@@ -331,6 +333,7 @@ export class IntelligentPlanEngine {
           ? Math.min(100, (totalOpportunityCashBRL / config.opportunityCashTargetBRL) * 100)
           : 100,
       stablecoinCashBRL,
+      nubankCashBRL,
     };
 
     // MANDATORY DEBUG LOG per spec

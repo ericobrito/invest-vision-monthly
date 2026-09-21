@@ -243,6 +243,22 @@ export default function IntelligentPlan() {
     return extracted.length > 0 ? extracted : defaultPositions;
   }, [snapshots]);
 
+  // Calculate Nubank daily liquidity cash from snapshots
+  const nubankCashBRL = useMemo(() => {
+    if (!snapshots || snapshots.length === 0) return 0;
+    const latest = snapshots[snapshots.length - 1];
+    if (!latest || !latest.investments) return 0;
+
+    let sum = 0;
+    for (const inv of latest.investments) {
+      const n = (inv.name || "").toLowerCase();
+      if (n.includes("nubank") || n.includes("nu bank") || n.includes("nu conta") || n.includes("nu reserva")) {
+        sum += inv.valueBRL ?? inv.value ?? 0;
+      }
+    }
+    return sum;
+  }, [snapshots]);
+
   // Filter stock positions by selected category
   const filteredStockPositions = useMemo(() => {
     if (selectedCategory === "ALL") return stockPositions;
@@ -251,8 +267,8 @@ export default function IntelligentPlan() {
 
   // Run Intelligent Plan Engine strictly for Variable Income at stock level
   const analysis = useMemo(() => {
-    return intelligentPlanEngine.analyzeVariableIncomePortfolio(filteredStockPositions, config);
-  }, [filteredStockPositions, config]);
+    return intelligentPlanEngine.analyzeVariableIncomePortfolio(filteredStockPositions, config, { nubankCashBRL });
+  }, [filteredStockPositions, config, nubankCashBRL]);
 
   // Dynamic category asset count badges
   const categoryCounts = useMemo(() => {
@@ -491,14 +507,19 @@ export default function IntelligentPlan() {
                 <h3 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">
                   R$ {analysis.opportunityCash.currentBRL.toLocaleString()}
                 </h3>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Meta: R$ {analysis.opportunityCash.targetBRL.toLocaleString()} ({analysis.opportunityCash.progressPct.toFixed(0)}%)
-                  {analysis.opportunityCash.stablecoinCashBRL && analysis.opportunityCash.stablecoinCashBRL > 0 ? (
-                    <span className="block text-emerald-500 font-medium text-[10px] mt-0.5">
-                      (R$ {config.currentOpportunityCashBRL.toLocaleString()} líquido + R$ {analysis.opportunityCash.stablecoinCashBRL.toLocaleString()} em USDT/USD)
-                    </span>
+                <div className="text-[11px] text-muted-foreground mt-1 space-y-0.5">
+                  <p>Meta: R$ {analysis.opportunityCash.targetBRL.toLocaleString()} ({analysis.opportunityCash.progressPct.toFixed(0)}%)</p>
+                  {(analysis.opportunityCash.nubankCashBRL || analysis.opportunityCash.stablecoinCashBRL) ? (
+                    <div className="text-[10px] text-emerald-500 font-medium leading-tight mt-1">
+                      {analysis.opportunityCash.nubankCashBRL && analysis.opportunityCash.nubankCashBRL > 0 ? (
+                        <div>• Nubank (Liquidez Diária): R$ {Math.round(analysis.opportunityCash.nubankCashBRL).toLocaleString()}</div>
+                      ) : null}
+                      {analysis.opportunityCash.stablecoinCashBRL && analysis.opportunityCash.stablecoinCashBRL > 0 ? (
+                        <div>• USDT / USD: R$ {Math.round(analysis.opportunityCash.stablecoinCashBRL).toLocaleString()}</div>
+                      ) : null}
+                    </div>
                   ) : null}
-                </p>
+                </div>
               </div>
               <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-600 dark:text-cyan-400">
                 <DollarSign className="w-5 h-5" />

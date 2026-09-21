@@ -79,6 +79,7 @@ export interface OpportunityCashOverview {
   emergencyReserveBRL?: number;
   operationalCashBRL?: number;
   stablecoinCashBRL?: number;
+  nubankCashBRL?: number;
 }
 
 export interface ReEntryLevelStatus {
