@@ -68,18 +68,12 @@ const App = () => {
     );
   }
 
-  const normalizedPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
-  const isPublicPath = 
-    normalizedPath === "" || 
-    normalizedPath === "/landing" || 
-    normalizedPath === "/vendas" || 
-    normalizedPath === "/login";
-
-  if (!session && !isPublicPath) {
-    // Force redirect to the public login page to keep browser URL correct
-    window.location.href = "/login";
-    return null;
-  }
+  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+    if (!session) {
+      return <Navigate to="/login" replace />;
+    }
+    return children;
+  };
 
   return (
     <ThemeProvider>
@@ -94,18 +88,18 @@ const App = () => {
                 <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login onSessionActive={() => {}} />} />
                 <Route path="/vendas" element={<Landing />} />
                 <Route path="/landing" element={<Landing />} />
-                <Route path="/radar" element={<RadarAssimetria />} />
-                <Route path="/radar-etf" element={<RadarETF />} />
-                <Route path="/radar-tesouro" element={<RadarTesouro />} />
-                <Route path="/plano-acao" element={<PlanoAcao />} />
-                <Route path="/posicoes-variaveis" element={<PosicoesVariaveis />} />
-                <Route path="/admin/audit" element={<AdminAuditCenter />} />
-                <Route path="/admin/incidents" element={<IncidentCenter />} />
-                <Route path="/simulador-renda" element={<PassiveIncomeSimulator />} />
-                <Route path="/metas" element={<WealthGoalsManager />} />
-                <Route path="/desempenho-variavel" element={<VariableIncomeMoversDashboard />} />
-                <Route path="/maiores-altas" element={<VariableIncomeMoversDashboard />} />
-                <Route path="/contabilidade-cripto" element={<CryptoAccountingDashboard />} />
+                <Route path="/radar" element={<ProtectedRoute><RadarAssimetria /></ProtectedRoute>} />
+                <Route path="/radar-etf" element={<ProtectedRoute><RadarETF /></ProtectedRoute>} />
+                <Route path="/radar-tesouro" element={<ProtectedRoute><RadarTesouro /></ProtectedRoute>} />
+                <Route path="/plano-acao" element={<ProtectedRoute><PlanoAcao /></ProtectedRoute>} />
+                <Route path="/posicoes-variaveis" element={<ProtectedRoute><PosicoesVariaveis /></ProtectedRoute>} />
+                <Route path="/admin/audit" element={<ProtectedRoute><AdminAuditCenter /></ProtectedRoute>} />
+                <Route path="/admin/incidents" element={<ProtectedRoute><IncidentCenter /></ProtectedRoute>} />
+                <Route path="/simulador-renda" element={<ProtectedRoute><PassiveIncomeSimulator /></ProtectedRoute>} />
+                <Route path="/metas" element={<ProtectedRoute><WealthGoalsManager /></ProtectedRoute>} />
+                <Route path="/desempenho-variavel" element={<ProtectedRoute><VariableIncomeMoversDashboard /></ProtectedRoute>} />
+                <Route path="/maiores-altas" element={<ProtectedRoute><VariableIncomeMoversDashboard /></ProtectedRoute>} />
+                <Route path="/contabilidade-cripto" element={<ProtectedRoute><CryptoAccountingDashboard /></ProtectedRoute>} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
