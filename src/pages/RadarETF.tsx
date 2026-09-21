@@ -313,7 +313,7 @@ export default function RadarETF() {
                     <th className="py-3.5 px-3 text-center">ETF Score</th>
                     <th className="py-3.5 px-3 text-center">Sinal</th>
                     <th className="py-3.5 px-3 text-right">Ret. 1Y</th>
-                    <th className="py-3.5 px-3 text-right">CAGR</th>
+                    <th className="py-3.5 px-3 text-right" title="Rentabilidade Anualizada Composta nos últimos 10 anos">CAGR (10 Anos)</th>
                     <th className="py-3.5 px-3 text-right">Max DD</th>
                     <th className="py-3.5 px-3 text-right">Sharpe</th>
                     <th className="py-3.5 px-3 text-right">Alpha S&P</th>
@@ -366,7 +366,9 @@ export default function RadarETF() {
                           <td className={`py-3.5 px-3 text-right font-mono font-medium ${m.return1YPct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                             {m.return1YPct >= 0 ? "+" : ""}{return1YFormatted}
                           </td>
-                          <td className="py-3.5 px-3 text-right font-mono text-foreground">{m.cagrPct.toFixed(1)}%</td>
+                          <td className="py-3.5 px-3 text-right font-mono text-foreground font-medium" title="Taxa Anual Composta (10 anos)">
+                            {m.cagrPct.toFixed(1)}% a.a.
+                          </td>
                           <td className="py-3.5 px-3 text-right font-mono text-rose-500">{m.maxDrawdownPct.toFixed(1)}%</td>
                           <td className="py-3.5 px-3 text-right font-mono text-foreground">{m.sharpeRatio.toFixed(2)}</td>
                           <td className={`py-3.5 px-3 text-right font-mono font-medium ${m.alphaVsSp500Pct >= 0 ? "text-emerald-500" : "text-amber-500"}`}>
