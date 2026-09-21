@@ -522,7 +522,7 @@ async function fetchRadar(tab: string, customTickers?: string[], userPositionsMe
 
 export function useRadarData(tab: string, customTickers?: string[], userPositionsMeta?: UserPositionMeta[]) {
   return useQuery({
-    queryKey: ['radar', tab, customTickers, userPositionsMeta],
+    queryKey: ['radar', tab, customTickers ? customTickers.join(',') : '', userPositionsMeta ? JSON.stringify(userPositionsMeta) : ''],
     queryFn: () => fetchRadar(tab, customTickers, userPositionsMeta),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,

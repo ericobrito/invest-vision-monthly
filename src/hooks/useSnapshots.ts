@@ -236,8 +236,8 @@ export function useSnapshots() {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["snapshots"],
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
     queryFn: async (): Promise<MonthlySnapshot[]> => {
       // Self-heal: Ensure all investments in the database are set to BRL currency since we store everything in BRL
       try {
@@ -427,26 +427,7 @@ export function useSnapshots() {
       const oldestSync = Math.min(...detailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
       if (now - oldestSync > FIVE_MINUTES_MS) {
         console.log(`[useSnapshots] Background syncing detailed investments`);
-        propagateDetailedValues(latest.id, detailedInvs).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["snapshots"] });
-        });
-      }
-    }
-
-    // 3. Temporary force sync for July 2026 detailed investments to correct their stale database values
-    const julSnap = monthlyData.find(s => s.month === "2026-07");
-    if (julSnap && julSnap.id !== latest.id) {
-      const julDetailedInvs = julSnap.investments.filter(
-        (inv) => inv.mode === "DETAILED"
-      );
-      if (julDetailedInvs.length > 0) {
-        const oldestJulSync = Math.min(...julDetailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
-        if (now - oldestJulSync > 15 * 1000) {
-          console.log(`[useSnapshots] Temporarily force syncing July 2026 to align database values`);
-          propagateDetailedValues(julSnap.id, julDetailedInvs).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["snapshots"] });
-          });
-        }
+        propagateDetailedValues(latest.id, detailedInvs);
       }
     }
   }, [monthlyData, queryClient]);
