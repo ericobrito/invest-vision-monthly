@@ -172,6 +172,14 @@ export default function IntelligentPlan() {
       const invNameLower = (inv.name || "").toLowerCase();
       if (invNameLower.includes("pedro")) continue;
 
+      // Rule: Only include variable income positions from investments in DETAILED or CONNECTED mode
+      const isDetailedOrConnected =
+        inv.mode === "DETAILED" ||
+        inv.mode === "CONNECTED" ||
+        (inv.positions && inv.positions.length > 0);
+
+      if (!isDetailedOrConnected) continue;
+
       if (inv.positions && inv.positions.length > 0) {
         for (const p of inv.positions) {
           const rawSym = p.symbol || p.ticker || "ATIVO";
@@ -198,27 +206,6 @@ export default function IntelligentPlan() {
             appliedAmountBRL: appliedAmountBRL,
           });
         }
-      } else if (inv.incomeType === "variable" || inv.flags?.includeInVariablePositions) {
-        const rawSym = inv.linkedAsset?.symbol || inv.name || "ATIVO";
-        const sym = normalizeTicker(rawSym, inv.name || "");
-        if (isExcludedAsset(sym, inv.name || "")) continue;
-
-        const currency = inv.currency || "BRL";
-        const valBRL = inv.valueBRL ?? inv.value;
-        const appBRL = inv.appliedBRL ?? inv.value;
-
-        rawItems.push({
-          symbol: sym,
-          name: inv.name,
-          category: inferCategory(sym, inv.name, currency, inv.region, inv.incomeType),
-          quantity: inv.quantity || 1,
-          averagePrice: inv.averagePrice || appBRL,
-          currentPrice: inv.currentPrice || valBRL,
-          currency: currency,
-          fxRate: 1.0,
-          currentValueBRL: valBRL,
-          appliedAmountBRL: appBRL,
-        });
       }
     }
 
