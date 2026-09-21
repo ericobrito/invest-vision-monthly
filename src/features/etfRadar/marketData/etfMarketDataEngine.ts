@@ -5,22 +5,43 @@ export class ETFMarketDataEngine {
   private cache: Map<string, { timestamp: number; data: ETFMetrics }> = new Map();
   private cacheTtlMs = 10 * 60 * 1000; // 10 minutes cache
   private defaultFxRateBRL = 5.45;
+  private cachedFxRate: number | null = null;
+  private fxFetchedTimestamp = 0;
 
   public async getFxRateBRL(): Promise<number> {
+    if (this.cachedFxRate && Date.now() - this.fxFetchedTimestamp < 30 * 60 * 1000) {
+      return this.cachedFxRate;
+    }
+
     try {
-      // Read-only try to fetch real FX rate or fallback safely
-      const res = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/BRL=X?interval=1d&range=1d");
-      if (res.ok) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 800); // 800ms strict timeout
+
+      const res = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/BRL=X?interval=1d&range=1d", {
+        signal: controller.signal,
+      }).catch(() => null);
+
+      clearTimeout(timeoutId);
+
+      if (res && res.ok) {
         const json = await res.json();
         const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
         if (typeof price === "number" && price > 3 && price < 10) {
+          this.cachedFxRate = price;
+          this.fxFetchedTimestamp = Date.now();
           return price;
         }
       }
     } catch {
       // Silently fall back to default
     }
+
+    this.cachedFxRate = this.defaultFxRateBRL;
     return this.defaultFxRateBRL;
+  }
+
+  public getAllMetricsSync(fxRate: number = 5.45): ETFMetrics[] {
+    return ETF_UNIVERSE.map((item) => this.calculateMockDeterministicMetrics(item.ticker, fxRate));
   }
 
   public async getMetricsForEtf(ticker: string): Promise<ETFMetrics> {
@@ -31,20 +52,14 @@ export class ETFMarketDataEngine {
     }
 
     const fxRate = await this.getFxRateBRL();
-
-    // Deterministic realistic baseline seed for isolated ETF Radar metrics
     const metrics = this.calculateMockDeterministicMetrics(uppercaseTicker, fxRate);
     this.cache.set(uppercaseTicker, { timestamp: Date.now(), data: metrics });
     return metrics;
   }
 
   public async getAllMetrics(): Promise<ETFMetrics[]> {
-    const list: ETFMetrics[] = [];
-    for (const item of ETF_UNIVERSE) {
-      const m = await this.getMetricsForEtf(item.ticker);
-      list.push(m);
-    }
-    return list;
+    const fxRate = await this.getFxRateBRL();
+    return this.getAllMetricsSync(fxRate);
   }
 
   private calculateMockDeterministicMetrics(ticker: string, fxRate: number): ETFMetrics {

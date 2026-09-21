@@ -43,10 +43,6 @@ export default function RadarETF() {
   const [currencyMode, setCurrencyMode] = useState<"USD" | "BRL">("USD");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [metricsMap, setMetricsMap] = useState<Record<string, ETFMetrics>>({});
-  const [scoresMap, setScoresMap] = useState<Record<string, ETFScoreBreakdown>>({});
-  const [trendsMap, setTrendsMap] = useState<Record<string, ETFTrendSignal>>({});
-  const [loading, setLoading] = useState(true);
   const [fxRate, setFxRate] = useState(5.45);
 
   // Drilldown modal state
@@ -56,38 +52,40 @@ export default function RadarETF() {
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>("STRATEGY_B");
   const [rebalanceFreq, setRebalanceFreq] = useState<RebalanceFrequency>("ANNUAL");
   const [initialCapital, setInitialCapital] = useState<number>(10000);
-  const [backtestResult, setBacktestResult] = useState<BacktestSummaryResult | null>(null);
 
+  // Instant synchronous calculation for 0ms initial render (no preview lag)
+  const { metricsMap, scoresMap, trendsMap } = useMemo(() => {
+    const metricsList = etfMarketDataEngine.getAllMetricsSync(fxRate);
+    const mAcc: Record<string, ETFMetrics> = {};
+    const sAcc: Record<string, ETFScoreBreakdown> = {};
+    const tAcc: Record<string, ETFTrendSignal> = {};
+
+    metricsList.forEach((m) => {
+      mAcc[m.ticker] = m;
+      sAcc[m.ticker] = calculateEtfScore(m);
+      tAcc[m.ticker] = detectEtfTrend(m);
+    });
+
+    return { metricsMap: mAcc, scoresMap: sAcc, trendsMap: tAcc };
+  }, [fxRate]);
+
+  // Non-blocking background FX rate check
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const metricsList = await etfMarketDataEngine.getAllMetrics();
-      const currentFx = await etfMarketDataEngine.getFxRateBRL();
-      setFxRate(currentFx);
-
-      const mAcc: Record<string, ETFMetrics> = {};
-      const sAcc: Record<string, ETFScoreBreakdown> = {};
-      const tAcc: Record<string, ETFTrendSignal> = {};
-
-      metricsList.forEach((m) => {
-        mAcc[m.ticker] = m;
-        sAcc[m.ticker] = calculateEtfScore(m);
-        tAcc[m.ticker] = detectEtfTrend(m);
-      });
-
-      setMetricsMap(mAcc);
-      setScoresMap(sAcc);
-      setTrendsMap(tAcc);
-      setLoading(false);
-    }
-    loadData();
+    let isMounted = true;
+    etfMarketDataEngine.getFxRateBRL().then((currentFx) => {
+      if (isMounted && currentFx && currentFx !== fxRate) {
+        setFxRate(currentFx);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Update backtest calculation whenever strategy, rebalanceFreq or initialCapital changes
-  useEffect(() => {
+  // Backtest memoized calculation
+  const backtestResult = useMemo(() => {
     const strat = DEFAULT_PRESET_STRATEGIES.find((s) => s.id === selectedStrategyId) || DEFAULT_PRESET_STRATEGIES[0];
-    const res = etfBacktestEngine.runBacktest(strat, initialCapital, rebalanceFreq);
-    setBacktestResult(res);
+    return etfBacktestEngine.runBacktest(strat, initialCapital, rebalanceFreq);
   }, [selectedStrategyId, rebalanceFreq, initialCapital]);
 
   const filteredEtfs = useMemo(() => {
@@ -323,13 +321,7 @@ export default function RadarETF() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={11} className="py-8 text-center text-slate-400">
-                        Carregando métricas do ETF Radar...
-                      </td>
-                    </tr>
-                  ) : filteredEtfs.length === 0 ? (
+                  {filteredEtfs.length === 0 ? (
                     <tr>
                       <td colSpan={11} className="py-8 text-center text-slate-400">
                         Nenhum ETF encontrado para o filtro aplicado.
