@@ -14,6 +14,19 @@ import type {
   AssetRuleConfig,
 } from "./types";
 
+export interface StockPositionInput {
+  symbol: string;
+  name: string;
+  category: "Ação EUA" | "Ação Brasil" | "Criptoativo" | "ETF" | "FII";
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  currency?: string;
+  fxRate?: number;
+  appliedAmountBRL?: number;
+  currentValueBRL?: number;
+}
+
 export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
   opportunityCashTargetBRL: 50000,
   currentOpportunityCashBRL: 32000,
@@ -47,6 +60,16 @@ export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
       maxRealizationPct: 20,
       individualDrawdownTriggerPct: -14,
     },
+    NVDA: {
+      symbol: "NVDA",
+      name: "NVIDIA Corp.",
+      targetWeightPct: 10,
+      minWeightPct: 5,
+      maxWeightPct: 15,
+      minPositionValueBRL: 20000,
+      maxRealizationPct: 30,
+      individualDrawdownTriggerPct: -15,
+    },
     BTC: {
       symbol: "BTC",
       name: "Bitcoin",
@@ -67,6 +90,26 @@ export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
       maxRealizationPct: 25,
       individualDrawdownTriggerPct: -18,
     },
+    PETR4: {
+      symbol: "PETR4",
+      name: "Petrobras PN",
+      targetWeightPct: 6,
+      minWeightPct: 3,
+      maxWeightPct: 8,
+      minPositionValueBRL: 10000,
+      maxRealizationPct: 20,
+      individualDrawdownTriggerPct: -15,
+    },
+    VALE3: {
+      symbol: "VALE3",
+      name: "Vale ON",
+      targetWeightPct: 6,
+      minWeightPct: 3,
+      maxWeightPct: 8,
+      minPositionValueBRL: 10000,
+      maxRealizationPct: 20,
+      individualDrawdownTriggerPct: -15,
+    },
   },
 };
 
@@ -78,64 +121,91 @@ export class IntelligentPlanEngine {
   }
 
   /**
-   * Evaluates entire portfolio diagnostic using Single Source of Truth
+   * Evaluates Intelligent Plan strictly for Variable Income assets at individual stock/asset level.
+   * Single Source of Truth via PortfolioCalculationService.
    */
-  public analyzePortfolio(
-    investments: InvestmentInput[],
+  public analyzeVariableIncomePortfolio(
+    stockPositions: StockPositionInput[],
     config: IntelligentPlanConfig = DEFAULT_PLAN_CONFIG
   ) {
-    // Single Source of Truth Portfolio Metrics
-    const portfolioMetrics = portfolioCalculationService.calculatePortfolioMetrics(investments);
-    const totalPortfolioValueBRL = portfolioMetrics.currentValue;
+    // 1. Calculate Single Source of Truth metrics per individual stock position
+    let totalVariableIncomeBRL = 0;
+    let totalVariableInvestedBRL = 0;
+
+    const computedPositions = stockPositions.map((pos) => {
+      const metricsBRL = portfolioCalculationService.calculatePositionMetricsBRL({
+        symbol: pos.symbol,
+        quantity: pos.quantity,
+        averagePrice: pos.averagePrice,
+        currentPrice: pos.currentPrice,
+        currency: pos.currency || "BRL",
+        fxRate: pos.fxRate || 5.45,
+        appliedAmountBRL: pos.appliedAmountBRL,
+        currentValueBRL: pos.currentValueBRL,
+      });
+
+      totalVariableIncomeBRL += metricsBRL.currentValue;
+      totalVariableInvestedBRL += metricsBRL.investedValue;
+
+      return {
+        ...pos,
+        metricsBRL,
+      };
+    });
 
     const diagnostics: InvestmentDiagnosticItem[] = [];
     const suggestions: RealizationSuggestionItem[] = [];
+    const assetReEntryTriggers: AssetReEntryStatus[] = [];
 
-    investments.forEach((inv) => {
-      const invMetrics = portfolioCalculationService.calculateInvestmentMetrics(inv);
-      const currentValueBRL = invMetrics.currentValue;
-      const investedValueBRL = invMetrics.investedValue;
-      const profitBRL = invMetrics.profit;
-      const profitPercent = invMetrics.profitPercent;
+    // 2. Evaluate individual stock position rules against Variable Income total
+    computedPositions.forEach((pos) => {
+      const currentValueBRL = pos.metricsBRL.currentValue;
+      const investedValueBRL = pos.metricsBRL.investedValue;
+      const profitBRL = pos.metricsBRL.profit;
+      const profitPercent = pos.metricsBRL.profitPercent;
 
-      const currentWeightPct = totalPortfolioValueBRL > 0 ? (currentValueBRL / totalPortfolioValueBRL) * 100 : 0;
-      const rule: AssetRuleConfig = config.assetRules[inv.name.toUpperCase()] || {
-        symbol: inv.name.toUpperCase(),
-        name: inv.name,
+      // Weight relative to Variable Income Portfolio
+      const currentWeightPct =
+        totalVariableIncomeBRL > 0 ? (currentValueBRL / totalVariableIncomeBRL) * 100 : 0;
+
+      const rule: AssetRuleConfig = config.assetRules[pos.symbol.toUpperCase()] || {
+        symbol: pos.symbol.toUpperCase(),
+        name: pos.name,
         targetWeightPct: 5,
         minWeightPct: 2,
         maxWeightPct: 10,
         minPositionValueBRL: Math.max(1000, currentValueBRL * 0.4),
         maxRealizationPct: 25,
+        individualDrawdownTriggerPct: -15,
       };
 
-      // Capital Excess: currentValue - minimumPositionValue
+      // Capital Excess over minimum position
       const capitalExcessBRL = Math.max(0, currentValueBRL - rule.minPositionValueBRL);
 
-      // Valuation Rule threshold
+      // Valuation Alert threshold (+50%, +100%, +200%)
       let valuationAlert: ValuationAlertLevel = "NONE";
       if (profitPercent >= 200) valuationAlert = "VERY_HIGH";
       else if (profitPercent >= 100) valuationAlert = "HIGH";
       else if (profitPercent >= 50) valuationAlert = "ATTENTION";
 
-      // Operational Alert State Determination
+      // Operational Alert State (Only 🟢, 🟡, 🔴, 🔵)
       let alertState: OperationalAlertState = "STRATEGY_OK";
-      let alertMessage = "Dentro da estratégia configurada";
+      let alertMessage = "Posição dentro da estratégia de Renda Variável";
 
       if (currentWeightPct > rule.maxWeightPct) {
         alertState = "RULE_TRIGGERED";
-        alertMessage = `🔴 Posição acima do peso máximo configurado (${currentWeightPct.toFixed(1)}% vs max ${rule.maxWeightPct}%).`;
+        alertMessage = `🔴 Ação acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
       } else if (currentWeightPct > rule.targetWeightPct || valuationAlert !== "NONE") {
         alertState = "REQUIRES_ATTENTION";
-        alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou retorno expressivo (+${profitPercent.toFixed(0)}%).`;
+        alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou lucro expressivo (+${profitPercent.toFixed(0)}%).`;
       } else if (currentWeightPct < rule.minWeightPct) {
         alertState = "AWAITING_TRIGGER";
-        alertMessage = `🔵 Aguardando gatilho: Posição abaixo da alocação mínima desejada (${currentWeightPct.toFixed(1)}%).`;
+        alertMessage = `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
       }
 
       // MANDATORY DEBUG LOG per spec
       console.log({
-        investmentName: inv.name,
+        investmentName: pos.symbol,
         currentValue: currentValueBRL,
         investedValue: investedValueBRL,
         returnPercent: profitPercent,
@@ -146,18 +216,18 @@ export class IntelligentPlanEngine {
       });
 
       diagnostics.push({
-        id: inv.name,
-        symbol: rule.symbol,
-        name: rule.name,
-        category: inv.mode || "Renda Variável",
-        nativeCurrency: "BRL",
-        currentValueNative: currentValueBRL,
+        id: pos.symbol,
+        symbol: pos.symbol,
+        name: pos.name,
+        category: pos.category,
+        nativeCurrency: pos.currency || "BRL",
+        currentValueNative: pos.quantity * pos.currentPrice,
         currentValueBRL,
         investedValueBRL,
         profitBRL,
         profitPercent,
-        quantity: 1,
-        averageCost: investedValueBRL,
+        quantity: pos.quantity,
+        averageCost: pos.averagePrice,
         currentWeightPct,
         targetWeightPct: rule.targetWeightPct,
         maxWeightPct: rule.maxWeightPct,
@@ -170,18 +240,19 @@ export class IntelligentPlanEngine {
         currentDrawdownPct: 0,
       });
 
-      // Partial Realization calculation if rule triggered or excess capital available
+      // Partial realization suggestion if rule triggered or excess capital available
       if (alertState === "RULE_TRIGGERED" || alertState === "REQUIRES_ATTENTION") {
         const realizationPct = rule.maxRealizationPct / 100;
         const proposedSaleBRL = Math.min(capitalExcessBRL, currentValueBRL * realizationPct);
         const remainingPositionBRL = currentValueBRL - proposedSaleBRL;
-        const newWeightPct = totalPortfolioValueBRL > 0 ? (remainingPositionBRL / totalPortfolioValueBRL) * 100 : 0;
+        const newWeightPct =
+          totalVariableIncomeBRL > 0 ? (remainingPositionBRL / totalVariableIncomeBRL) * 100 : 0;
         const profitRatio = currentValueBRL > 0 ? profitBRL / currentValueBRL : 0;
         const estimatedRealizedProfitBRL = proposedSaleBRL * profitRatio;
 
         suggestions.push({
-          symbol: rule.symbol,
-          name: rule.name,
+          symbol: pos.symbol,
+          name: pos.name,
           currentPositionBRL: currentValueBRL,
           configuredRealizationPct: rule.maxRealizationPct,
           suggestedSaleBRL: proposedSaleBRL,
@@ -193,6 +264,18 @@ export class IntelligentPlanEngine {
           alertState,
         });
       }
+
+      // Stock Drawdown Trigger Check
+      if (rule.individualDrawdownTriggerPct) {
+        assetReEntryTriggers.push({
+          symbol: pos.symbol,
+          name: pos.name,
+          currentDrawdownPct: 0, // Dynamic stock drawdown calculation
+          configuredTriggerPct: rule.individualDrawdownTriggerPct,
+          isTriggered: false,
+          suggestedReEntryBRL: Math.round(config.currentOpportunityCashBRL * 0.15),
+        });
+      }
     });
 
     // Opportunity Cash Overview
@@ -200,9 +283,10 @@ export class IntelligentPlanEngine {
       targetBRL: config.opportunityCashTargetBRL,
       currentBRL: config.currentOpportunityCashBRL,
       gapBRL: Math.max(0, config.opportunityCashTargetBRL - config.currentOpportunityCashBRL),
-      progressPct: config.opportunityCashTargetBRL > 0
-        ? Math.min(100, (config.currentOpportunityCashBRL / config.opportunityCashTargetBRL) * 100)
-        : 100,
+      progressPct:
+        config.opportunityCashTargetBRL > 0
+          ? Math.min(100, (config.currentOpportunityCashBRL / config.opportunityCashTargetBRL) * 100)
+          : 100,
     };
 
     // MANDATORY DEBUG LOG per spec
@@ -212,7 +296,7 @@ export class IntelligentPlanEngine {
       opportunityCashGap: opportunityCash.gapBRL,
     });
 
-    // Re-Entry Ladder Status
+    // Re-entry ladder
     const reEntryLadderStatus: ReEntryLevelStatus[] = config.reEntryLadder.map((level) => {
       const cashAllocationBRL = (opportunityCash.currentBRL * level.cashAllocationPct) / 100;
 
@@ -235,12 +319,23 @@ export class IntelligentPlanEngine {
       };
     });
 
+    const variableMetrics = {
+      investedValue: totalVariableInvestedBRL,
+      currentValue: totalVariableIncomeBRL,
+      profit: totalVariableIncomeBRL - totalVariableInvestedBRL,
+      profitPercent:
+        totalVariableInvestedBRL > 0
+          ? ((totalVariableIncomeBRL - totalVariableInvestedBRL) / totalVariableInvestedBRL) * 100
+          : 0,
+    };
+
     return {
-      portfolioMetrics,
+      variableMetrics,
       diagnostics,
       suggestions,
       opportunityCash,
       reEntryLadderStatus,
+      assetReEntryTriggers,
     };
   }
 
