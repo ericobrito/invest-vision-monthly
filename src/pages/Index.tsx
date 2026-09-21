@@ -211,6 +211,11 @@ const Index = () => {
                     <Trophy className="w-4 h-4" /> {t("nav.goals")}
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/admin/incidents" className="flex items-center gap-2 text-amber-400 font-medium">
+                    <Bot className="w-4 h-4 text-amber-400" /> Agente de Incidentes
+                  </Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
