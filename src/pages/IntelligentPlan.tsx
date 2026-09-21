@@ -39,9 +39,9 @@ export default function IntelligentPlan() {
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [simulationDrawdown, setSimulationDrawdown] = useState<number>(-15);
 
-  // Detailed Stock Positions (Variable Income strictly at individual asset/stock level)
+  // Detailed Stock Positions (Variable Income strictly at individual asset/stock level loaded dynamically from snapshots)
   const stockPositions: StockPositionInput[] = useMemo(() => {
-    return [
+    const defaultPositions: StockPositionInput[] = [
       {
         symbol: "META",
         name: "Meta Platforms Inc.",
@@ -79,30 +79,6 @@ export default function IntelligentPlan() {
         appliedAmountBRL: 16214,
       },
       {
-        symbol: "PETR4",
-        name: "Petrobras PN",
-        category: "Ação Brasil",
-        quantity: 500,
-        averagePrice: 28.5,
-        currentPrice: 36.8,
-        currency: "BRL",
-        fxRate: 1.0,
-        currentValueBRL: 18400,
-        appliedAmountBRL: 14250,
-      },
-      {
-        symbol: "VALE3",
-        name: "Vale ON",
-        category: "Ação Brasil",
-        quantity: 300,
-        averagePrice: 68.0,
-        currentPrice: 61.2,
-        currency: "BRL",
-        fxRate: 1.0,
-        currentValueBRL: 18360,
-        appliedAmountBRL: 20400,
-      },
-      {
         symbol: "BTC",
         name: "Bitcoin",
         category: "Criptoativo",
@@ -126,20 +102,87 @@ export default function IntelligentPlan() {
         currentValueBRL: 41328,
         appliedAmountBRL: 28800,
       },
-      {
-        symbol: "SMH",
-        name: "VanEck Semiconductor ETF",
-        category: "ETF",
-        quantity: 15.0,
-        averagePrice: 185.0,
-        currentPrice: 252.8,
-        currency: "USD",
-        fxRate: 5.45,
-        currentValueBRL: 20666,
-        appliedAmountBRL: 15131,
-      },
     ];
-  }, []);
+
+    if (!snapshots || snapshots.length === 0) return defaultPositions;
+
+    const latestSnapshot = snapshots[snapshots.length - 1];
+    const extracted: StockPositionInput[] = [];
+
+    const inferCategory = (symbol: string, name: string, currency: string, region?: string, incomeType?: string) => {
+      const symUpper = (symbol || "").toUpperCase();
+      const nameUpper = (name || "").toUpperCase();
+      const cryptoSymbols = ["BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT", "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC", "PEPE", "SHIB"];
+      if (
+        cryptoSymbols.includes(symUpper) ||
+        nameUpper.includes("BITCOIN") ||
+        nameUpper.includes("CRIPTO") ||
+        nameUpper.includes("ETHEREUM") ||
+        nameUpper.includes("BINANCE") ||
+        nameUpper.includes("COINBASE") ||
+        nameUpper.includes("BYBIT")
+      ) {
+        return "Criptoativo" as const;
+      }
+      if (symUpper.endsWith("11") || nameUpper.includes("ETF") || nameUpper.includes("FII") || nameUpper.includes("FUNDO")) {
+        return "ETF" as const;
+      }
+      if (currency === "USD" || region === "exterior" || nameUpper.includes("EUA") || nameUpper.includes("AVENUE") || nameUpper.includes("STOCKS")) {
+        return "Ação EUA" as const;
+      }
+      return "Ação Brasil" as const;
+    };
+
+    for (const inv of latestSnapshot.investments || []) {
+      if (inv.positions && inv.positions.length > 0) {
+        for (const p of inv.positions) {
+          const sym = (p.symbol || p.ticker || "ATIVO").toUpperCase();
+          if (["PETR4", "PETR3", "VALE3", "SMH"].includes(sym)) continue;
+
+          const pName = p.name || sym;
+          const currency = p.currency || inv.currency || "BRL";
+          const fxRate = p.fxRate || 1.0;
+          const currentValueBRL = p.currentValueBRL ?? (p.currentValue * fxRate);
+          const appliedAmountBRL = p.appliedAmountBRL ?? (p.appliedAmount * fxRate);
+
+          extracted.push({
+            symbol: sym,
+            name: pName,
+            category: inferCategory(sym, pName, currency, inv.region, inv.incomeType),
+            quantity: p.quantity || 0,
+            averagePrice: p.averagePrice || 0,
+            currentPrice: p.currentPrice || 0,
+            currency: currency,
+            fxRate: fxRate,
+            currentValueBRL: currentValueBRL,
+            appliedAmountBRL: appliedAmountBRL,
+          });
+        }
+      } else if (inv.incomeType === "variable" || inv.flags?.includeInVariablePositions) {
+        const sym = (inv.linkedAsset?.symbol || inv.name || "ATIVO").toUpperCase();
+        if (["PETR4", "PETR3", "VALE3", "SMH"].includes(sym)) continue;
+
+        const currency = inv.currency || "BRL";
+        const valBRL = inv.valueBRL ?? inv.value;
+        const appBRL = inv.appliedBRL ?? inv.value;
+
+        extracted.push({
+          symbol: sym,
+          name: inv.name,
+          category: inferCategory(sym, inv.name, currency, inv.region, inv.incomeType),
+          quantity: inv.quantity || 1,
+          averagePrice: inv.averagePrice || appBRL,
+          currentPrice: inv.currentPrice || valBRL,
+          currency: currency,
+          fxRate: 1.0,
+          currentValueBRL: valBRL,
+          appliedAmountBRL: appBRL,
+        });
+      }
+    }
+
+    return extracted.length > 0 ? extracted : defaultPositions;
+  }, [snapshots]);
 
   // Filter stock positions by selected category
   const filteredStockPositions = useMemo(() => {

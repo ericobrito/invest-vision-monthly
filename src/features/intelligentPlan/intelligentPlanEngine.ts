@@ -90,26 +90,6 @@ export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
       maxRealizationPct: 25,
       individualDrawdownTriggerPct: -18,
     },
-    PETR4: {
-      symbol: "PETR4",
-      name: "Petrobras PN",
-      targetWeightPct: 6,
-      minWeightPct: 3,
-      maxWeightPct: 8,
-      minPositionValueBRL: 10000,
-      maxRealizationPct: 20,
-      individualDrawdownTriggerPct: -15,
-    },
-    VALE3: {
-      symbol: "VALE3",
-      name: "Vale ON",
-      targetWeightPct: 6,
-      minWeightPct: 3,
-      maxWeightPct: 8,
-      minPositionValueBRL: 10000,
-      maxRealizationPct: 20,
-      individualDrawdownTriggerPct: -15,
-    },
   },
 };
 
