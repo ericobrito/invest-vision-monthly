@@ -11,7 +11,8 @@ import type { IntelligentPlanConfig, OperationalAlertState } from "@/features/in
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ArrowLeft,
   Settings,
@@ -30,6 +31,12 @@ import {
   ChevronRight,
   Zap,
   Filter,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  SlidersHorizontal,
+  RefreshCw,
 } from "lucide-react";
 
 export default function IntelligentPlan() {
@@ -38,6 +45,15 @@ export default function IntelligentPlan() {
   const [configOpen, setConfigOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [simulationDrawdown, setSimulationDrawdown] = useState<number>(-15);
+
+  // Search & Sorting state for Diagnostic Cards
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"value" | "profit" | "excess" | "alert" | "symbol">("value");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Table sorting state for Section 3
+  const [tableSortField, setTableSortField] = useState<"symbol" | "currentPositionBRL" | "suggestedSaleBRL" | "suggestedSalePct" | "remainingPositionBRL" | "newWeightPct" | "cashGeneratedBRL">("suggestedSaleBRL");
+  const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("desc");
 
   // Detailed Stock Positions (Variable Income strictly at individual asset/stock level loaded dynamically from snapshots)
   const stockPositions: StockPositionInput[] = useMemo(() => {
@@ -238,6 +254,118 @@ export default function IntelligentPlan() {
     return intelligentPlanEngine.analyzeVariableIncomePortfolio(filteredStockPositions, config);
   }, [filteredStockPositions, config]);
 
+  // Dynamic category asset count badges
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: stockPositions.length,
+      "Ação EUA": 0,
+      "Ação Brasil": 0,
+      Criptoativo: 0,
+      ETF: 0,
+    };
+    stockPositions.forEach((p) => {
+      if (counts[p.category] !== undefined) {
+        counts[p.category]++;
+      }
+    });
+    return counts;
+  }, [stockPositions]);
+
+  // Filtered and Sorted Diagnostics for Section 2 Cards
+  const processedDiagnostics = useMemo(() => {
+    let items = [...analysis.diagnostics];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      items = items.filter(
+        (item) => item.symbol.toLowerCase().includes(q) || item.name.toLowerCase().includes(q)
+      );
+    }
+
+    const alertPriority: Record<string, number> = {
+      RULE_TRIGGERED: 1,
+      REQUIRES_ATTENTION: 2,
+      AWAITING_TRIGGER: 3,
+      STRATEGY_OK: 4,
+    };
+
+    items.sort((a, b) => {
+      let res = 0;
+      switch (sortBy) {
+        case "value":
+          res = b.currentValueBRL - a.currentValueBRL;
+          break;
+        case "profit":
+          res = b.profitPercent - a.profitPercent;
+          break;
+        case "excess":
+          res = b.capitalExcessBRL - a.capitalExcessBRL;
+          break;
+        case "alert":
+          res = (alertPriority[a.alertState] || 99) - (alertPriority[b.alertState] || 99);
+          break;
+        case "symbol":
+          res = a.symbol.localeCompare(b.symbol);
+          break;
+      }
+      return sortOrder === "desc" ? res : -res;
+    });
+
+    return items;
+  }, [analysis.diagnostics, searchQuery, sortBy, sortOrder]);
+
+  // Filtered and Sorted Realization Suggestions for Section 3 Table
+  const processedSuggestions = useMemo(() => {
+    let items = [...analysis.suggestions];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      items = items.filter(
+        (item) => item.symbol.toLowerCase().includes(q) || item.name.toLowerCase().includes(q)
+      );
+    }
+
+    items.sort((a, b) => {
+      const valA = a[tableSortField];
+      const valB = b[tableSortField];
+      if (typeof valA === "string") {
+        return tableSortDir === "desc"
+          ? (valB as string).localeCompare(valA as string)
+          : (valA as string).localeCompare(valB as string);
+      }
+      return tableSortDir === "desc"
+        ? (valB as number) - (valA as number)
+        : (valA as number) - (valB as number);
+    });
+
+    return items;
+  }, [analysis.suggestions, searchQuery, tableSortField, tableSortDir]);
+
+  // Total potential cash to generate across suggested sales
+  const totalSuggestedCashBRL = useMemo(() => {
+    return analysis.suggestions.reduce((sum, s) => sum + s.suggestedSaleBRL, 0);
+  }, [analysis.suggestions]);
+
+  const handleTableSort = (field: typeof tableSortField) => {
+    if (tableSortField === field) {
+      setTableSortDir((prev) => (prev === "desc" ? "asc" : "desc"));
+    } else {
+      setTableSortField(field);
+      setTableSortDir("desc");
+    }
+  };
+
+  const renderSortIcon = (field: typeof tableSortField) => {
+    if (tableSortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 opacity-40 inline-block ml-1" />;
+    }
+    return tableSortDir === "desc" ? (
+      <ArrowDown className="w-3 h-3 text-primary inline-block ml-1" />
+    ) : (
+      <ArrowUp className="w-3 h-3 text-primary inline-block ml-1" />
+    );
+  };
+
   // Sample crypto disposals for monthly consolidation
   const mockCryptoDisposals = useMemo(
     () => [
@@ -280,7 +408,7 @@ export default function IntelligentPlan() {
 
   const categoriesList = [
     { id: "ALL", label: "Todas as Ações & Cripto" },
-    { id: "Ação EUA", label: "Ações EUA (Stocks)" },
+    { id: "Ação EUA", label: "Ações EUA" },
     { id: "Ação Brasil", label: "Ações Brasil" },
     { id: "Criptoativo", label: "Criptoativos" },
     { id: "ETF", label: "ETFs & FIIs" },
@@ -402,71 +530,143 @@ export default function IntelligentPlan() {
       </div>
 
       {/* SECTION 2: ATENÇÃO AGORA (ESTADOS OPERACIONAIS POR AÇÃO) */}
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500" /> 2. Atenção Agora — Diagnóstico no Nível de Ação Individual
           </h2>
 
-          {/* Asset Category Filter Pills */}
+          {/* Asset Category Filter Pills with Asset Counts */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             {categoriesList.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 border ${
+                className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 border flex items-center gap-1.5 ${
                   selectedCategory === cat.id
-                    ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                    ? "bg-primary/10 text-primary border-primary/30 font-semibold shadow-xs"
                     : "bg-card text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
                 }`}
               >
-                {cat.label}
+                <span>{cat.label}</span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-muted text-muted-foreground">
+                  {categoryCounts[cat.id] ?? 0}
+                </Badge>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {analysis.diagnostics.map((item) => (
-            <Card key={item.id} className="bg-card border-border hover:border-border/80 transition-all shadow-sm">
-              <CardHeader className="p-3.5 pb-2 border-b border-border flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base font-bold text-foreground font-mono">{item.symbol}</span>
-                    <Badge variant="outline" className="text-[10px] bg-muted border-border text-muted-foreground">
-                      {item.category}
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">{item.name}</p>
-                </div>
-                {getOperationalAlertBadge(item.alertState)}
-              </CardHeader>
-              <CardContent className="p-3.5 space-y-2.5 text-xs">
-                <p className="text-foreground leading-relaxed bg-muted/30 p-2 rounded border border-border text-[11px]">
-                  {item.alertMessage}
-                </p>
+        {/* Search & Dynamic Sorting Toolbar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs">
+          {/* Search Box */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Filtrar por ticker (ex: BTC, NVDA) ou nome do ativo..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 text-xs border-border bg-background"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-bold"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="bg-muted/40 p-2 rounded border border-border">
-                    <span className="text-muted-foreground">Peso na R. Variável:</span>
-                    <div className="font-bold text-foreground mt-0.5">{item.currentWeightPct.toFixed(1)}%</div>
-                  </div>
-                  <div className="bg-muted/40 p-2 rounded border border-border">
-                    <span className="text-muted-foreground">Peso Máximo Config:</span>
-                    <div className="font-bold text-foreground mt-0.5">{item.maxWeightPct.toFixed(1)}%</div>
-                  </div>
-                  <div className="bg-muted/40 p-2 rounded border border-border">
-                    <span className="text-muted-foreground">Capital Excedente:</span>
-                    <div className="font-bold text-primary mt-0.5">R$ {item.capitalExcessBRL.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-muted/40 p-2 rounded border border-border">
-                    <span className="text-muted-foreground">Lucro na Ação:</span>
-                    <div className="font-bold text-emerald-500 mt-0.5">+{item.profitPercent.toFixed(0)}%</div>
-                  </div>
-                </div>
-              </CardContent>
+          {/* Sort Selector & Direction Toggle */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Ordenar por:
+            </span>
+            <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
+              <SelectTrigger className="h-9 text-xs border-border bg-background w-[165px]">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="value">Valor Total (R$)</SelectItem>
+                <SelectItem value="profit">Maior Lucro (%)</SelectItem>
+                <SelectItem value="excess">Maior Excedente (R$)</SelectItem>
+                <SelectItem value="alert">Prioridade de Alerta</SelectItem>
+                <SelectItem value="symbol">Nome / Ticker (A-Z)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+              className="h-9 px-2.5 text-xs border-border bg-background hover:bg-muted"
+              title={sortOrder === "desc" ? "Ordem Decrescente" : "Ordem Crescente"}
+            >
+              {sortOrder === "desc" ? (
+                <span className="flex items-center gap-1 text-primary font-medium">
+                  <ArrowDown className="w-3.5 h-3.5" /> Dec
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-primary font-medium">
+                  <ArrowUp className="w-3.5 h-3.5" /> Cres
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Diagnostic Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {processedDiagnostics.length === 0 ? (
+            <Card className="col-span-full bg-card border-border p-6 text-center text-muted-foreground text-xs">
+              Nenhum ativo encontrado para o filtro digitado &quot;{searchQuery}&quot;.
             </Card>
-          ))}
+          ) : (
+            processedDiagnostics.map((item) => (
+              <Card key={item.id} className="bg-card border-border hover:border-border/80 transition-all shadow-sm flex flex-col justify-between">
+                <CardHeader className="p-3.5 pb-2 border-b border-border flex flex-row items-start justify-between space-y-0 gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base font-bold text-foreground font-mono">{item.symbol}</span>
+                      <Badge variant="outline" className="text-[10px] bg-muted border-border text-muted-foreground">
+                        {item.category}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5 max-w-[140px]">{item.name}</p>
+                  </div>
+                  {getOperationalAlertBadge(item.alertState)}
+                </CardHeader>
+                <CardContent className="p-3.5 space-y-2.5 text-xs flex-1 flex flex-col justify-between">
+                  <p className="text-foreground leading-relaxed bg-muted/30 p-2 rounded border border-border text-[11px]">
+                    {item.alertMessage}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="bg-muted/40 p-2 rounded border border-border">
+                      <span className="text-muted-foreground">Peso na R. Variável:</span>
+                      <div className="font-bold text-foreground mt-0.5">{item.currentWeightPct.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-muted/40 p-2 rounded border border-border">
+                      <span className="text-muted-foreground">Peso Máx Config:</span>
+                      <div className="font-bold text-foreground mt-0.5">{item.maxWeightPct.toFixed(1)}%</div>
+                    </div>
+                    <div className="bg-muted/40 p-2 rounded border border-border">
+                      <span className="text-muted-foreground">Capital Excedente:</span>
+                      <div className="font-bold text-primary mt-0.5">R$ {item.capitalExcessBRL.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-muted/40 p-2 rounded border border-border">
+                      <span className="text-muted-foreground">Lucro na Ação:</span>
+                      <div className={`font-bold mt-0.5 ${item.profitPercent >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                        {item.profitPercent >= 0 ? "+" : ""}{item.profitPercent.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 
@@ -477,38 +677,82 @@ export default function IntelligentPlan() {
         </h2>
 
         <Card className="bg-card border-border shadow-sm">
-          <CardHeader className="p-4 pb-2 border-b border-border">
-            <CardTitle className="text-sm text-foreground">Tabela de Realização Parcial de Ações e Criptoativos</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Sugestão de venda calculada para cada ação excedente. Preserva a posição mínima desejada do ativo. Nenhuma ordem é executada automaticamente.
-            </CardDescription>
+          <CardHeader className="p-4 pb-3 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm text-foreground flex items-center gap-2">
+                Tabela de Realização Parcial de Ações e Criptoativos
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                Clique nos cabeçalhos das colunas para ordenar interativamente. Preserva a posição mínima desejada do ativo.
+              </CardDescription>
+            </div>
+            {totalSuggestedCashBRL > 0 && (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 text-xs px-3 py-1.5 self-start sm:self-auto font-mono font-bold shrink-0">
+                Caixa Total Potencial: R$ {totalSuggestedCashBRL.toLocaleString()}
+              </Badge>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-foreground">
                 <thead className="bg-muted/60 text-muted-foreground font-semibold border-b border-border">
                   <tr>
-                    <th className="py-3 px-4">Ticker / Ação</th>
+                    <th
+                      onClick={() => handleTableSort("symbol")}
+                      className="py-3 px-4 cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      Ticker / Ação {renderSortIcon("symbol")}
+                    </th>
                     <th className="py-3 px-3">Categoria</th>
-                    <th className="py-3 px-3 text-right">Posição Atual (R$)</th>
-                    <th className="py-3 px-3 text-right">Venda Sugerida (R$)</th>
-                    <th className="py-3 px-3 text-right">% Realização</th>
-                    <th className="py-3 px-3 text-right">Posição Remanescente</th>
-                    <th className="py-3 px-3 text-right">Novo Peso na RV (%)</th>
-                    <th className="py-3 px-3 text-right">Caixa Gerado</th>
+                    <th
+                      onClick={() => handleTableSort("currentPositionBRL")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      Posição Atual (R$) {renderSortIcon("currentPositionBRL")}
+                    </th>
+                    <th
+                      onClick={() => handleTableSort("suggestedSaleBRL")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      Venda Sugerida (R$) {renderSortIcon("suggestedSaleBRL")}
+                    </th>
+                    <th
+                      onClick={() => handleTableSort("suggestedSalePct")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      % Realização {renderSortIcon("suggestedSalePct")}
+                    </th>
+                    <th
+                      onClick={() => handleTableSort("remainingPositionBRL")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      Posição Remanescente {renderSortIcon("remainingPositionBRL")}
+                    </th>
+                    <th
+                      onClick={() => handleTableSort("newWeightPct")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      Novo Peso na RV (%) {renderSortIcon("newWeightPct")}
+                    </th>
+                    <th
+                      onClick={() => handleTableSort("cashGeneratedBRL")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      Caixa Gerado {renderSortIcon("cashGeneratedBRL")}
+                    </th>
                     <th className="py-3 px-4 text-center">Status Operacional</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {analysis.suggestions.length === 0 ? (
+                  {processedSuggestions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-6 text-center text-muted-foreground font-sans text-xs">
+                      <td colSpan={9} className="py-8 text-center text-muted-foreground font-sans text-xs">
                         Nenhum ativo lucrativo necessita de realização no momento. Posições dentro da meta ou sem lucro acumulado.
                       </td>
                     </tr>
                   ) : (
-                    analysis.suggestions.map((s) => (
-                      <tr key={s.symbol} className="hover:bg-muted/40 font-mono">
+                    processedSuggestions.map((s) => (
+                      <tr key={s.symbol} className="hover:bg-muted/40 transition-colors font-mono">
                         <td className="py-3 px-4 font-bold text-foreground font-sans">{s.symbol} - {s.name}</td>
                         <td className="py-3 px-3 text-muted-foreground font-sans">
                           <Badge variant="outline" className="text-[10px] bg-muted border-border">
