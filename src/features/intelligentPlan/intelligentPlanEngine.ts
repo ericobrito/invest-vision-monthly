@@ -159,8 +159,8 @@ export class IntelligentPlanEngine {
         individualDrawdownTriggerPct: -15,
       };
 
-      // Capital Excess over minimum position
-      const capitalExcessBRL = Math.max(0, currentValueBRL - rule.minPositionValueBRL);
+      // Capital Excess over minimum position (Only applicable when position has positive profit)
+      const capitalExcessBRL = profitBRL > 0 ? Math.max(0, currentValueBRL - rule.minPositionValueBRL) : 0;
 
       // Valuation Alert threshold (+50%, +100%, +200%)
       let valuationAlert: ValuationAlertLevel = "NONE";
@@ -175,12 +175,14 @@ export class IntelligentPlanEngine {
       if (currentWeightPct > rule.maxWeightPct) {
         alertState = "RULE_TRIGGERED";
         alertMessage = `🔴 Ação acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
-      } else if (currentWeightPct > rule.targetWeightPct || valuationAlert !== "NONE") {
+      } else if (currentWeightPct > rule.targetWeightPct || (valuationAlert !== "NONE" && profitBRL > 0)) {
         alertState = "REQUIRES_ATTENTION";
         alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou lucro expressivo (+${profitPercent.toFixed(0)}%).`;
-      } else if (currentWeightPct < rule.minWeightPct) {
-        alertState = "AWAITING_TRIGGER";
-        alertMessage = `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
+      } else if (currentWeightPct < rule.minWeightPct || profitBRL <= 0) {
+        alertState = profitBRL <= 0 ? "STRATEGY_OK" : "AWAITING_TRIGGER";
+        alertMessage = profitBRL <= 0
+          ? `🟢 Posição sem lucro positivo (Rentabilidade: ${profitPercent.toFixed(1)}%). Sem recomendação de venda parcial.`
+          : `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
       }
 
       // MANDATORY DEBUG LOG per spec
@@ -220,8 +222,8 @@ export class IntelligentPlanEngine {
         currentDrawdownPct: 0,
       });
 
-      // Partial realization suggestion if rule triggered or excess capital available
-      if (alertState === "RULE_TRIGGERED" || alertState === "REQUIRES_ATTENTION") {
+      // Partial realization suggestion if rule triggered AND position has positive profit and capital excess
+      if ((alertState === "RULE_TRIGGERED" || alertState === "REQUIRES_ATTENTION") && profitBRL > 0 && capitalExcessBRL > 0) {
         const realizationPct = rule.maxRealizationPct / 100;
         const proposedSaleBRL = Math.min(capitalExcessBRL, currentValueBRL * realizationPct);
         const remainingPositionBRL = currentValueBRL - proposedSaleBRL;
@@ -230,19 +232,21 @@ export class IntelligentPlanEngine {
         const profitRatio = currentValueBRL > 0 ? profitBRL / currentValueBRL : 0;
         const estimatedRealizedProfitBRL = proposedSaleBRL * profitRatio;
 
-        suggestions.push({
-          symbol: pos.symbol,
-          name: pos.name,
-          currentPositionBRL: currentValueBRL,
-          configuredRealizationPct: rule.maxRealizationPct,
-          suggestedSaleBRL: proposedSaleBRL,
-          suggestedSalePct: (proposedSaleBRL / currentValueBRL) * 100,
-          remainingPositionBRL,
-          newWeightPct,
-          estimatedRealizedProfitBRL,
-          cashGeneratedBRL: proposedSaleBRL,
-          alertState,
-        });
+        if (proposedSaleBRL > 0) {
+          suggestions.push({
+            symbol: pos.symbol,
+            name: pos.name,
+            currentPositionBRL: currentValueBRL,
+            configuredRealizationPct: rule.maxRealizationPct,
+            suggestedSaleBRL: proposedSaleBRL,
+            suggestedSalePct: (proposedSaleBRL / currentValueBRL) * 100,
+            remainingPositionBRL,
+            newWeightPct,
+            estimatedRealizedProfitBRL,
+            cashGeneratedBRL: proposedSaleBRL,
+            alertState,
+          });
+        }
       }
 
       // Stock Drawdown Trigger Check
