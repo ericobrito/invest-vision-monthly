@@ -220,8 +220,25 @@ export default function IntelligentPlan() {
         const totalValueBRL = (existing.currentValueBRL || 0) + (item.currentValueBRL || 0);
         const totalAppliedBRL = (existing.appliedAmountBRL || 0) + (item.appliedAmountBRL || 0);
         const totalQuantity = existing.quantity + item.quantity;
-        const avgPrice = totalQuantity > 0 ? totalAppliedBRL / totalQuantity : existing.averagePrice;
-        const currPrice = totalQuantity > 0 ? totalValueBRL / totalQuantity : existing.currentPrice;
+
+        // Correctly calculate native average price & current price based on currency
+        const isBRL = item.currency === "BRL" || existing.currency === "BRL";
+        let avgPrice = 0;
+        let currPrice = 0;
+        let fxRate = existing.fxRate || 1.0;
+        let currency = isBRL ? "BRL" : (existing.currency || "USD");
+
+        if (isBRL) {
+          avgPrice = totalQuantity > 0 ? totalAppliedBRL / totalQuantity : 0;
+          currPrice = totalQuantity > 0 ? totalValueBRL / totalQuantity : 0;
+          fxRate = 1.0;
+        } else {
+          const nativeApplied = existing.quantity * existing.averagePrice + item.quantity * item.averagePrice;
+          const nativeCurrent = existing.quantity * existing.currentPrice + item.quantity * item.currentPrice;
+          avgPrice = totalQuantity > 0 ? nativeApplied / totalQuantity : existing.averagePrice;
+          currPrice = totalQuantity > 0 ? nativeCurrent / totalQuantity : existing.currentPrice;
+          fxRate = nativeCurrent > 0 ? totalValueBRL / nativeCurrent : (existing.fxRate || 5.45);
+        }
 
         consolidatedMap.set(item.symbol, {
           symbol: item.symbol,
@@ -230,8 +247,8 @@ export default function IntelligentPlan() {
           quantity: totalQuantity,
           averagePrice: avgPrice,
           currentPrice: currPrice,
-          currency: existing.currency,
-          fxRate: existing.fxRate,
+          currency,
+          fxRate,
           currentValueBRL: totalValueBRL,
           appliedAmountBRL: totalAppliedBRL,
         });
