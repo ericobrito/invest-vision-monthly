@@ -105,6 +105,8 @@ export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
   },
 };
 
+export const STABLECOIN_SYMBOLS = new Set(["USDT", "USDC", "BUSD", "DAI", "FDUSD", "USDE"]);
+
 export class IntelligentPlanEngine {
   private cryptoTaxEngine: CryptoTaxEngine;
 
@@ -123,6 +125,7 @@ export class IntelligentPlanEngine {
     // 1. Calculate Single Source of Truth metrics per individual stock position
     let totalVariableIncomeBRL = 0;
     let totalVariableInvestedBRL = 0;
+    let stablecoinCashBRL = 0;
 
     const computedPositions = stockPositions.map((pos) => {
       const metricsBRL = portfolioCalculationService.calculatePositionMetricsBRL({
@@ -136,8 +139,13 @@ export class IntelligentPlanEngine {
         currentValueBRL: pos.currentValueBRL,
       });
 
-      totalVariableIncomeBRL += metricsBRL.currentValue;
-      totalVariableInvestedBRL += metricsBRL.investedValue;
+      const symUpper = pos.symbol.toUpperCase().trim();
+      if (STABLECOIN_SYMBOLS.has(symUpper)) {
+        stablecoinCashBRL += metricsBRL.currentValue;
+      } else {
+        totalVariableIncomeBRL += metricsBRL.currentValue;
+        totalVariableInvestedBRL += metricsBRL.investedValue;
+      }
 
       return {
         ...pos,
@@ -155,13 +163,15 @@ export class IntelligentPlanEngine {
       const investedValueBRL = pos.metricsBRL.investedValue;
       const profitBRL = pos.metricsBRL.profit;
       const profitPercent = pos.metricsBRL.profitPercent;
+      const symUpper = pos.symbol.toUpperCase().trim();
+      const isStablecoin = STABLECOIN_SYMBOLS.has(symUpper);
 
-      // Weight relative to Variable Income Portfolio
+      // Weight relative to Variable Income Portfolio (active risk assets)
       const currentWeightPct =
         totalVariableIncomeBRL > 0 ? (currentValueBRL / totalVariableIncomeBRL) * 100 : 0;
 
-      const rule: AssetRuleConfig = config.assetRules[pos.symbol.toUpperCase()] || {
-        symbol: pos.symbol.toUpperCase(),
+      const rule: AssetRuleConfig = config.assetRules[symUpper] || {
+        symbol: symUpper,
         name: pos.name,
         targetWeightPct: 5,
         minWeightPct: 2,
@@ -176,40 +186,46 @@ export class IntelligentPlanEngine {
       const targetProfitPct = rule.targetProfitPct ?? globalMinProfitPct;
 
       // 1. Calculate Capital Excess over minimum position / target weight
-      const targetValueBRL = totalVariableIncomeBRL > 0 ? (totalVariableIncomeBRL * (rule.targetWeightPct / 100)) : 0;
       const minPreservedBRL = rule.minPositionValueBRL && rule.minPositionValueBRL < currentValueBRL
         ? rule.minPositionValueBRL
         : Math.min(investedValueBRL, currentValueBRL * (1 - rule.maxRealizationPct / 100));
 
-      const capitalExcessBRL = profitBRL > 0 && profitPercent >= targetProfitPct
-        ? Math.max(0, currentValueBRL - minPreservedBRL)
-        : 0;
-
-      // Valuation Alert threshold (+50%, +100%, +200%)
+      let capitalExcessBRL = 0;
       let valuationAlert: ValuationAlertLevel = "NONE";
-      if (profitPercent >= 200) valuationAlert = "VERY_HIGH";
-      else if (profitPercent >= 100) valuationAlert = "HIGH";
-      else if (profitPercent >= 50) valuationAlert = "ATTENTION";
-
-      // Operational Alert State (Only 🟢, 🟡, 🔴, 🔵)
       let alertState: OperationalAlertState = "STRATEGY_OK";
       let alertMessage = "Posição dentro da estratégia de Renda Variável";
 
-      if (profitBRL <= 0) {
+      if (isStablecoin) {
         alertState = "STRATEGY_OK";
-        alertMessage = `🟢 Posição sem lucro positivo (${profitPercent.toFixed(1)}%). Ativos em queda/retenção não são vendidos.`;
-      } else if (profitPercent < targetProfitPct) {
-        alertState = "STRATEGY_OK";
-        alertMessage = `🟢 Rentabilidade (+${profitPercent.toFixed(1)}%) aguardando meta de lucro de ${targetProfitPct}%. Nenhuma venda sugerida.`;
-      } else if (currentWeightPct > rule.maxWeightPct) {
-        alertState = "RULE_TRIGGERED";
-        alertMessage = `🔴 Posição acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
-      } else if (currentWeightPct > rule.targetWeightPct || valuationAlert !== "NONE") {
-        alertState = "REQUIRES_ATTENTION";
-        alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou lucro expressivo (+${profitPercent.toFixed(0)}%).`;
-      } else if (currentWeightPct < rule.minWeightPct) {
-        alertState = "AWAITING_TRIGGER";
-        alertMessage = `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
+        alertMessage = `🟢 Moeda Estável (Caixa em Dólar). R$ ${currentValueBRL.toLocaleString()} contabilizado no Caixa de Oportunidade.`;
+        capitalExcessBRL = 0;
+        valuationAlert = "NONE";
+      } else {
+        capitalExcessBRL = profitBRL > 0 && profitPercent >= targetProfitPct
+          ? Math.max(0, currentValueBRL - minPreservedBRL)
+          : 0;
+
+        // Valuation Alert threshold (+50%, +100%, +200%)
+        if (profitPercent >= 200) valuationAlert = "VERY_HIGH";
+        else if (profitPercent >= 100) valuationAlert = "HIGH";
+        else if (profitPercent >= 50) valuationAlert = "ATTENTION";
+
+        if (profitBRL <= 0) {
+          alertState = "STRATEGY_OK";
+          alertMessage = `🟢 Posição sem lucro positivo (${profitPercent.toFixed(1)}%). Ativos em queda/retenção não são vendidos.`;
+        } else if (profitPercent < targetProfitPct) {
+          alertState = "STRATEGY_OK";
+          alertMessage = `🟢 Rentabilidade (+${profitPercent.toFixed(1)}%) aguardando meta de lucro de ${targetProfitPct}%. Nenhuma venda sugerida.`;
+        } else if (currentWeightPct > rule.maxWeightPct) {
+          alertState = "RULE_TRIGGERED";
+          alertMessage = `🔴 Posição acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
+        } else if (currentWeightPct > rule.targetWeightPct || valuationAlert !== "NONE") {
+          alertState = "REQUIRES_ATTENTION";
+          alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou lucro expressivo (+${profitPercent.toFixed(0)}%).`;
+        } else if (currentWeightPct < rule.minWeightPct) {
+          alertState = "AWAITING_TRIGGER";
+          alertMessage = `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
+        }
       }
 
       // MANDATORY DEBUG LOG per spec
@@ -237,7 +253,7 @@ export class IntelligentPlanEngine {
         profitPercent,
         quantity: pos.quantity,
         averageCost: pos.averagePrice,
-        currentWeightPct,
+        currentWeightPct: isStablecoin ? 0 : currentWeightPct,
         targetWeightPct: rule.targetWeightPct,
         maxWeightPct: rule.maxWeightPct,
         minWeightPct: rule.minWeightPct,
@@ -251,6 +267,7 @@ export class IntelligentPlanEngine {
 
       // Partial realization suggestion if position has positive profit AND meets profit target AND (rule triggered, requires attention, or capital excess)
       const isEligibleForRealization =
+        !isStablecoin &&
         profitBRL > 0 &&
         profitPercent >= targetProfitPct &&
         (alertState === "RULE_TRIGGERED" ||
@@ -290,7 +307,7 @@ export class IntelligentPlanEngine {
       }
 
       // Stock Drawdown Trigger Check
-      if (rule.individualDrawdownTriggerPct) {
+      if (!isStablecoin && rule.individualDrawdownTriggerPct) {
         assetReEntryTriggers.push({
           symbol: pos.symbol,
           name: pos.name,
@@ -302,15 +319,18 @@ export class IntelligentPlanEngine {
       }
     });
 
-    // Opportunity Cash Overview
+    // Opportunity Cash Overview (including stablecoins like USDT, USDC)
+    const totalOpportunityCashBRL = config.currentOpportunityCashBRL + stablecoinCashBRL;
+
     const opportunityCash: OpportunityCashOverview = {
       targetBRL: config.opportunityCashTargetBRL,
-      currentBRL: config.currentOpportunityCashBRL,
-      gapBRL: Math.max(0, config.opportunityCashTargetBRL - config.currentOpportunityCashBRL),
+      currentBRL: totalOpportunityCashBRL,
+      gapBRL: Math.max(0, config.opportunityCashTargetBRL - totalOpportunityCashBRL),
       progressPct:
         config.opportunityCashTargetBRL > 0
-          ? Math.min(100, (config.currentOpportunityCashBRL / config.opportunityCashTargetBRL) * 100)
+          ? Math.min(100, (totalOpportunityCashBRL / config.opportunityCashTargetBRL) * 100)
           : 100,
+      stablecoinCashBRL,
     };
 
     // MANDATORY DEBUG LOG per spec

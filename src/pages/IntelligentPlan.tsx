@@ -493,6 +493,11 @@ export default function IntelligentPlan() {
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Meta: R$ {analysis.opportunityCash.targetBRL.toLocaleString()} ({analysis.opportunityCash.progressPct.toFixed(0)}%)
+                  {analysis.opportunityCash.stablecoinCashBRL && analysis.opportunityCash.stablecoinCashBRL > 0 ? (
+                    <span className="block text-emerald-500 font-medium text-[10px] mt-0.5">
+                      (R$ {config.currentOpportunityCashBRL.toLocaleString()} líquido + R$ {analysis.opportunityCash.stablecoinCashBRL.toLocaleString()} em USDT/USD)
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-600 dark:text-cyan-400">

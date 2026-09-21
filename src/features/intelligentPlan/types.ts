@@ -78,6 +78,7 @@ export interface OpportunityCashOverview {
   progressPct: number;
   emergencyReserveBRL?: number;
   operationalCashBRL?: number;
+  stablecoinCashBRL?: number;
 }
 
 export interface ReEntryLevelStatus {
