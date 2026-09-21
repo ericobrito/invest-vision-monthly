@@ -52,7 +52,7 @@ export default function IntelligentPlan() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Table sorting state for Section 3
-  const [tableSortField, setTableSortField] = useState<"symbol" | "currentPositionBRL" | "suggestedSaleBRL" | "suggestedSalePct" | "remainingPositionBRL" | "newWeightPct" | "cashGeneratedBRL">("suggestedSaleBRL");
+  const [tableSortField, setTableSortField] = useState<"symbol" | "currentPositionBRL" | "profitPercent" | "estimatedRealizedProfitBRL" | "suggestedSaleBRL" | "suggestedSalePct" | "remainingPositionBRL" | "newWeightPct" | "cashGeneratedBRL">("suggestedSaleBRL");
   const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("desc");
 
   // Detailed Stock Positions (Variable Income strictly at individual asset/stock level loaded dynamically from snapshots)
@@ -736,6 +736,18 @@ export default function IntelligentPlan() {
                       Posição Atual (R$) {renderSortIcon("currentPositionBRL")}
                     </th>
                     <th
+                      onClick={() => handleTableSort("profitPercent")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none text-emerald-500"
+                    >
+                      Lucro Acumulado (%) {renderSortIcon("profitPercent")}
+                    </th>
+                    <th
+                      onClick={() => handleTableSort("estimatedRealizedProfitBRL")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none text-emerald-500"
+                    >
+                      Lucro da Venda (R$) {renderSortIcon("estimatedRealizedProfitBRL")}
+                    </th>
+                    <th
                       onClick={() => handleTableSort("suggestedSaleBRL")}
                       className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none"
                     >
@@ -771,7 +783,7 @@ export default function IntelligentPlan() {
                 <tbody className="divide-y divide-border">
                   {processedSuggestions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-muted-foreground font-sans text-xs">
+                      <td colSpan={11} className="py-8 text-center text-muted-foreground font-sans text-xs">
                         Nenhum ativo lucrativo necessita de realização no momento. Posições dentro da meta ou sem lucro acumulado.
                       </td>
                     </tr>
@@ -785,6 +797,8 @@ export default function IntelligentPlan() {
                           </Badge>
                         </td>
                         <td className="py-3 px-3 text-right text-foreground">R$ {s.currentPositionBRL.toLocaleString()}</td>
+                        <td className="py-3 px-3 text-right font-bold text-emerald-500">+{s.profitPercent.toFixed(1)}%</td>
+                        <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">R$ {s.estimatedRealizedProfitBRL.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right font-bold text-emerald-500">R$ {s.suggestedSaleBRL.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right text-muted-foreground">{s.suggestedSalePct.toFixed(1)}%</td>
                         <td className="py-3 px-3 text-right text-foreground">R$ {s.remainingPositionBRL.toLocaleString()}</td>

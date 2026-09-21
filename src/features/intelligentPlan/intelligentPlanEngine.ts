@@ -300,6 +300,7 @@ export class IntelligentPlanEngine {
             suggestedSalePct: Number(((proposedSaleBRL / currentValueBRL) * 100).toFixed(1)),
             remainingPositionBRL: Math.round(remainingPositionBRL),
             newWeightPct: Number(newWeightPct.toFixed(1)),
+            profitPercent: Number(profitPercent.toFixed(1)),
             estimatedRealizedProfitBRL: Math.round(estimatedRealizedProfitBRL),
             cashGeneratedBRL: Math.round(proposedSaleBRL),
             alertState: alertState === "STRATEGY_OK" ? "REQUIRES_ATTENTION" : alertState,

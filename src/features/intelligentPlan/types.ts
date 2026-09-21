@@ -66,6 +66,7 @@ export interface RealizationSuggestionItem {
   suggestedSalePct: number;
   remainingPositionBRL: number;
   newWeightPct: number;
+  profitPercent: number;
   estimatedRealizedProfitBRL: number;
   cashGeneratedBRL: number;
   alertState: OperationalAlertState;
