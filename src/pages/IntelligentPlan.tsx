@@ -457,23 +457,31 @@ export default function IntelligentPlan() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {analysis.suggestions.map((s) => (
-                    <tr key={s.symbol} className="hover:bg-muted/40 font-mono">
-                      <td className="py-3 px-4 font-bold text-foreground font-sans">{s.symbol} - {s.name}</td>
-                      <td className="py-3 px-3 text-muted-foreground font-sans">
-                        <Badge variant="outline" className="text-[10px] bg-muted border-border">
-                          {s.symbol === "BTC" || s.symbol === "ETH" ? "Cripto" : "Ação"}
-                        </Badge>
+                  {analysis.suggestions.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-6 text-center text-muted-foreground font-sans text-xs">
+                        Nenhum ativo lucrativo necessita de realização no momento. Posições dentro da meta ou sem lucro acumulado.
                       </td>
-                      <td className="py-3 px-3 text-right text-foreground">R$ {s.currentPositionBRL.toLocaleString()}</td>
-                      <td className="py-3 px-3 text-right font-bold text-emerald-500">R$ {s.suggestedSaleBRL.toLocaleString()}</td>
-                      <td className="py-3 px-3 text-right text-muted-foreground">{s.suggestedSalePct.toFixed(1)}%</td>
-                      <td className="py-3 px-3 text-right text-foreground">R$ {s.remainingPositionBRL.toLocaleString()}</td>
-                      <td className="py-3 px-3 text-right text-foreground">{s.newWeightPct.toFixed(1)}%</td>
-                      <td className="py-3 px-3 text-right font-bold text-cyan-600 dark:text-cyan-400">R$ {s.cashGeneratedBRL.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-center font-sans">{getOperationalAlertBadge(s.alertState)}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    analysis.suggestions.map((s) => (
+                      <tr key={s.symbol} className="hover:bg-muted/40 font-mono">
+                        <td className="py-3 px-4 font-bold text-foreground font-sans">{s.symbol} - {s.name}</td>
+                        <td className="py-3 px-3 text-muted-foreground font-sans">
+                          <Badge variant="outline" className="text-[10px] bg-muted border-border">
+                            {s.symbol === "BTC" || s.symbol === "ETH" || s.symbol === "USDT" || s.symbol === "USDC" ? "Cripto" : "Ação"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-3 text-right text-foreground">R$ {s.currentPositionBRL.toLocaleString()}</td>
+                        <td className="py-3 px-3 text-right font-bold text-emerald-500">R$ {s.suggestedSaleBRL.toLocaleString()}</td>
+                        <td className="py-3 px-3 text-right text-muted-foreground">{s.suggestedSalePct.toFixed(1)}%</td>
+                        <td className="py-3 px-3 text-right text-foreground">R$ {s.remainingPositionBRL.toLocaleString()}</td>
+                        <td className="py-3 px-3 text-right text-foreground">{s.newWeightPct.toFixed(1)}%</td>
+                        <td className="py-3 px-3 text-right font-bold text-cyan-600 dark:text-cyan-400">R$ {s.cashGeneratedBRL.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-center font-sans">{getOperationalAlertBadge(s.alertState)}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

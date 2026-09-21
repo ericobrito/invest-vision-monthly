@@ -159,8 +159,13 @@ export class IntelligentPlanEngine {
         individualDrawdownTriggerPct: -15,
       };
 
-      // Capital Excess over minimum position (Only applicable when position has positive profit)
-      const capitalExcessBRL = profitBRL > 0 ? Math.max(0, currentValueBRL - rule.minPositionValueBRL) : 0;
+      // 1. Calculate Capital Excess over minimum position / target weight
+      const targetValueBRL = totalVariableIncomeBRL > 0 ? (totalVariableIncomeBRL * (rule.targetWeightPct / 100)) : 0;
+      const minPreservedBRL = rule.minPositionValueBRL && rule.minPositionValueBRL < currentValueBRL
+        ? rule.minPositionValueBRL
+        : Math.min(investedValueBRL, currentValueBRL * (1 - rule.maxRealizationPct / 100));
+
+      const capitalExcessBRL = profitBRL > 0 ? Math.max(0, currentValueBRL - minPreservedBRL) : 0;
 
       // Valuation Alert threshold (+50%, +100%, +200%)
       let valuationAlert: ValuationAlertLevel = "NONE";
@@ -172,17 +177,18 @@ export class IntelligentPlanEngine {
       let alertState: OperationalAlertState = "STRATEGY_OK";
       let alertMessage = "Posição dentro da estratégia de Renda Variável";
 
-      if (currentWeightPct > rule.maxWeightPct) {
+      if (profitBRL <= 0) {
+        alertState = "STRATEGY_OK";
+        alertMessage = `🟢 Posição sem lucro positivo (Rentabilidade: ${profitPercent.toFixed(1)}%). Sem recomendação de venda parcial.`;
+      } else if (currentWeightPct > rule.maxWeightPct) {
         alertState = "RULE_TRIGGERED";
-        alertMessage = `🔴 Ação acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
-      } else if (currentWeightPct > rule.targetWeightPct || (valuationAlert !== "NONE" && profitBRL > 0)) {
+        alertMessage = `🔴 Posição acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
+      } else if (currentWeightPct > rule.targetWeightPct || valuationAlert !== "NONE") {
         alertState = "REQUIRES_ATTENTION";
         alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou lucro expressivo (+${profitPercent.toFixed(0)}%).`;
-      } else if (currentWeightPct < rule.minWeightPct || profitBRL <= 0) {
-        alertState = profitBRL <= 0 ? "STRATEGY_OK" : "AWAITING_TRIGGER";
-        alertMessage = profitBRL <= 0
-          ? `🟢 Posição sem lucro positivo (Rentabilidade: ${profitPercent.toFixed(1)}%). Sem recomendação de venda parcial.`
-          : `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
+      } else if (currentWeightPct < rule.minWeightPct) {
+        alertState = "AWAITING_TRIGGER";
+        alertMessage = `🔵 Posição abaixo da alocação mínima de Renda Variável (${currentWeightPct.toFixed(1)}%).`;
       }
 
       // MANDATORY DEBUG LOG per spec
@@ -222,29 +228,41 @@ export class IntelligentPlanEngine {
         currentDrawdownPct: 0,
       });
 
-      // Partial realization suggestion if rule triggered AND position has positive profit and capital excess
-      if ((alertState === "RULE_TRIGGERED" || alertState === "REQUIRES_ATTENTION") && profitBRL > 0 && capitalExcessBRL > 0) {
-        const realizationPct = rule.maxRealizationPct / 100;
-        const proposedSaleBRL = Math.min(capitalExcessBRL, currentValueBRL * realizationPct);
-        const remainingPositionBRL = currentValueBRL - proposedSaleBRL;
-        const newWeightPct =
-          totalVariableIncomeBRL > 0 ? (remainingPositionBRL / totalVariableIncomeBRL) * 100 : 0;
-        const profitRatio = currentValueBRL > 0 ? profitBRL / currentValueBRL : 0;
-        const estimatedRealizedProfitBRL = proposedSaleBRL * profitRatio;
+      // Partial realization suggestion if position has positive profit AND (rule triggered, requires attention, or capital excess)
+      const isEligibleForRealization = profitBRL > 0 && (
+        alertState === "RULE_TRIGGERED" ||
+        alertState === "REQUIRES_ATTENTION" ||
+        currentWeightPct >= rule.targetWeightPct ||
+        capitalExcessBRL > 0
+      );
+
+      if (isEligibleForRealization) {
+        const realizationPct = (rule.maxRealizationPct || 25) / 100;
+        const proposedSaleBRL = Math.min(
+          capitalExcessBRL > 0 ? capitalExcessBRL : currentValueBRL * realizationPct,
+          currentValueBRL * realizationPct,
+          profitBRL
+        );
 
         if (proposedSaleBRL > 0) {
+          const remainingPositionBRL = currentValueBRL - proposedSaleBRL;
+          const newWeightPct =
+            totalVariableIncomeBRL > 0 ? (remainingPositionBRL / totalVariableIncomeBRL) * 100 : 0;
+          const profitRatio = currentValueBRL > 0 ? profitBRL / currentValueBRL : 0;
+          const estimatedRealizedProfitBRL = proposedSaleBRL * profitRatio;
+
           suggestions.push({
             symbol: pos.symbol,
             name: pos.name,
             currentPositionBRL: currentValueBRL,
-            configuredRealizationPct: rule.maxRealizationPct,
-            suggestedSaleBRL: proposedSaleBRL,
-            suggestedSalePct: (proposedSaleBRL / currentValueBRL) * 100,
-            remainingPositionBRL,
-            newWeightPct,
-            estimatedRealizedProfitBRL,
-            cashGeneratedBRL: proposedSaleBRL,
-            alertState,
+            configuredRealizationPct: rule.maxRealizationPct || 25,
+            suggestedSaleBRL: Math.round(proposedSaleBRL),
+            suggestedSalePct: Number(((proposedSaleBRL / currentValueBRL) * 100).toFixed(1)),
+            remainingPositionBRL: Math.round(remainingPositionBRL),
+            newWeightPct: Number(newWeightPct.toFixed(1)),
+            estimatedRealizedProfitBRL: Math.round(estimatedRealizedProfitBRL),
+            cashGeneratedBRL: Math.round(proposedSaleBRL),
+            alertState: alertState === "STRATEGY_OK" ? "REQUIRES_ATTENTION" : alertState,
           });
         }
       }
