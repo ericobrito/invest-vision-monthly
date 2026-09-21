@@ -185,6 +185,11 @@ const Index = () => {
                 <Lightbulb className="w-4 h-4 mr-1" /> {t("nav.plan")}
               </Button>
             </Link>
+            <Link to="/plano-inteligente">
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10 font-medium">
+                <ShieldCheck className="w-4 h-4 mr-1 text-primary" /> Plano Inteligente
+              </Button>
+            </Link>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -299,6 +304,11 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/plano-acao" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Lightbulb className="w-4 h-4" /> {t("nav.plan")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/plano-inteligente" className="flex items-center gap-3 px-3 py-3 rounded-md bg-primary/10 text-primary font-medium">
+                      <ShieldCheck className="w-4 h-4 text-primary" /> Plano Inteligente
                     </Link>
                   </SheetClose>
                   <div className="my-1 border-t border-border" />

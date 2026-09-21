@@ -19,6 +19,7 @@ import WealthGoalsManager from "./pages/WealthGoalsManager";
 import VariableIncomeMoversDashboard from "./pages/VariableIncomeMoversDashboard";
 import CryptoAccountingDashboard from "./pages/CryptoAccountingDashboard";
 import RadarETF from "./pages/RadarETF";
+import IntelligentPlan from "./pages/IntelligentPlan";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -92,6 +93,7 @@ const App = () => {
                 <Route path="/radar-etf" element={<ProtectedRoute><RadarETF /></ProtectedRoute>} />
                 <Route path="/radar-tesouro" element={<ProtectedRoute><RadarTesouro /></ProtectedRoute>} />
                 <Route path="/plano-acao" element={<ProtectedRoute><PlanoAcao /></ProtectedRoute>} />
+                <Route path="/plano-inteligente" element={<ProtectedRoute><IntelligentPlan /></ProtectedRoute>} />
                 <Route path="/posicoes-variaveis" element={<ProtectedRoute><PosicoesVariaveis /></ProtectedRoute>} />
                 <Route path="/admin/audit" element={<ProtectedRoute><AdminAuditCenter /></ProtectedRoute>} />
                 <Route path="/admin/incidents" element={<ProtectedRoute><IncidentCenter /></ProtectedRoute>} />
