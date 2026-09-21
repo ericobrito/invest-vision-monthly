@@ -165,6 +165,11 @@ const Index = () => {
                 <Target className="w-4 h-4 mr-1" /> {t("nav.radar")}
               </Button>
             </Link>
+            <Link to="/radar-etf">
+              <Button variant="ghost" size="sm" className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 font-medium">
+                <Zap className="w-4 h-4 mr-1 text-cyan-400" /> ETF Radar
+              </Button>
+            </Link>
             <Link to="/desempenho-variavel">
               <Button variant="ghost" size="sm" className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 font-medium">
                 <Flame className="w-4 h-4 mr-1 text-emerald-400" /> Maiores Altas
@@ -269,6 +274,11 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/radar" className="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-secondary text-foreground">
                       <Target className="w-4 h-4" /> {t("nav.radar")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/radar-etf" className="flex items-center gap-3 px-3 py-3 rounded-md bg-cyan-500/10 text-cyan-400 font-medium">
+                      <Zap className="w-4 h-4 text-cyan-400" /> ETF Radar
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
