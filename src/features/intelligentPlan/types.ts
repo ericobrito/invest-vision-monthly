@@ -14,6 +14,7 @@ export interface AssetRuleConfig {
   maxWeightPct: number;
   minPositionValueBRL: number;
   maxRealizationPct: number;
+  targetProfitPct?: number; // e.g. 30% target profit for TSLA
   individualDrawdownTriggerPct?: number; // e.g. -12%
 }
 
@@ -21,6 +22,7 @@ export interface IntelligentPlanConfig {
   opportunityCashTargetBRL: number;
   currentOpportunityCashBRL: number;
   cryptoMonthlyThresholdBRL: number; // Default R$ 35.000
+  minProfitRealizationPct?: number; // Default 20% minimum profit required for partial realization
   reEntryBenchmark: string; // e.g. "S&P 500"
   reEntryLadder: {
     drawdownPct: number; // -5, -10, -15, -20, -30

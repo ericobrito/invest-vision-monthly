@@ -88,7 +88,19 @@ export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
       maxWeightPct: 15,
       minPositionValueBRL: 20000,
       maxRealizationPct: 25,
+      targetProfitPct: 25,
       individualDrawdownTriggerPct: -18,
+    },
+    TSLA: {
+      symbol: "TSLA",
+      name: "Tesla Inc.",
+      targetWeightPct: 10,
+      minWeightPct: 5,
+      maxWeightPct: 15,
+      minPositionValueBRL: 10000,
+      maxRealizationPct: 25,
+      targetProfitPct: 30, // User's target profit expectation for Tesla
+      individualDrawdownTriggerPct: -15,
     },
   },
 };
@@ -153,11 +165,15 @@ export class IntelligentPlanEngine {
         name: pos.name,
         targetWeightPct: 5,
         minWeightPct: 2,
-        maxWeightPct: 10,
+        maxWeightPct: 15,
         minPositionValueBRL: Math.max(1000, currentValueBRL * 0.4),
         maxRealizationPct: 25,
+        targetProfitPct: 20,
         individualDrawdownTriggerPct: -15,
       };
+
+      const globalMinProfitPct = config.minProfitRealizationPct ?? 20;
+      const targetProfitPct = rule.targetProfitPct ?? globalMinProfitPct;
 
       // 1. Calculate Capital Excess over minimum position / target weight
       const targetValueBRL = totalVariableIncomeBRL > 0 ? (totalVariableIncomeBRL * (rule.targetWeightPct / 100)) : 0;
@@ -165,7 +181,9 @@ export class IntelligentPlanEngine {
         ? rule.minPositionValueBRL
         : Math.min(investedValueBRL, currentValueBRL * (1 - rule.maxRealizationPct / 100));
 
-      const capitalExcessBRL = profitBRL > 0 ? Math.max(0, currentValueBRL - minPreservedBRL) : 0;
+      const capitalExcessBRL = profitBRL > 0 && profitPercent >= targetProfitPct
+        ? Math.max(0, currentValueBRL - minPreservedBRL)
+        : 0;
 
       // Valuation Alert threshold (+50%, +100%, +200%)
       let valuationAlert: ValuationAlertLevel = "NONE";
@@ -179,7 +197,10 @@ export class IntelligentPlanEngine {
 
       if (profitBRL <= 0) {
         alertState = "STRATEGY_OK";
-        alertMessage = `🟢 Posição sem lucro positivo (Rentabilidade: ${profitPercent.toFixed(1)}%). Sem recomendação de venda parcial.`;
+        alertMessage = `🟢 Posição sem lucro positivo (${profitPercent.toFixed(1)}%). Ativos em queda/retenção não são vendidos.`;
+      } else if (profitPercent < targetProfitPct) {
+        alertState = "STRATEGY_OK";
+        alertMessage = `🟢 Rentabilidade (+${profitPercent.toFixed(1)}%) aguardando meta de lucro de ${targetProfitPct}%. Nenhuma venda sugerida.`;
       } else if (currentWeightPct > rule.maxWeightPct) {
         alertState = "RULE_TRIGGERED";
         alertMessage = `🔴 Posição acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
@@ -228,13 +249,14 @@ export class IntelligentPlanEngine {
         currentDrawdownPct: 0,
       });
 
-      // Partial realization suggestion if position has positive profit AND (rule triggered, requires attention, or capital excess)
-      const isEligibleForRealization = profitBRL > 0 && (
-        alertState === "RULE_TRIGGERED" ||
-        alertState === "REQUIRES_ATTENTION" ||
-        currentWeightPct >= rule.targetWeightPct ||
-        capitalExcessBRL > 0
-      );
+      // Partial realization suggestion if position has positive profit AND meets profit target AND (rule triggered, requires attention, or capital excess)
+      const isEligibleForRealization =
+        profitBRL > 0 &&
+        profitPercent >= targetProfitPct &&
+        (alertState === "RULE_TRIGGERED" ||
+          alertState === "REQUIRES_ATTENTION" ||
+          currentWeightPct >= rule.targetWeightPct ||
+          capitalExcessBRL > 0);
 
       if (isEligibleForRealization) {
         const realizationPct = (rule.maxRealizationPct || 25) / 100;
