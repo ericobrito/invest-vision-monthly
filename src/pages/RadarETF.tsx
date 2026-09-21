@@ -120,57 +120,57 @@ export default function RadarETF() {
   const getStatusBadge = (status: ETFScoreBreakdown["status"]) => {
     switch (status) {
       case "STRONG_BUY":
-        return <Badge className="bg-emerald-600/90 text-white font-semibold">Forte Compra</Badge>;
+        return <Badge className="bg-emerald-600 text-white font-semibold">Forte Compra</Badge>;
       case "ACCUMULATE":
-        return <Badge className="bg-blue-600/90 text-white font-semibold">Acumular</Badge>;
+        return <Badge className="bg-blue-600 text-white font-semibold">Acumular</Badge>;
       case "NEUTRAL":
-        return <Badge className="bg-amber-600/90 text-white font-semibold">Neutro</Badge>;
+        return <Badge className="bg-amber-600 text-white font-semibold">Neutro</Badge>;
       case "UNDERPERFORM":
-        return <Badge className="bg-rose-600/90 text-white font-semibold">Fraco</Badge>;
+        return <Badge className="bg-rose-600 text-white font-semibold">Fraco</Badge>;
     }
   };
 
   const getTrendBadge = (trend: "BULLISH" | "NEUTRAL" | "BEARISH") => {
     switch (trend) {
       case "BULLISH":
-        return <span className="text-emerald-400 font-medium text-xs flex items-center gap-1">▲ De Alta</span>;
+        return <span className="text-emerald-500 font-medium text-xs flex items-center gap-1">▲ De Alta</span>;
       case "NEUTRAL":
-        return <span className="text-amber-400 font-medium text-xs flex items-center gap-1">▶ Lateral</span>;
+        return <span className="text-amber-500 font-medium text-xs flex items-center gap-1">▶ Lateral</span>;
       case "BEARISH":
-        return <span className="text-rose-400 font-medium text-xs flex items-center gap-1">▼ De Baixa</span>;
+        return <span className="text-rose-500 font-medium text-xs flex items-center gap-1">▼ De Baixa</span>;
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 md:p-8 space-y-6">
+    <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 md:p-8 space-y-6">
       {/* HEADER SECTION */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Link to="/radar" className="text-slate-400 hover:text-slate-200 transition-colors flex items-center text-sm gap-1">
+            <Link to="/radar" className="text-muted-foreground hover:text-foreground transition-colors flex items-center text-sm gap-1">
               <ArrowLeft className="w-4 h-4" /> Voltar ao Radar de Ações
             </Link>
-            <span className="text-slate-600">•</span>
-            <span className="bg-cyan-500/10 text-cyan-400 text-xs px-2.5 py-0.5 rounded-full border border-cyan-500/20 font-medium flex items-center gap-1">
+            <span className="text-border">•</span>
+            <span className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-xs px-2.5 py-0.5 rounded-full border border-cyan-500/20 font-medium flex items-center gap-1">
               <Zap className="w-3 h-3" /> Módulo 100% Isolado
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-            ETF Radar <span className="text-cyan-400 font-light text-xl">| Tendências Globais</span>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            ETF Radar <span className="text-cyan-500 dark:text-cyan-400 font-light text-xl">| Tendências Globais</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Identificação cirúrgica de grandes tendências macroeconômicas, pontuação multisetorial (0-100) e simulação autônoma de backtests.
           </p>
         </div>
 
         {/* Currency Switcher */}
-        <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 p-1.5 rounded-xl self-start md:self-auto">
-          <span className="text-xs text-slate-400 px-2 font-medium">Moeda:</span>
+        <div className="flex items-center gap-3 bg-card border border-border p-1.5 rounded-xl self-start md:self-auto shadow-sm">
+          <span className="text-xs text-muted-foreground px-2 font-medium">Moeda:</span>
           <Button
             variant={currencyMode === "USD" ? "default" : "ghost"}
             size="sm"
             onClick={() => setCurrencyMode("USD")}
-            className={currencyMode === "USD" ? "bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold" : "text-xs text-slate-400"}
+            className={currencyMode === "USD" ? "bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold" : "text-xs text-muted-foreground"}
           >
             USD ($)
           </Button>
@@ -178,75 +178,75 @@ export default function RadarETF() {
             variant={currencyMode === "BRL" ? "default" : "ghost"}
             size="sm"
             onClick={() => setCurrencyMode("BRL")}
-            className={currencyMode === "BRL" ? "bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold" : "text-xs text-slate-400"}
+            className={currencyMode === "BRL" ? "bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold" : "text-xs text-muted-foreground"}
           >
             BRL (R$)
           </Button>
-          <div className="text-[11px] text-slate-400 px-2 border-l border-slate-800">
-            USD/BRL: <span className="text-slate-200 font-semibold">R$ {fxRate.toFixed(2)}</span>
+          <div className="text-[11px] text-muted-foreground px-2 border-l border-border">
+            USD/BRL: <span className="text-foreground font-semibold">R$ {fxRate.toFixed(2)}</span>
           </div>
         </div>
       </header>
 
       {/* ISOLATION GUARANTEE BANNER */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs text-slate-300">
+      <div className="bg-card/70 border border-border rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs text-foreground shadow-sm">
         <div className="flex items-center gap-2.5">
-          <ShieldAlert className="w-4 h-4 text-cyan-400 shrink-0" />
+          <ShieldAlert className="w-4 h-4 text-cyan-500 dark:text-cyan-400 shrink-0" />
           <span>
-            <strong className="text-white">Garantia de Isolamento Absoluto:</strong> O ETF Radar consome dados em modo leitura e calcula scores exclusivos (0-100). Ele não altera sua carteira existente, nem seus scores de ações ou limites fiscais.
+            <strong className="text-foreground">Garantia de Isolamento Absoluto:</strong> O ETF Radar consome dados em modo leitura e calcula scores exclusivos (0-100). Ele não altera sua carteira existente, nem seus scores de ações ou limites fiscais.
           </span>
         </div>
       </div>
 
       {/* STATS HIGHLIGHT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Universo de ETFs</p>
-              <h3 className="text-2xl font-bold text-white mt-1">{ETF_UNIVERSE.length} ETFs Liquid</h3>
-              <p className="text-[11px] text-cyan-400 mt-1">EUA, Semicondutores, IA & Urânio</p>
+              <p className="text-xs text-muted-foreground font-medium">Universo de ETFs</p>
+              <h3 className="text-2xl font-bold text-foreground mt-1">{ETF_UNIVERSE.length} ETFs Liquid</h3>
+              <p className="text-[11px] text-cyan-500 dark:text-cyan-400 mt-1">EUA, Semicondutores, IA & Urânio</p>
             </div>
-            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-400">
+            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-500 dark:text-cyan-400">
               <Layers className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Benchmark Primário</p>
-              <h3 className="text-2xl font-bold text-emerald-400 mt-1">+24.5% <span className="text-xs font-normal text-slate-400">(1Y S&P)</span></h3>
-              <p className="text-[11px] text-slate-400 mt-1">Referência vs CDI (R$)</p>
+              <p className="text-xs text-muted-foreground font-medium">Benchmark Primário</p>
+              <h3 className="text-2xl font-bold text-emerald-500 dark:text-emerald-400 mt-1">+24.5% <span className="text-xs font-normal text-muted-foreground">(1Y S&P)</span></h3>
+              <p className="text-[11px] text-muted-foreground mt-1">Referência vs CDI (R$)</p>
             </div>
-            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-500 dark:text-emerald-400">
               <BarChart3 className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Maior Score Atual</p>
-              <h3 className="text-2xl font-bold text-amber-400 mt-1">SMH <span className="text-sm font-normal text-amber-300">(88/100)</span></h3>
-              <p className="text-[11px] text-slate-400 mt-1">Setor: Semicondutores</p>
+              <p className="text-xs text-muted-foreground font-medium">Maior Score Atual</p>
+              <h3 className="text-2xl font-bold text-amber-500 dark:text-amber-400 mt-1">SMH <span className="text-sm font-normal text-amber-600 dark:text-amber-300">(88/100)</span></h3>
+              <p className="text-[11px] text-muted-foreground mt-1">Setor: Semicondutores</p>
             </div>
-            <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400">
+            <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-500 dark:text-amber-400">
               <Sparkles className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-card border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Tendência Dominante</p>
-              <h3 className="text-xl font-bold text-purple-400 mt-1">Inteligência Artificial</h3>
-              <p className="text-[11px] text-slate-400 mt-1">SOXX, SMH, AIQ em alta tripla</p>
+              <p className="text-xs text-muted-foreground font-medium">Tendência Dominante</p>
+              <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">Inteligência Artificial</h3>
+              <p className="text-[11px] text-muted-foreground mt-1">SOXX, SMH, AIQ em alta tripla</p>
             </div>
-            <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 text-purple-400">
+            <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 text-purple-600 dark:text-purple-400">
               <TrendingUp className="w-5 h-5" />
             </div>
           </CardContent>
@@ -255,8 +255,8 @@ export default function RadarETF() {
 
       {/* MAIN CONTENT TABS */}
       <Tabs defaultValue="scores" className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
-          <TabsList className="bg-slate-900 p-1 border border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-3">
+          <TabsList className="bg-muted p-1 border border-border">
             <TabsTrigger value="scores" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-xs sm:text-sm">
               <BarChart3 className="w-4 h-4 mr-2" /> ETF Scores & Métricas
             </TabsTrigger>
@@ -271,12 +271,12 @@ export default function RadarETF() {
           {/* Search and Category filters */}
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
               <Input
                 placeholder="Buscar ETF, tema ou ticker..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-slate-900 border-slate-800 text-xs text-slate-200 w-48 sm:w-64 h-9 focus-visible:ring-cyan-500"
+                className="pl-9 bg-background border-border text-xs text-foreground w-48 sm:w-64 h-9 focus-visible:ring-cyan-500"
               />
             </div>
           </div>
@@ -292,8 +292,8 @@ export default function RadarETF() {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 border ${
                   selectedCategory === cat.id
-                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
-                    : "bg-slate-900/60 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200"
+                    ? "bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border-cyan-500/40 font-semibold"
+                    : "bg-card text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
                 }`}
               >
                 {cat.label}
@@ -302,10 +302,10 @@ export default function RadarETF() {
           </div>
 
           {/* ETFs Main Table */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[11px]">
+              <table className="w-full text-left text-xs text-foreground">
+                <thead className="bg-muted/60 text-muted-foreground font-semibold border-b border-border uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3.5 px-4">ETF / Ticker</th>
                     <th className="py-3.5 px-3">Tema Estrutural</th>
@@ -320,10 +320,10 @@ export default function RadarETF() {
                     <th className="py-3.5 px-4 text-center">Ação</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-border">
                   {filteredEtfs.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-8 text-center text-slate-400">
+                      <td colSpan={11} className="py-8 text-center text-muted-foreground">
                         Nenhum ETF encontrado para o filtro aplicado.
                       </td>
                     </tr>
@@ -342,34 +342,34 @@ export default function RadarETF() {
                         currencyMode === "USD" ? `${m.return1YPct.toFixed(1)}%` : `${m.return1YBRLPct.toFixed(1)}%`;
 
                       return (
-                        <tr key={etf.ticker} className="hover:bg-slate-800/40 transition-colors">
-                          <td className="py-3.5 px-4 font-medium text-white">
+                        <tr key={etf.ticker} className="hover:bg-muted/40 transition-colors">
+                          <td className="py-3.5 px-4 font-medium text-foreground">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm text-cyan-400">{etf.ticker}</span>
-                              <span className="text-[11px] text-slate-400 truncate max-w-[140px]">{etf.name}</span>
+                              <span className="font-bold text-sm text-cyan-600 dark:text-cyan-400">{etf.ticker}</span>
+                              <span className="text-[11px] text-muted-foreground truncate max-w-[140px]">{etf.name}</span>
                             </div>
                           </td>
-                          <td className="py-3.5 px-3 text-slate-300">
-                            <span className="bg-slate-800 px-2 py-0.5 rounded text-[11px] border border-slate-700">
+                          <td className="py-3.5 px-3 text-foreground">
+                            <span className="bg-muted px-2 py-0.5 rounded text-[11px] border border-border">
                               {etf.theme}
                             </span>
                           </td>
-                          <td className="py-3.5 px-3 text-right font-mono font-semibold text-white">
+                          <td className="py-3.5 px-3 text-right font-mono font-semibold text-foreground">
                             {priceFormatted}
                           </td>
                           <td className="py-3.5 px-3 text-center">
-                            <div className="inline-flex items-center justify-center bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-bold text-sm text-cyan-400">
-                              {s.totalScore} <span className="text-[10px] text-slate-500 ml-0.5">/100</span>
+                            <div className="inline-flex items-center justify-center bg-muted/60 px-2.5 py-1 rounded-lg border border-border font-bold text-sm text-cyan-600 dark:text-cyan-400">
+                              {s.totalScore} <span className="text-[10px] text-muted-foreground ml-0.5">/100</span>
                             </div>
                           </td>
                           <td className="py-3.5 px-3 text-center">{getStatusBadge(s.status)}</td>
-                          <td className={`py-3.5 px-3 text-right font-mono font-medium ${m.return1YPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          <td className={`py-3.5 px-3 text-right font-mono font-medium ${m.return1YPct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                             {m.return1YPct >= 0 ? "+" : ""}{return1YFormatted}
                           </td>
-                          <td className="py-3.5 px-3 text-right font-mono text-slate-300">{m.cagrPct.toFixed(1)}%</td>
-                          <td className="py-3.5 px-3 text-right font-mono text-rose-400">{m.maxDrawdownPct.toFixed(1)}%</td>
-                          <td className="py-3.5 px-3 text-right font-mono text-slate-300">{m.sharpeRatio.toFixed(2)}</td>
-                          <td className={`py-3.5 px-3 text-right font-mono font-medium ${m.alphaVsSp500Pct >= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                          <td className="py-3.5 px-3 text-right font-mono text-foreground">{m.cagrPct.toFixed(1)}%</td>
+                          <td className="py-3.5 px-3 text-right font-mono text-rose-500">{m.maxDrawdownPct.toFixed(1)}%</td>
+                          <td className="py-3.5 px-3 text-right font-mono text-foreground">{m.sharpeRatio.toFixed(2)}</td>
+                          <td className={`py-3.5 px-3 text-right font-mono font-medium ${m.alphaVsSp500Pct >= 0 ? "text-emerald-500" : "text-amber-500"}`}>
                             {m.alphaVsSp500Pct >= 0 ? "+" : ""}{m.alphaVsSp500Pct.toFixed(1)}%
                           </td>
                           <td className="py-3.5 px-4 text-center">
@@ -377,7 +377,7 @@ export default function RadarETF() {
                               variant="outline"
                               size="sm"
                               onClick={() => setActiveDrilldown(getEtfHoldingsDrilldown(etf.ticker) || null)}
-                              className="h-7 text-[11px] bg-slate-950 hover:bg-slate-800 border-slate-700 text-cyan-300"
+                              className="h-7 text-[11px] bg-background hover:bg-muted border-border text-cyan-600 dark:text-cyan-400"
                             >
                               Ver Ativos
                             </Button>
@@ -402,52 +402,52 @@ export default function RadarETF() {
               if (!t || !s || !m) return null;
 
               return (
-                <Card key={etf.ticker} className="bg-slate-900/80 border-slate-800 hover:border-slate-700 transition-all">
-                  <CardHeader className="p-4 pb-2 border-b border-slate-800/60 flex flex-row items-center justify-between space-y-0">
+                <Card key={etf.ticker} className="bg-card border-border hover:border-border/80 transition-all shadow-sm">
+                  <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between space-y-0">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-white">{etf.ticker}</span>
-                        <Badge variant="outline" className="text-[10px] bg-slate-800 border-slate-700 text-cyan-400">
+                        <span className="text-lg font-bold text-foreground">{etf.ticker}</span>
+                        <Badge variant="outline" className="text-[10px] bg-muted border-border text-cyan-600 dark:text-cyan-400">
                           {etf.theme}
                         </Badge>
                       </div>
-                      <p className="text-xs text-slate-400 truncate mt-0.5">{etf.name}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{etf.name}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-semibold text-slate-400">Alinhamento</div>
-                      <div className="text-lg font-bold text-cyan-400">{t.alignmentScore}%</div>
+                      <div className="text-xs font-semibold text-muted-foreground">Alinhamento</div>
+                      <div className="text-lg font-bold text-cyan-600 dark:text-cyan-400">{t.alignmentScore}%</div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 space-y-3">
                     {/* Horizons Breakdown */}
-                    <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 text-center">
+                    <div className="grid grid-cols-3 gap-2 bg-muted/40 p-2.5 rounded-lg border border-border text-center">
                       <div>
-                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Curto Prazo</div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">Curto Prazo</div>
                         <div className="text-xs mt-1">{getTrendBadge(t.shortTermTrend)}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">3-12M</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">3-12M</div>
                       </div>
-                      <div className="border-x border-slate-800">
-                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Médio Prazo</div>
+                      <div className="border-x border-border">
+                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">Médio Prazo</div>
                         <div className="text-xs mt-1">{getTrendBadge(t.mediumTermTrend)}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">1-3Y</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">1-3Y</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Longo Prazo</div>
+                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">Longo Prazo</div>
                         <div className="text-xs mt-1">{getTrendBadge(t.longTermTrend)}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">3-10Y+</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">3-10Y+</div>
                       </div>
                     </div>
 
                     {/* Driver Summary Narrative */}
-                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/40 p-2.5 rounded border border-slate-800/50">
+                    <p className="text-xs text-foreground leading-relaxed bg-muted/20 p-2.5 rounded border border-border/60">
                       {t.driverSummary}
                     </p>
 
                     {/* Metrics quick glance */}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/40">
-                      <span className="text-slate-400">Ret. 1Y: <strong className="text-emerald-400">{m.return1YPct}%</strong></span>
-                      <span className="text-slate-400">Sharpe: <strong className="text-white">{m.sharpeRatio}</strong></span>
-                      <span className="text-slate-400">Beta: <strong className="text-cyan-300">{m.beta}</strong></span>
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-border">
+                      <span className="text-muted-foreground">Ret. 1Y: <strong className="text-emerald-500">{m.return1YPct}%</strong></span>
+                      <span className="text-muted-foreground">Sharpe: <strong className="text-foreground">{m.sharpeRatio}</strong></span>
+                      <span className="text-muted-foreground">Beta: <strong className="text-cyan-600 dark:text-cyan-400">{m.beta}</strong></span>
                     </div>
                   </CardContent>
                 </Card>
@@ -460,16 +460,16 @@ export default function RadarETF() {
         <TabsContent value="backtest" className="space-y-6 m-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Control Panel Card */}
-            <Card className="bg-slate-900/90 border-slate-800 space-y-4">
-              <CardHeader className="p-4 pb-2 border-b border-slate-800">
-                <CardTitle className="text-base text-white flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-cyan-400" /> Parâmetros da Simulação
+            <Card className="bg-card border-border shadow-sm space-y-4">
+              <CardHeader className="p-4 pb-2 border-b border-border">
+                <CardTitle className="text-base text-foreground flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Parâmetros da Simulação
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-4 text-xs">
                 {/* Strategy Selector */}
                 <div className="space-y-1.5">
-                  <label className="text-slate-300 font-semibold">Selecione a Estratégia:</label>
+                  <label className="text-foreground font-semibold">Selecione a Estratégia:</label>
                   <div className="space-y-2">
                     {DEFAULT_PRESET_STRATEGIES.map((strat) => (
                       <div
@@ -477,12 +477,12 @@ export default function RadarETF() {
                         onClick={() => setSelectedStrategyId(strat.id)}
                         className={`p-3 rounded-lg border cursor-pointer transition-all ${
                           selectedStrategyId === strat.id
-                            ? "bg-cyan-950/40 border-cyan-500/50 text-white"
-                            : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                            ? "bg-cyan-500/10 border-cyan-500/50 text-foreground"
+                            : "bg-background border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
                         }`}
                       >
-                        <div className="font-semibold text-sm text-cyan-300">{strat.name}</div>
-                        <p className="text-[11px] text-slate-400 mt-1">{strat.description}</p>
+                        <div className="font-semibold text-sm text-cyan-600 dark:text-cyan-400">{strat.name}</div>
+                        <p className="text-[11px] text-muted-foreground mt-1">{strat.description}</p>
                       </div>
                     ))}
                   </div>
@@ -490,11 +490,11 @@ export default function RadarETF() {
 
                 {/* Rebalance Frequency */}
                 <div className="space-y-1.5">
-                  <label className="text-slate-300 font-semibold">Frequência de Rebalanceamento:</label>
+                  <label className="text-foreground font-semibold">Frequência de Rebalanceamento:</label>
                   <select
                     value={rebalanceFreq}
                     onChange={(e) => setRebalanceFreq(e.target.value as RebalanceFrequency)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground focus:outline-none focus:border-cyan-500"
                   >
                     <option value="BUY_AND_HOLD">Buy & Hold (Sem rebalanceamento)</option>
                     <option value="ANNUAL">Rebalanceamento Anual (Recomendado)</option>
@@ -506,12 +506,12 @@ export default function RadarETF() {
 
                 {/* Initial Capital */}
                 <div className="space-y-1.5">
-                  <label className="text-slate-300 font-semibold">Aporte Inicial (USD $):</label>
+                  <label className="text-foreground font-semibold">Aporte Inicial (USD $):</label>
                   <Input
                     type="number"
                     value={initialCapital}
                     onChange={(e) => setInitialCapital(Number(e.target.value) || 1000)}
-                    className="bg-slate-950 border-slate-800 text-white text-xs h-9"
+                    className="bg-background border-border text-foreground text-xs h-9"
                   />
                 </div>
               </CardContent>
@@ -523,45 +523,45 @@ export default function RadarETF() {
                 <>
                   {/* Results Summary Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <Card className="bg-slate-900/80 border-slate-800">
+                    <Card className="bg-card border-border shadow-sm">
                       <CardContent className="p-3">
-                        <span className="text-[11px] text-slate-400">Patrimônio Final</span>
-                        <div className="text-lg font-bold text-emerald-400 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground">Patrimônio Final</span>
+                        <div className="text-lg font-bold text-emerald-500 mt-0.5">
                           ${backtestResult.finalValueUSD.toLocaleString()}
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-muted-foreground">
                           R$ {backtestResult.finalValueBRL.toLocaleString()}
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-900/80 border-slate-800">
+                    <Card className="bg-card border-border shadow-sm">
                       <CardContent className="p-3">
-                        <span className="text-[11px] text-slate-400">Retorno Total (CAGR)</span>
-                        <div className="text-lg font-bold text-cyan-400 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground">Retorno Total (CAGR)</span>
+                        <div className="text-lg font-bold text-cyan-600 dark:text-cyan-400 mt-0.5">
                           +{backtestResult.totalReturnPctUSD.toFixed(1)}%
                         </div>
-                        <div className="text-[10px] text-slate-400">CAGR: {backtestResult.cagrPct.toFixed(1)}% a.a.</div>
+                        <div className="text-[10px] text-muted-foreground">CAGR: {backtestResult.cagrPct.toFixed(1)}% a.a.</div>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-900/80 border-slate-800">
+                    <Card className="bg-card border-border shadow-sm">
                       <CardContent className="p-3">
-                        <span className="text-[11px] text-slate-400">Volatilidade / Drawdown</span>
-                        <div className="text-lg font-bold text-amber-400 mt-0.5">
+                        <span className="text-[11px] text-muted-foreground">Volatilidade / Drawdown</span>
+                        <div className="text-lg font-bold text-amber-500 mt-0.5">
                           {backtestResult.volatilityPct.toFixed(1)}%
                         </div>
-                        <div className="text-[10px] text-rose-400">Max DD: {backtestResult.maxDrawdownPct.toFixed(1)}%</div>
+                        <div className="text-[10px] text-rose-500">Max DD: {backtestResult.maxDrawdownPct.toFixed(1)}%</div>
                       </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-900/80 border-slate-800">
+                    <Card className="bg-card border-border shadow-sm">
                       <CardContent className="p-3">
-                        <span className="text-[11px] text-slate-400">Índice Sharpe</span>
-                        <div className="text-lg font-bold text-white mt-0.5">
+                        <span className="text-[11px] text-muted-foreground">Índice Sharpe</span>
+                        <div className="text-lg font-bold text-foreground mt-0.5">
                           {backtestResult.sharpeRatio.toFixed(2)}
                         </div>
-                        <div className="text-[10px] text-emerald-400">
+                        <div className="text-[10px] text-emerald-500">
                           {backtestResult.positiveYearsCount}/{backtestResult.totalYearsCount} anos positivos
                         </div>
                       </CardContent>
@@ -569,17 +569,17 @@ export default function RadarETF() {
                   </div>
 
                   {/* Yearly Details Table */}
-                  <Card className="bg-slate-900/80 border-slate-800">
-                    <CardHeader className="p-4 pb-2 border-b border-slate-800 flex flex-row items-center justify-between">
-                      <CardTitle className="text-sm text-white">Evolução Anual Histórica (2016–2025)</CardTitle>
-                      <Badge variant="outline" className="text-[11px] bg-slate-950 border-slate-800 text-slate-300">
+                  <Card className="bg-card border-border shadow-sm">
+                    <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
+                      <CardTitle className="text-sm text-foreground">Evolução Anual Histórica (2016–2025)</CardTitle>
+                      <Badge variant="outline" className="text-[11px] bg-muted border-border text-foreground">
                         {rebalanceFreq}
                       </Badge>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs text-slate-300">
-                          <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800">
+                        <table className="w-full text-left text-xs text-foreground">
+                          <thead className="bg-muted/60 text-muted-foreground font-semibold border-b border-border">
                             <tr>
                               <th className="py-2.5 px-4">Ano</th>
                               <th className="py-2.5 px-3 text-right">Retorno USD</th>
@@ -587,17 +587,17 @@ export default function RadarETF() {
                               <th className="py-2.5 px-4 text-right">Saldo Final (USD)</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800/60">
+                          <tbody className="divide-y divide-border">
                             {backtestResult.yearlyDetails.map((y) => (
-                              <tr key={y.year} className="hover:bg-slate-800/30 font-mono">
-                                <td className="py-2.5 px-4 font-bold text-white font-sans">{y.year}</td>
-                                <td className={`py-2.5 px-3 text-right font-medium ${y.returnUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              <tr key={y.year} className="hover:bg-muted/30 font-mono">
+                                <td className="py-2.5 px-4 font-bold text-foreground font-sans">{y.year}</td>
+                                <td className={`py-2.5 px-3 text-right font-medium ${y.returnUSD >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                                   {y.returnUSD >= 0 ? "+" : ""}{y.returnUSD.toFixed(2)}%
                                 </td>
-                                <td className={`py-2.5 px-3 text-right font-medium ${y.returnBRL >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                <td className={`py-2.5 px-3 text-right font-medium ${y.returnBRL >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                                   {y.returnBRL >= 0 ? "+" : ""}{y.returnBRL.toFixed(2)}%
                                 </td>
-                                <td className="py-2.5 px-4 text-right text-white font-bold">
+                                <td className="py-2.5 px-4 text-right text-foreground font-bold">
                                   ${y.portfolioValueUSD.toLocaleString()}
                                 </td>
                               </tr>
@@ -610,11 +610,11 @@ export default function RadarETF() {
 
                   {/* Historical Integrity Notes */}
                   {backtestResult.historicalIntegrityNotes.length > 0 && (
-                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-200 space-y-1">
-                      <div className="font-semibold flex items-center gap-1 text-amber-400">
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-200 space-y-1">
+                      <div className="font-semibold flex items-center gap-1 text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="w-4 h-4" /> Notas de Integridade Histórica:
                       </div>
-                      <ul className="list-disc list-inside space-y-0.5 text-amber-300/80">
+                      <ul className="list-disc list-inside space-y-0.5 text-amber-600/90 dark:text-amber-300/80">
                         {backtestResult.historicalIntegrityNotes.map((note, idx) => (
                           <li key={idx}>{note}</li>
                         ))}
@@ -630,59 +630,59 @@ export default function RadarETF() {
 
       {/* HOLDINGS DRILLDOWN MODAL */}
       {activeDrilldown && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl space-y-4 p-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-card border border-border text-card-foreground rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl space-y-4 p-6">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-bold text-white">{activeDrilldown.ticker}</h3>
-                  <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+                  <h3 className="text-xl font-bold text-foreground">{activeDrilldown.ticker}</h3>
+                  <Badge variant="outline" className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30">
                     {activeDrilldown.theme}
                   </Badge>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">{activeDrilldown.etfName}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{activeDrilldown.etfName}</p>
               </div>
               <button
                 onClick={() => setActiveDrilldown(null)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg bg-slate-800/60"
+                className="p-1 text-muted-foreground hover:text-foreground rounded-lg bg-muted"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-slate-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+              <div className="flex items-center justify-between text-xs text-foreground bg-muted/40 p-2.5 rounded-lg border border-border">
                 <span>Concentração nas Top Holdings:</span>
-                <strong className="text-cyan-400">{activeDrilldown.topHoldingsConcentrationPct}% do ETF</strong>
+                <strong className="text-cyan-600 dark:text-cyan-400">{activeDrilldown.topHoldingsConcentrationPct}% do ETF</strong>
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Principais Posições Subjacentes:</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Principais Posições Subjacentes:</h4>
                 <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                   {activeDrilldown.holdings.map((h) => (
                     <div
                       key={h.symbol}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-xs"
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-white font-mono">{h.symbol}</span>
-                        <span className="text-slate-400 text-[11px] truncate max-w-[200px]">{h.name}</span>
+                        <span className="font-bold text-foreground font-mono">{h.symbol}</span>
+                        <span className="text-muted-foreground text-[11px] truncate max-w-[200px]">{h.name}</span>
                       </div>
-                      <span className="font-bold text-emerald-400 font-mono">{h.weightPct}%</span>
+                      <span className="font-bold text-emerald-500 font-mono">{h.weightPct}%</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Informational Disclaimer Box */}
-              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
-                <Info className="w-3.5 h-3.5 inline mr-1 text-cyan-400" />
+              <div className="bg-muted/40 p-3 rounded-lg border border-border text-[11px] text-muted-foreground leading-relaxed">
+                <Info className="w-3.5 h-3.5 inline mr-1 text-cyan-500" />
                 {activeDrilldown.disclaimer}
               </div>
             </div>
 
-            <div className="pt-2 text-right border-t border-slate-800">
-              <Button size="sm" onClick={() => setActiveDrilldown(null)} className="bg-slate-800 hover:bg-slate-700 text-white text-xs">
+            <div className="pt-2 text-right border-t border-border">
+              <Button size="sm" onClick={() => setActiveDrilldown(null)} variant="secondary" className="text-xs">
                 Fechar Visualização
               </Button>
             </div>
