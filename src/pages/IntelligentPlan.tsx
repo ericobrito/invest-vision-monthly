@@ -107,10 +107,19 @@ export default function IntelligentPlan() {
     if (!snapshots || snapshots.length === 0) return defaultPositions;
 
     const latestSnapshot = snapshots[snapshots.length - 1];
-    const extracted: StockPositionInput[] = [];
+
+    const normalizeTicker = (symbol: string, name: string): string => {
+      const symUpper = (symbol || "").toUpperCase().trim();
+      const nameUpper = (name || "").toUpperCase().trim();
+      if (symUpper === "BITCOIN" || nameUpper === "BITCOIN" || nameUpper.includes("BITCOIN USD")) return "BTC";
+      if (symUpper === "ETHEREUM" || nameUpper === "ETHEREUM" || nameUpper.includes("ETHEREUM USD")) return "ETH";
+      if (symUpper === "SOLANA" || nameUpper === "SOLANA") return "SOL";
+      if (symUpper === "TETHER" || nameUpper.includes("TETHER")) return "USDT";
+      return symUpper;
+    };
 
     const inferCategory = (symbol: string, name: string, currency: string, region?: string, incomeType?: string) => {
-      const symUpper = (symbol || "").toUpperCase();
+      const symUpper = normalizeTicker(symbol, name);
       const nameUpper = (name || "").toUpperCase();
       const cryptoSymbols = ["BTC", "ETH", "USDT", "USDC", "SOL", "ADA", "XRP", "DOT", "DOGE", "LINK", "UNI", "MATIC", "AVAX", "LTC", "PEPE", "SHIB"];
       if (
@@ -133,10 +142,13 @@ export default function IntelligentPlan() {
       return "Ação Brasil" as const;
     };
 
+    const rawItems: StockPositionInput[] = [];
+
     for (const inv of latestSnapshot.investments || []) {
       if (inv.positions && inv.positions.length > 0) {
         for (const p of inv.positions) {
-          const sym = (p.symbol || p.ticker || "ATIVO").toUpperCase();
+          const rawSym = p.symbol || p.ticker || "ATIVO";
+          const sym = normalizeTicker(rawSym, p.name || "");
           if (["PETR4", "PETR3", "VALE3", "SMH"].includes(sym)) continue;
 
           const pName = p.name || sym;
@@ -145,7 +157,7 @@ export default function IntelligentPlan() {
           const currentValueBRL = p.currentValueBRL ?? (p.currentValue * fxRate);
           const appliedAmountBRL = p.appliedAmountBRL ?? (p.appliedAmount * fxRate);
 
-          extracted.push({
+          rawItems.push({
             symbol: sym,
             name: pName,
             category: inferCategory(sym, pName, currency, inv.region, inv.incomeType),
@@ -159,14 +171,15 @@ export default function IntelligentPlan() {
           });
         }
       } else if (inv.incomeType === "variable" || inv.flags?.includeInVariablePositions) {
-        const sym = (inv.linkedAsset?.symbol || inv.name || "ATIVO").toUpperCase();
+        const rawSym = inv.linkedAsset?.symbol || inv.name || "ATIVO";
+        const sym = normalizeTicker(rawSym, inv.name || "");
         if (["PETR4", "PETR3", "VALE3", "SMH"].includes(sym)) continue;
 
         const currency = inv.currency || "BRL";
         const valBRL = inv.valueBRL ?? inv.value;
         const appBRL = inv.appliedBRL ?? inv.value;
 
-        extracted.push({
+        rawItems.push({
           symbol: sym,
           name: inv.name,
           category: inferCategory(sym, inv.name, currency, inv.region, inv.incomeType),
@@ -181,6 +194,36 @@ export default function IntelligentPlan() {
       }
     }
 
+    // Consolidated / Deduplicated Map by Symbol Ticker
+    const consolidatedMap = new Map<string, StockPositionInput>();
+
+    for (const item of rawItems) {
+      const existing = consolidatedMap.get(item.symbol);
+      if (!existing) {
+        consolidatedMap.set(item.symbol, { ...item });
+      } else {
+        const totalValueBRL = (existing.currentValueBRL || 0) + (item.currentValueBRL || 0);
+        const totalAppliedBRL = (existing.appliedAmountBRL || 0) + (item.appliedAmountBRL || 0);
+        const totalQuantity = existing.quantity + item.quantity;
+        const avgPrice = totalQuantity > 0 ? totalAppliedBRL / totalQuantity : existing.averagePrice;
+        const currPrice = totalQuantity > 0 ? totalValueBRL / totalQuantity : existing.currentPrice;
+
+        consolidatedMap.set(item.symbol, {
+          symbol: item.symbol,
+          name: item.symbol === "BTC" ? "Bitcoin (BTC)" : item.symbol === "ETH" ? "Ethereum (ETH)" : existing.name,
+          category: existing.category === "Criptoativo" || item.category === "Criptoativo" ? "Criptoativo" : existing.category,
+          quantity: totalQuantity,
+          averagePrice: avgPrice,
+          currentPrice: currPrice,
+          currency: existing.currency,
+          fxRate: existing.fxRate,
+          currentValueBRL: totalValueBRL,
+          appliedAmountBRL: totalAppliedBRL,
+        });
+      }
+    }
+
+    const extracted = Array.from(consolidatedMap.values());
     return extracted.length > 0 ? extracted : defaultPositions;
   }, [snapshots]);
 
