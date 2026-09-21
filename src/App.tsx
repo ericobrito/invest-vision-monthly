@@ -18,6 +18,7 @@ import PassiveIncomeSimulator from "./pages/PassiveIncomeSimulator";
 import WealthGoalsManager from "./pages/WealthGoalsManager";
 import VariableIncomeMoversDashboard from "./pages/VariableIncomeMoversDashboard";
 import CryptoAccountingDashboard from "./pages/CryptoAccountingDashboard";
+import RadarETF from "./pages/RadarETF";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -94,6 +95,7 @@ const App = () => {
                 <Route path="/vendas" element={<Landing />} />
                 <Route path="/landing" element={<Landing />} />
                 <Route path="/radar" element={<RadarAssimetria />} />
+                <Route path="/radar-etf" element={<RadarETF />} />
                 <Route path="/radar-tesouro" element={<RadarTesouro />} />
                 <Route path="/plano-acao" element={<PlanoAcao />} />
                 <Route path="/posicoes-variaveis" element={<PosicoesVariaveis />} />
