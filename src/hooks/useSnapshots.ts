@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
@@ -391,12 +391,18 @@ export function useSnapshots() {
   });
 
   const monthlyData = query.data;
+  const hasSyncedRef = useRef<number>(0);
 
   useEffect(() => {
     if (!monthlyData || monthlyData.length === 0) return;
-    const latest = monthlyData[monthlyData.length - 1];
     const now = Date.now();
     const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+    // Throttle background sync to run at most once every 5 minutes in memory
+    if (now - hasSyncedRef.current < FIVE_MINUTES_MS) return;
+    hasSyncedRef.current = now;
+
+    const latest = monthlyData[monthlyData.length - 1];
 
     // 1. Background sync connected investments
     const connectedInvs = latest.investments.filter(
@@ -412,7 +418,6 @@ export function useSnapshots() {
             body: { action: "sync", connection_id: inv.connectionId },
           });
           await propagateConnectionValues(inv.connectionId);
-          queryClient.invalidateQueries({ queryKey: ["snapshots"] });
         } catch (e) {
           console.error(`[useSnapshots] Failed to background sync ${inv.name}:`, e);
         }
@@ -430,7 +435,7 @@ export function useSnapshots() {
         propagateDetailedValues(latest.id, detailedInvs);
       }
     }
-  }, [monthlyData, queryClient]);
+  }, [monthlyData]);
 
   return query;
 }
