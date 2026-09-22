@@ -78,25 +78,38 @@ export default function IntelligentPlanConfigDialog({
             </div>
           </div>
 
-          {/* Min Profit Realization Threshold */}
-          <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
+          {/* Min Profit Realization Threshold & Fixed Income Floor */}
+          <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-3">
             <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Lucro Mínimo Esperado para Realização
+              Piso de Rentabilidade & Renda Fixa (Hurdle Rate)
             </h4>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Rentabilidade Mínima Necessária (%):</Label>
-              <Input
-                type="number"
-                value={formData.minProfitRealizationPct ?? 20}
-                onChange={(e) =>
-                  setFormData({ ...formData, minProfitRealizationPct: Number(e.target.value) || 20 })
-                }
-                className="h-8 bg-background border-border text-xs text-foreground"
-              />
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Nenhuma venda parcial será recomendada se o ativo estiver com rentabilidade abaixo desta meta (ex: Tesla a 14,8% aguardará 30%). Ativos em queda nunca são vendidos.
-              </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Piso Renda Fixa / CDI (% a.a.):</Label>
+                <Input
+                  type="number"
+                  value={formData.fixedIncomeHurdleRatePct ?? 12}
+                  onChange={(e) =>
+                    setFormData({ ...formData, fixedIncomeHurdleRatePct: Number(e.target.value) || 12 })
+                  }
+                  className="h-8 bg-background border-border text-xs text-foreground font-bold text-emerald-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Rentabilidade Mínima (%):</Label>
+                <Input
+                  type="number"
+                  value={formData.minProfitRealizationPct ?? 20}
+                  onChange={(e) =>
+                    setFormData({ ...formData, minProfitRealizationPct: Number(e.target.value) || 20 })
+                  }
+                  className="h-8 bg-background border-border text-xs text-foreground"
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Nenhuma venda parcial de Renda Variável será recomendada se a rentabilidade do ativo estiver abaixo do piso da Renda Fixa ({formData.fixedIncomeHurdleRatePct ?? 12}% a.a.), garantindo retenção para buscar prêmio de risco.
+            </p>
           </div>
 
           {/* Crypto Tax Threshold */}

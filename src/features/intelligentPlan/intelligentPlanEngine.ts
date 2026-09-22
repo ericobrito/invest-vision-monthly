@@ -31,6 +31,8 @@ export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
   opportunityCashTargetBRL: 50000,
   currentOpportunityCashBRL: 32000,
   cryptoMonthlyThresholdBRL: 35000,
+  minProfitRealizationPct: 20,
+  fixedIncomeHurdleRatePct: 12,
   reEntryBenchmark: "S&P 500",
   reEntryLadder: [
     { drawdownPct: -5, cashAllocationPct: 10, triggered: false },
@@ -158,6 +160,8 @@ export class IntelligentPlanEngine {
     const suggestions: RealizationSuggestionItem[] = [];
     const assetReEntryTriggers: AssetReEntryStatus[] = [];
 
+    const fixedIncomeHurdleRatePct = config.fixedIncomeHurdleRatePct ?? 12;
+
     // 2. Evaluate individual stock position rules against Variable Income total
     computedPositions.forEach((pos) => {
       const currentValueBRL = pos.metricsBRL.currentValue;
@@ -183,8 +187,8 @@ export class IntelligentPlanEngine {
         individualDrawdownTriggerPct: -15,
       };
 
-      const globalMinProfitPct = config.minProfitRealizationPct ?? 20;
-      const targetProfitPct = rule.targetProfitPct ?? globalMinProfitPct;
+      const globalMinProfitPct = Math.max(config.minProfitRealizationPct ?? 20, fixedIncomeHurdleRatePct);
+      const targetProfitPct = Math.max(rule.targetProfitPct ?? globalMinProfitPct, fixedIncomeHurdleRatePct);
 
       // 1. Calculate Capital Excess over minimum position / target weight
       const minPreservedBRL = rule.minPositionValueBRL && rule.minPositionValueBRL < currentValueBRL
@@ -202,6 +206,7 @@ export class IntelligentPlanEngine {
         capitalExcessBRL = 0;
         valuationAlert = "NONE";
       } else {
+        // Must strictly exceed fixed income hurdle rate AND target profit
         capitalExcessBRL = profitBRL > 0 && profitPercent >= targetProfitPct
           ? Math.max(0, currentValueBRL - minPreservedBRL)
           : 0;
@@ -214,12 +219,15 @@ export class IntelligentPlanEngine {
         if (profitBRL <= 0) {
           alertState = "STRATEGY_OK";
           alertMessage = `🟢 Posição sem lucro positivo (${profitPercent.toFixed(1)}%). Ativos em queda/retenção não são vendidos.`;
+        } else if (profitPercent < fixedIncomeHurdleRatePct) {
+          alertState = "STRATEGY_OK";
+          alertMessage = `🟢 Rentabilidade (+${profitPercent.toFixed(1)}%) abaixo do piso da Renda Fixa (${fixedIncomeHurdleRatePct}% a.a.). Ativo retido para buscar prêmio de risco.`;
         } else if (profitPercent < targetProfitPct) {
           alertState = "STRATEGY_OK";
-          alertMessage = `🟢 Rentabilidade (+${profitPercent.toFixed(1)}%) aguardando meta de lucro de ${targetProfitPct}%. Nenhuma venda sugerida.`;
+          alertMessage = `🟢 Rentabilidade (+${profitPercent.toFixed(1)}%) superou Renda Fixa, mas aguarda meta de lucro de ${targetProfitPct}%. Nenhuma venda sugerida.`;
         } else if (currentWeightPct > rule.maxWeightPct) {
           alertState = "RULE_TRIGGERED";
-          alertMessage = `🔴 Posição acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%).`;
+          alertMessage = `🔴 Posição acima do peso máximo da Renda Variável (${currentWeightPct.toFixed(1)}% vs máx ${rule.maxWeightPct}%). Rentabilidade (+${profitPercent.toFixed(1)}%) superou Renda Fixa.`;
         } else if (currentWeightPct > rule.targetWeightPct || valuationAlert !== "NONE") {
           alertState = "REQUIRES_ATTENTION";
           alertMessage = `🟡 Requer atenção: Alocação (${currentWeightPct.toFixed(1)}%) ou lucro expressivo (+${profitPercent.toFixed(0)}%).`;

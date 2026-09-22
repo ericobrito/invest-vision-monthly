@@ -23,6 +23,7 @@ export interface IntelligentPlanConfig {
   currentOpportunityCashBRL: number;
   cryptoMonthlyThresholdBRL: number; // Default R$ 35.000
   minProfitRealizationPct?: number; // Default 20% minimum profit required for partial realization
+  fixedIncomeHurdleRatePct?: number; // Default 12% fixed income hurdle rate (CDI/Selic)
   reEntryBenchmark: string; // e.g. "S&P 500"
   reEntryLadder: {
     drawdownPct: number; // -5, -10, -15, -20, -30
