@@ -333,9 +333,9 @@ export function useSnapshots() {
             currentPrice = livePrice;
             currentValue = Number(p.quantity) * livePrice;
           }
-          const rawAppliedNative = (p.applied_amount != null && Number(p.applied_amount) > 0 && Number(p.applied_amount) >= Number(p.quantity) * Number(p.average_price) * 0.5)
-            ? Number(p.applied_amount)
-            : (Number(p.quantity) * Number(p.average_price));
+          const rawAppliedNative = (Number(p.quantity) > 0 && Number(p.average_price) > 0)
+            ? (Number(p.quantity) * Number(p.average_price))
+            : (Number(p.applied_amount) || 0);
 
           if (p.currency === "USD") {
             const parentInv = (investments || []).find((inv: any) => inv.id === p.investment_id);

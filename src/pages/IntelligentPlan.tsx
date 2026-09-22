@@ -190,21 +190,19 @@ export default function IntelligentPlan() {
 
           const currency = p.currency || inv.currency || "BRL";
           const fxRate = p.fxRate || 1.0;
-          const nativeApplied = (p.appliedAmount && p.appliedAmount > 0 && p.appliedAmount >= p.quantity * p.averagePrice * 0.5)
-            ? p.appliedAmount
-            : (p.quantity * p.averagePrice);
-          const nativeCurrent = (p.currentValue && p.currentValue > 0)
-            ? p.currentValue
-            : (p.quantity * p.currentPrice);
+          const nativeApplied = (p.quantity > 0 && p.averagePrice > 0)
+            ? (p.quantity * p.averagePrice)
+            : (p.appliedAmount || 0);
+
+          const nativeCurrent = (p.quantity > 0 && p.currentPrice > 0)
+            ? (p.quantity * p.currentPrice)
+            : (p.currentValue || 0);
 
           const currentValueBRL = p.currentValueBRL && p.currentValueBRL > 0
             ? p.currentValueBRL
             : (nativeCurrent * fxRate);
 
-          const expectedAppliedBRL = nativeApplied * fxRate;
-          const appliedAmountBRL = (p.appliedAmountBRL && p.appliedAmountBRL > 0 && p.appliedAmountBRL >= expectedAppliedBRL * 0.4)
-            ? p.appliedAmountBRL
-            : expectedAppliedBRL;
+          const appliedAmountBRL = nativeApplied * fxRate;
 
           rawItems.push({
             symbol: sym,
