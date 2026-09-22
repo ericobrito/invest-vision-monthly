@@ -236,27 +236,9 @@ export function useSnapshots() {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["snapshots"],
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache to prevent unnecessary refetches
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<MonthlySnapshot[]> => {
-      // Self-heal: Ensure all investments in the database are set to BRL currency since we store everything in BRL
-      try {
-        const { data: nonBrlInvs } = await supabase
-          .from("investments")
-          .select("id")
-          .not("currency", "eq", "BRL");
-
-        if (nonBrlInvs && nonBrlInvs.length > 0) {
-          console.log(`[self-heal] Fixing currency to BRL for ${nonBrlInvs.length} investments`);
-          for (const inv of nonBrlInvs) {
-            await supabase.from("investments").update({ currency: "BRL" }).eq("id", inv.id);
-          }
-          await recalculateAllSnapshotVariations();
-        }
-      } catch (e) {
-        console.error("BRL self-heal failed:", e);
-      }
-
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
         supabase.from("monthly_snapshots").select("*").order("month"),
         supabase.from("investments").select("*"),
