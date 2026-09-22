@@ -399,53 +399,6 @@ export function useSnapshots() {
     },
   });
 
-  const monthlyData = query.data;
-  const hasSyncedRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (!monthlyData || monthlyData.length === 0) return;
-    const now = Date.now();
-    const FIVE_MINUTES_MS = 5 * 60 * 1000;
-
-    // Throttle background sync to run at most once every 5 minutes in memory
-    if (now - hasSyncedRef.current < FIVE_MINUTES_MS) return;
-    hasSyncedRef.current = now;
-
-    const latest = monthlyData[monthlyData.length - 1];
-
-    // 1. Background sync connected investments
-    const connectedInvs = latest.investments.filter(
-      (inv) => inv.mode === "CONNECTED" && inv.connectionId
-    );
-
-    connectedInvs.forEach(async (inv) => {
-      const lastSync = inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0;
-      if (now - lastSync > FIVE_MINUTES_MS) {
-        console.log(`[useSnapshots] Background syncing connected investment: ${inv.name}`);
-        try {
-          await supabase.functions.invoke("variable-assets", {
-            body: { action: "sync", connection_id: inv.connectionId },
-          });
-          await propagateConnectionValues(inv.connectionId);
-        } catch (e) {
-          console.error(`[useSnapshots] Failed to background sync ${inv.name}:`, e);
-        }
-      }
-    });
-
-    // 2. Background sync detailed investments to persist their live quotes to the database
-    const detailedInvs = latest.investments.filter(
-      (inv) => inv.mode === "DETAILED"
-    );
-    if (detailedInvs.length > 0) {
-      const oldestSync = Math.min(...detailedInvs.map(inv => inv.lastPriceAt ? new Date(inv.lastPriceAt).getTime() : 0));
-      if (now - oldestSync > FIVE_MINUTES_MS) {
-        console.log(`[useSnapshots] Background syncing detailed investments`);
-        propagateDetailedValues(latest.id, detailedInvs);
-      }
-    }
-  }, [monthlyData]);
-
   return query;
 }
 
