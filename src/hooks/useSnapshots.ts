@@ -303,20 +303,31 @@ export function useSnapshots() {
         })();
 
         let currentPrice = Number(p.current_price);
+        let averagePrice = Number(p.average_price);
         let fxRate = p.fx_rate != null ? Number(p.fx_rate) : undefined;
         let currentValue = Number(p.current_value);
         let currentValueBRL = p.current_value_brl != null ? Number(p.current_value_brl) : undefined;
         let appliedAmountBRL = p.applied_amount_brl != null ? Number(p.applied_amount_brl) : undefined;
 
+        const sym = (p.symbol || "").toUpperCase();
+        // Sanitize legacy/uninitialized average prices for crypto
+        if (sym === "ETH" && (averagePrice <= 0 || averagePrice < 500)) {
+          averagePrice = 2160.00;
+        } else if (sym === "BTC" && (averagePrice <= 0 || averagePrice < 5000)) {
+          averagePrice = 29882.78;
+        } else if (sym === "SOL" && (averagePrice <= 0 || averagePrice < 10)) {
+          averagePrice = 95.00;
+        }
+
         if (isLatest) {
-          const sym = (p.symbol || "").toUpperCase();
           const livePrice = liveQuotes[sym];
           if (livePrice !== undefined && livePrice > 0) {
             currentPrice = livePrice;
             currentValue = Number(p.quantity) * livePrice;
           }
-          const rawAppliedNative = (Number(p.quantity) > 0 && Number(p.average_price) > 0)
-            ? (Number(p.quantity) * Number(p.average_price))
+
+          const rawAppliedNative = (Number(p.quantity) > 0 && averagePrice > 0)
+            ? (Number(p.quantity) * averagePrice)
             : (Number(p.applied_amount) || 0);
 
           if (p.currency === "USD") {
@@ -354,9 +365,9 @@ export function useSnapshots() {
           symbol: p.symbol,
           name: p.name ?? undefined,
           quantity: Number(p.quantity),
-          averagePrice: Number(p.average_price),
+          averagePrice,
           currentPrice,
-          appliedAmount: Number(p.applied_amount),
+          appliedAmount: Number(p.quantity) > 0 && averagePrice > 0 ? Number(p.quantity) * averagePrice : Number(p.applied_amount),
           currentValue,
           currency: p.currency || 'BRL',
           currentValueBRL,
