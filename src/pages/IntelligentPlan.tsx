@@ -7,6 +7,7 @@ import intelligentPlanEngine, {
 } from "@/features/intelligentPlan/intelligentPlanEngine";
 import intelligentPlanSimulator from "@/features/intelligentPlan/intelligentPlanSimulator";
 import IntelligentPlanConfigDialog from "@/components/intelligentPlan/IntelligentPlanConfigDialog";
+import CapitalChainTracker from "@/components/intelligentPlan/CapitalChainTracker";
 import type { IntelligentPlanConfig, OperationalAlertState } from "@/features/intelligentPlan/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -855,12 +856,15 @@ export default function IntelligentPlan() {
         </Card>
       </div>
 
-      {/* SECTION 4 & 5 GRID: PLANO DE REENTRADA + TRIBUTAÇÃO CRIPTO */}
+      {/* SECTION 4: CONTROLADOR DE TRILHAS DE REINVESTIMENTO & RENTABILIDADE COMPOSTA */}
+      <CapitalChainTracker />
+
+      {/* SECTION 5 & 6 GRID: PLANO DE REENTRADA + TRIBUTAÇÃO CRIPTO */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* SECTION 4: PLANO DE REENTRADA E GATILHOS POR AÇÃO */}
+        {/* SECTION 5: PLANO DE REENTRADA E GATILHOS POR AÇÃO */}
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-            <Zap className="w-4 h-4 text-cyan-500" /> 4. Plano de Reentrada & Gatilhos Individuais por Ação
+            <Zap className="w-4 h-4 text-cyan-500" /> 5. Plano de Reentrada & Gatilhos Individuais por Ação
           </h2>
 
           <Card className="bg-card border-border shadow-sm space-y-3 p-4">
