@@ -333,6 +333,10 @@ export function useSnapshots() {
             currentPrice = livePrice;
             currentValue = Number(p.quantity) * livePrice;
           }
+          const rawAppliedNative = (p.applied_amount != null && Number(p.applied_amount) > 0 && Number(p.applied_amount) >= Number(p.quantity) * Number(p.average_price) * 0.5)
+            ? Number(p.applied_amount)
+            : (Number(p.quantity) * Number(p.average_price));
+
           if (p.currency === "USD") {
             const parentInv = (investments || []).find((inv: any) => inv.id === p.investment_id);
             const parentName = (parentInv?.name || "").toLowerCase();
@@ -343,23 +347,23 @@ export function useSnapshots() {
               const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
               fxRate = effectiveFx;
               currentValueBRL = currentValue * effectiveFx;
-              appliedAmountBRL = Number(p.applied_amount) * 5.0740;
+              appliedAmountBRL = rawAppliedNative * 5.0740;
             } else if (parentName.includes("coinbase")) {
               const storedBRL = Number(parentInv?.value) || 19477.92;
               const nativeUSD = 1564.86 + 2269.60;
               const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 5.0889;
               fxRate = effectiveFx;
               currentValueBRL = currentValue * effectiveFx;
-              appliedAmountBRL = Number(p.applied_amount) * 5.0889;
+              appliedAmountBRL = rawAppliedNative * 5.0889;
             } else {
               const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
               fxRate = usdRate;
               currentValueBRL = currentValue * usdRate;
-              appliedAmountBRL = Number(p.applied_amount) * usdRate;
+              appliedAmountBRL = rawAppliedNative * usdRate;
             }
           } else {
             currentValueBRL = currentValue;
-            appliedAmountBRL = Number(p.applied_amount);
+            appliedAmountBRL = rawAppliedNative;
           }
         }
 
