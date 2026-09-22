@@ -233,7 +233,6 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 }
 
 export function useSnapshots() {
-  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["snapshots"],
     staleTime: 5 * 60 * 1000, // 5 minutes cache to prevent unnecessary refetches
