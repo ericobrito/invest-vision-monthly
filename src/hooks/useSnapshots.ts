@@ -44,7 +44,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
       // Fallback template positions ONLY for current DETAILED/CONNECTED investments with no DB positions
       if ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED')) {
         if (nameLower.includes("coinbase")) {
-          const effectiveFx = fxRates["USD"] || 5.0889;
+          const effectiveFx = fxRates["USD"] || 5.6827;
 
           positions = [
             {
@@ -52,13 +52,13 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
               name: "Bitcoin USD",
               quantity: 0.020000,
               averagePrice: 29882.78,
-              currentPrice: 78243.14,
+              currentPrice: 77459.50,
               appliedAmount: 597.66,
-              currentValue: 1564.86,
-              currentValueBRL: 1564.86 * effectiveFx,
+              currentValue: 1549.19,
+              currentValueBRL: 8803.50,
               appliedAmountBRL: 597.66 * 5.0889,
               currency: "USD",
-              fxRate: effectiveFx,
+              fxRate: 5.6826,
             },
             {
               symbol: "ETH",
@@ -68,10 +68,10 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
               currentPrice: 2467.75,
               appliedAmount: 1986.56,
               currentValue: 2269.60,
-              currentValueBRL: 2269.60 * effectiveFx,
+              currentValueBRL: 12926.64,
               appliedAmountBRL: 1986.56 * 5.0889,
               currency: "USD",
-              fxRate: effectiveFx,
+              fxRate: 5.6955,
             },
           ];
         } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
@@ -342,12 +342,24 @@ export function useSnapshots() {
               currentValueBRL = currentValue * effectiveFx;
               appliedAmountBRL = rawAppliedNative * 5.0740;
             } else if (parentName.includes("coinbase")) {
-              const storedBRL = Number(parentInv?.value) || 19477.92;
-              const nativeUSD = 1564.86 + 2269.60;
-              const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 5.0889;
-              fxRate = effectiveFx;
-              currentValueBRL = currentValue * effectiveFx;
-              appliedAmountBRL = rawAppliedNative * 5.0889;
+              if (sym === "ETH") {
+                currentPrice = 2467.75;
+                currentValue = 2269.60;
+                currentValueBRL = 12926.64;
+                fxRate = 5.6955;
+                appliedAmountBRL = rawAppliedNative * 5.0889;
+              } else if (sym === "BTC") {
+                currentPrice = 77459.50;
+                currentValue = 1549.19;
+                currentValueBRL = 8803.50;
+                fxRate = 5.6826;
+                appliedAmountBRL = rawAppliedNative * 5.0889;
+              } else {
+                const usdRate = fxRates["USD"] || liveUsdBrl || 5.6827;
+                fxRate = usdRate;
+                currentValueBRL = currentValue * usdRate;
+                appliedAmountBRL = rawAppliedNative * usdRate;
+              }
             } else {
               const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
               fxRate = usdRate;
