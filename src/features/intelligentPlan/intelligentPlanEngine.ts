@@ -239,10 +239,15 @@ export class IntelligentPlanEngine {
         }
       }
 
-      // Calculate annual return (CAGR)
-      const yearsHolding = pos.purchaseDate
-        ? Math.max(0.1, (new Date().getTime() - new Date(pos.purchaseDate).getTime()) / (365.25 * 86400 * 1000))
-        : 2.68; // Default ~2.68 years holding period (Jan 2024 to Sept 2026)
+      // Calculate annual return (CAGR) based on exact purchase/start date
+      let yearsHolding = 2.68; // Default ~2.68 years holding period (Jan 2024 to Sept 2026)
+      if (pos.purchaseDate) {
+        const pDate = new Date(pos.purchaseDate);
+        if (!isNaN(pDate.getTime())) {
+          const diffMs = new Date().getTime() - pDate.getTime();
+          yearsHolding = Math.max(0.1, diffMs / (365.25 * 86400 * 1000));
+        }
+      }
 
       const annualReturnPct = pos.annualReturnPct != null
         ? pos.annualReturnPct

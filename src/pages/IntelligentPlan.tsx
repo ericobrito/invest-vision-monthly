@@ -217,6 +217,8 @@ export default function IntelligentPlan() {
             ? (nativeApplied * fxRate)
             : (p.appliedAmountBRL || 0);
 
+          const rawPurchaseDate = p.purchaseDate || (inv.yearStarted ? (inv.yearStarted.length === 4 ? `${inv.yearStarted}-01-01` : inv.yearStarted) : undefined);
+
           rawItems.push({
             symbol: sym,
             name: pName,
@@ -228,6 +230,7 @@ export default function IntelligentPlan() {
             fxRate: fxRate,
             currentValueBRL: currentValueBRL,
             appliedAmountBRL: appliedAmountBRL,
+            purchaseDate: rawPurchaseDate,
           });
         }
       }
@@ -264,6 +267,8 @@ export default function IntelligentPlan() {
           fxRate = nativeCurrent > 0 ? totalValueBRL / nativeCurrent : (existing.fxRate || 5.45);
         }
 
+        const purchaseDate = existing.purchaseDate || item.purchaseDate;
+
         consolidatedMap.set(item.symbol, {
           symbol: item.symbol,
           name: item.symbol === "BTC" ? "Bitcoin (BTC)" : item.symbol === "ETH" ? "Ethereum (ETH)" : existing.name,
@@ -275,6 +280,7 @@ export default function IntelligentPlan() {
           fxRate,
           currentValueBRL: totalValueBRL,
           appliedAmountBRL: totalAppliedBRL,
+          purchaseDate,
         });
       }
     }
