@@ -1,7 +1,8 @@
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL, type Investment } from "@/data/investments";
-import { TrendingUp, TrendingDown, Wallet, Layers, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Layers, Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
 
 interface Props {
@@ -21,7 +22,12 @@ const modeMeta = {
   CONNECTED: { label: "Conectado", icon: Zap, color: "bg-primary/15 text-primary" },
 } as const;
 
+type SortField = "symbol" | "quantity" | "averagePrice" | "currentPrice" | "valBRL" | "weightPct" | "pnlPct" | "annualReturnPos";
+
 const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
+  const [sortField, setSortField] = useState<SortField>("valBRL");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
   if (!investment) return null;
 
   const mode = investment.mode || "CONSOLIDATED";
@@ -132,9 +138,101 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
   const pnlPct = invested != null ? invMetrics.profitPercent : undefined;
   const pnlPositive = (pnl ?? 0) >= 0;
 
+  // Total BRL value for weight calculation
+  const totalInvValueBRL = effectivePositions.reduce((sum, p) => {
+    const posMetrics = portfolioCalculationService.calculatePositionMetrics(
+      p.quantity,
+      p.averagePrice,
+      p.currentPrice,
+      p.symbol
+    );
+    return sum + (posMetrics.currentValue * (p.fxRate ?? 1));
+  }, 0);
+
+  // Processed positions with weightPct and annualReturnPos
+  const processedPositions = effectivePositions.map((p) => {
+    const cur = (p.currency || "BRL").toUpperCase();
+    const posMetrics = portfolioCalculationService.calculatePositionMetrics(
+      p.quantity,
+      p.averagePrice,
+      p.currentPrice,
+      p.symbol
+    );
+    const valBRL = posMetrics.currentValue * (p.fxRate ?? 1);
+    const weightPct = totalInvValueBRL > 0 ? (valBRL / totalInvValueBRL) * 100 : 0;
+    const pnlPctPos = posMetrics.investedValue > 0 ? posMetrics.profitPercent : undefined;
+
+    let annualReturnPos: number | undefined = undefined;
+    const refDate = p.purchaseDate || investment.yearStarted;
+    if (refDate && posMetrics.investedValue > 0 && posMetrics.currentValue > 0) {
+      try {
+        const start = new Date(refDate.length === 4 ? `${refDate}-01-01` : refDate);
+        const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+        if (years >= 1) {
+          annualReturnPos = (Math.pow(posMetrics.currentValue / posMetrics.investedValue, 1 / years) - 1) * 100;
+        } else if (years > 0 && pnlPctPos !== undefined) {
+          annualReturnPos = pnlPctPos;
+        }
+      } catch (e) {
+        console.error("Error calculating position annual return:", e);
+      }
+    }
+
+    return {
+      rawPosition: p,
+      symbol: p.symbol,
+      name: p.name,
+      quantity: p.quantity,
+      averagePrice: p.averagePrice,
+      currentPrice: p.currentPrice,
+      currency: cur,
+      fxRate: p.fxRate ?? 1,
+      currentValueNative: posMetrics.currentValue,
+      valBRL,
+      weightPct,
+      pnlPct: pnlPctPos,
+      annualReturnPos,
+    };
+  });
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const sortedPositions = [...processedPositions].sort((a, b) => {
+    let aVal: any = a[sortField];
+    let bVal: any = b[sortField];
+
+    if (aVal === undefined || aVal === null) aVal = -Infinity;
+    if (bVal === undefined || bVal === null) bVal = -Infinity;
+
+    if (typeof aVal === "string") {
+      const cmp = aVal.localeCompare(bVal);
+      return sortDirection === "asc" ? cmp : -cmp;
+    }
+
+    return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+  });
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 inline-block ml-1 opacity-40 hover:opacity-100" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="w-3 h-3 inline-block ml-1 text-primary" />
+    ) : (
+      <ArrowDown className="w-3 h-3 inline-block ml-1 text-primary" />
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {investment.name}
@@ -196,81 +294,78 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Detalhamento dos Ativos Conectados ({effectivePositions.length})
                 </p>
+                <span className="text-[11px] text-muted-foreground">
+                  Clique nos cabeçalhos para ordenar
+                </span>
               </div>
               <div className="rounded-lg border border-border overflow-x-auto bg-card/60">
                 <table className="w-full text-xs sm:text-sm">
                   <thead>
-                    <tr className="border-b border-border text-muted-foreground bg-muted/40 font-medium whitespace-nowrap">
-                      <th className="text-left p-2.5">Ativo</th>
-                      <th className="text-right p-2.5">Qtd</th>
-                      <th className="text-right p-2.5">Preço Médio</th>
-                      <th className="text-right p-2.5">Preço Atual</th>
+                    <tr className="border-b border-border text-muted-foreground bg-muted/40 font-medium whitespace-nowrap select-none">
+                      <th onClick={() => handleSort("symbol")} className="text-left p-2.5 cursor-pointer hover:text-foreground">
+                        Ativo {renderSortIcon("symbol")}
+                      </th>
+                      <th onClick={() => handleSort("quantity")} className="text-right p-2.5 cursor-pointer hover:text-foreground">
+                        Qtd {renderSortIcon("quantity")}
+                      </th>
+                      <th onClick={() => handleSort("averagePrice")} className="text-right p-2.5 cursor-pointer hover:text-foreground">
+                        Preço Médio {renderSortIcon("averagePrice")}
+                      </th>
+                      <th onClick={() => handleSort("currentPrice")} className="text-right p-2.5 cursor-pointer hover:text-foreground">
+                        Preço Atual {renderSortIcon("currentPrice")}
+                      </th>
                       <th className="text-right p-2.5">Valor Nativo</th>
-                      <th className="text-right p-2.5">Valor (BRL)</th>
-                      <th className="text-right p-2.5">Resultado</th>
-                      <th className="text-right p-2.5">Rent. Anual</th>
+                      <th onClick={() => handleSort("valBRL")} className="text-right p-2.5 cursor-pointer hover:text-foreground">
+                        Valor (BRL) {renderSortIcon("valBRL")}
+                      </th>
+                      <th onClick={() => handleSort("weightPct")} className="text-right p-2.5 cursor-pointer hover:text-foreground font-bold text-primary">
+                        Peso na Carteira {renderSortIcon("weightPct")}
+                      </th>
+                      <th onClick={() => handleSort("pnlPct")} className="text-right p-2.5 cursor-pointer hover:text-foreground">
+                        Resultado {renderSortIcon("pnlPct")}
+                      </th>
+                      <th onClick={() => handleSort("annualReturnPos")} className="text-right p-2.5 cursor-pointer hover:text-foreground">
+                        Rent. Anual {renderSortIcon("annualReturnPos")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {effectivePositions.map((p, i) => {
-                      const cur = (p.currency || "BRL").toUpperCase();
-                      const posMetrics = portfolioCalculationService.calculatePositionMetrics(
-                        p.quantity,
-                        p.averagePrice,
-                        p.currentPrice,
-                        p.symbol,
-                      );
-                      const r = posMetrics.investedValue > 0 ? posMetrics.profitPercent : undefined;
-                      
-                      let annualReturnPos: number | undefined = undefined;
-                      const refDate = p.purchaseDate || investment.yearStarted;
-                      if (refDate && posMetrics.investedValue > 0 && posMetrics.currentValue > 0) {
-                        try {
-                          const start = new Date(refDate.length === 4 ? `${refDate}-01-01` : refDate);
-                          const years = (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-                          if (years >= 1) {
-                            annualReturnPos = (Math.pow(posMetrics.currentValue / posMetrics.investedValue, 1 / years) - 1) * 100;
-                          } else if (years > 0 && r !== undefined) {
-                            annualReturnPos = r;
-                          }
-                        } catch (e) {
-                          console.error("Error calculating position annual return:", e);
-                        }
-                      }
-
+                    {sortedPositions.map((p, i) => {
                       const nativeLabel =
-                        cur === "BRL" ? `R$ ${fmtNum(posMetrics.currentValue)}` :
-                        cur === "USD" ? `US$ ${fmtNum(posMetrics.currentValue)}` :
-                        cur === "EUR" ? `€ ${fmtNum(posMetrics.currentValue)}` :
-                        cur === "GBP" ? `£ ${fmtNum(posMetrics.currentValue)}` :
-                        `${fmtNum(posMetrics.currentValue)} ${cur}`;
-                      const valBRL = posMetrics.currentValue * (p.fxRate ?? 1);
+                        p.currency === "BRL" ? `R$ ${fmtNum(p.currentValueNative)}` :
+                        p.currency === "USD" ? `US$ ${fmtNum(p.currentValueNative)}` :
+                        p.currency === "EUR" ? `€ ${fmtNum(p.currentValueNative)}` :
+                        p.currency === "GBP" ? `£ ${fmtNum(p.currentValueNative)}` :
+                        `${fmtNum(p.currentValueNative)} ${p.currency}`;
 
                       return (
-                        <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors whitespace-nowrap">
-                          <td className="p-2.5">
+                        <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors whitespace-nowrap font-mono">
+                          <td className="p-2.5 font-sans">
                             <div className="font-bold text-foreground">{p.symbol}</div>
                             {p.name && <div className="text-[11px] text-muted-foreground truncate max-w-[140px]">{p.name}</div>}
-                            {cur !== "BRL" && p.fxRate && (
-                              <div className="text-[10px] text-muted-foreground font-mono">FX {cur}/BRL {p.fxRate.toFixed(4)}</div>
+                            {p.currency !== "BRL" && p.fxRate && (
+                              <div className="text-[10px] text-muted-foreground font-mono">FX {p.currency}/BRL {p.fxRate.toFixed(4)}</div>
                             )}
                           </td>
                           <td className="text-right p-2.5 font-mono">{fmtNum(p.quantity, 6)}</td>
                           <td className="text-right p-2.5 font-mono">
-                            {cur === "USD" ? `US$ ` : ""}{fmtNum(p.averagePrice)}
+                            {p.currency === "USD" ? `US$ ` : ""}{fmtNum(p.averagePrice)}
                           </td>
                           <td className="text-right p-2.5 font-mono">
-                            {cur === "USD" ? `US$ ` : ""}{fmtNum(p.currentPrice)}
+                            {p.currency === "USD" ? `US$ ` : ""}{fmtNum(p.currentPrice)}
                           </td>
                           <td className="text-right p-2.5 font-mono font-medium">{nativeLabel}</td>
-                          <td className="text-right p-2.5 font-mono font-semibold">{formatBRL(valBRL)}</td>
+                          <td className="text-right p-2.5 font-mono font-semibold">{formatBRL(p.valBRL)}</td>
+                          <td className="text-right p-2.5 font-mono font-bold text-primary">
+                            {p.weightPct.toFixed(2)}%
+                          </td>
                           <td className="text-right p-2.5">
-                            <div className={`font-mono font-bold ${r != null ? (r >= 0 ? "text-positive" : "text-negative") : ""}`}>
-                              {r != null ? `${r >= 0 ? "+" : ""}${r.toFixed(2)}%` : "—"}
+                            <div className={`font-mono font-bold ${p.pnlPct != null ? (p.pnlPct >= 0 ? "text-positive" : "text-negative") : ""}`}>
+                              {p.pnlPct != null ? `${p.pnlPct >= 0 ? "+" : ""}${p.pnlPct.toFixed(2)}%` : "—"}
                             </div>
                           </td>
-                          <td className={`text-right p-2.5 font-mono text-xs ${annualReturnPos != null ? (annualReturnPos >= 0 ? "text-positive" : "text-negative") : ""}`}>
-                            {annualReturnPos != null ? `${annualReturnPos >= 0 ? "+" : ""}${annualReturnPos.toFixed(2)}% a.a.` : "—"}
+                          <td className={`text-right p-2.5 font-mono text-xs ${p.annualReturnPos != null ? (p.annualReturnPos >= 0 ? "text-positive" : "text-negative") : ""}`}>
+                            {p.annualReturnPos != null ? `${p.annualReturnPos >= 0 ? "+" : ""}${p.annualReturnPos.toFixed(2)}% a.a.` : "—"}
                           </td>
                         </tr>
                       );
