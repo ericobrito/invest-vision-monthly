@@ -728,6 +728,12 @@ export default function IntelligentPlan() {
                         {item.profitPercent >= 0 ? "+" : ""}{item.profitPercent.toFixed(1)}%
                       </div>
                     </div>
+                    <div className="bg-muted/40 p-2 rounded border border-border">
+                      <span className="text-muted-foreground font-semibold">Rentab. Anual:</span>
+                      <div className="font-bold text-cyan-500 mt-0.5">
+                        +{item.annualReturnPct.toFixed(1)}% a.a.
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -783,6 +789,12 @@ export default function IntelligentPlan() {
                       Lucro Acumulado (%) {renderSortIcon("profitPercent")}
                     </th>
                     <th
+                      onClick={() => handleTableSort("annualReturnPct")}
+                      className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none text-cyan-500 font-bold"
+                    >
+                      Rentabilidade Anual (%) {renderSortIcon("annualReturnPct")}
+                    </th>
+                    <th
                       onClick={() => handleTableSort("estimatedRealizedProfitBRL")}
                       className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none text-emerald-500"
                     >
@@ -824,7 +836,7 @@ export default function IntelligentPlan() {
                 <tbody className="divide-y divide-border">
                   {processedSuggestions.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-8 text-center text-muted-foreground font-sans text-xs">
+                      <td colSpan={12} className="py-8 text-center text-muted-foreground font-sans text-xs">
                         Nenhum ativo lucrativo necessita de realização no momento. Posições dentro da meta ou sem lucro acumulado.
                       </td>
                     </tr>
@@ -839,6 +851,7 @@ export default function IntelligentPlan() {
                         </td>
                         <td className="py-3 px-3 text-right text-foreground">R$ {s.currentPositionBRL.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right font-bold text-emerald-500">+{s.profitPercent.toFixed(1)}%</td>
+                        <td className="py-3 px-3 text-right font-bold text-cyan-500">+{s.annualReturnPct.toFixed(1)}% a.a.</td>
                         <td className="py-3 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400">R$ {s.estimatedRealizedProfitBRL.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right font-bold text-emerald-500">R$ {s.suggestedSaleBRL.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right text-muted-foreground">{s.suggestedSalePct.toFixed(1)}%</td>

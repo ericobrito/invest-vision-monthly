@@ -44,6 +44,7 @@ export interface InvestmentDiagnosticItem {
   investedValueBRL: number;
   profitBRL: number;
   profitPercent: number;
+  annualReturnPct: number;
   quantity: number;
   averageCost: number;
   currentWeightPct: number;
@@ -68,6 +69,7 @@ export interface RealizationSuggestionItem {
   remainingPositionBRL: number;
   newWeightPct: number;
   profitPercent: number;
+  annualReturnPct: number;
   estimatedRealizedProfitBRL: number;
   cashGeneratedBRL: number;
   alertState: OperationalAlertState;

@@ -25,6 +25,8 @@ export interface StockPositionInput {
   fxRate?: number;
   appliedAmountBRL?: number;
   currentValueBRL?: number;
+  annualReturnPct?: number;
+  purchaseDate?: string;
 }
 
 export const DEFAULT_PLAN_CONFIG: IntelligentPlanConfig = {
@@ -237,12 +239,24 @@ export class IntelligentPlanEngine {
         }
       }
 
+      // Calculate annual return (CAGR)
+      const yearsHolding = pos.purchaseDate
+        ? Math.max(0.1, (new Date().getTime() - new Date(pos.purchaseDate).getTime()) / (365.25 * 86400 * 1000))
+        : 2.68; // Default ~2.68 years holding period (Jan 2024 to Sept 2026)
+
+      const annualReturnPct = pos.annualReturnPct != null
+        ? pos.annualReturnPct
+        : profitPercent > -100
+        ? Math.round(((Math.pow(1 + Math.max(-0.99, profitPercent / 100), 1 / yearsHolding) - 1) * 100) * 10) / 10
+        : 0;
+
       // MANDATORY DEBUG LOG per spec
       console.log({
         investmentName: pos.symbol,
         currentValue: currentValueBRL,
         investedValue: investedValueBRL,
         returnPercent: profitPercent,
+        annualReturnPct,
         portfolioWeight: currentWeightPct,
         targetWeight: rule.targetWeightPct,
         maximumWeight: rule.maxWeightPct,
@@ -260,6 +274,7 @@ export class IntelligentPlanEngine {
         investedValueBRL,
         profitBRL,
         profitPercent,
+        annualReturnPct,
         quantity: pos.quantity,
         averageCost: pos.averagePrice,
         currentWeightPct: isStablecoin ? 0 : currentWeightPct,
@@ -309,6 +324,7 @@ export class IntelligentPlanEngine {
             remainingPositionBRL: Math.round(remainingPositionBRL),
             newWeightPct: Number(newWeightPct.toFixed(1)),
             profitPercent: Number(profitPercent.toFixed(1)),
+            annualReturnPct: Number(annualReturnPct.toFixed(1)),
             estimatedRealizedProfitBRL: Math.round(estimatedRealizedProfitBRL),
             cashGeneratedBRL: Math.round(proposedSaleBRL),
             alertState: alertState === "STRATEGY_OK" ? "REQUIRES_ATTENTION" : alertState,
