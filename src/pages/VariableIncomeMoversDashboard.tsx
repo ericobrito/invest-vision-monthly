@@ -103,6 +103,7 @@ const avenueKnownPositions: Record<string, {
   appliedAmountBRL: number;
   profitPct: number;
 }> = {
+  "USDT": { name: "Tether USDt USD", quantity: 1542.910000, averagePrice: 1.00, currentPrice: 1.00, currentValueUSD: 1542.76, currentValueBRL: 7917.73, appliedAmountBRL: 0.00, profitPct: 0.00 },
   "BRK-B": { name: "Berkshire Hathaway", quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, currentValueUSD: 1319.92, currentValueBRL: 6697.27, appliedAmountBRL: 3020.32, profitPct: 1.2174 },
   "RGTI": { name: "Rigetti Computing", quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, currentValueUSD: 121.44, currentValueBRL: 616.19, appliedAmountBRL: 1983.87, profitPct: -0.6894 },
   "GOOGL": { name: "Alphabet Inc (Google)", quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, currentValueUSD: 1410.33, currentValueBRL: 7156.03, appliedAmountBRL: 1981.68, profitPct: 2.6111 },

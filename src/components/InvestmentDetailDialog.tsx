@@ -103,8 +103,9 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
           fxRate: effectiveFx,
         },
       ];
-    } else if (nameLower.includes("avenue")) {
+    } else if (nameLower.includes("avenue") || nameLower.includes("dólar")) {
       effectivePositions = [
+        { symbol: "USDT", name: "Tether USDt USD", quantity: 1542.910000, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 0.00, currentValue: 1542.76, currentValueBRL: 7917.73, appliedAmountBRL: 0.00, currency: "USD", fxRate: 5.1322 },
         { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, appliedAmount: 595.27, currentValue: 1319.92, currency: "USD", fxRate: 5.0740 },
         { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, appliedAmount: 390.96, currentValue: 121.44, currency: "USD", fxRate: 5.0740 },
         { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, appliedAmount: 390.55, currentValue: 1410.33, currency: "USD", fxRate: 5.0740 },
