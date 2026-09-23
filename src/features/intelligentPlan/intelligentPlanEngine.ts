@@ -147,10 +147,9 @@ export class IntelligentPlanEngine {
       const symUpper = pos.symbol.toUpperCase().trim();
       if (STABLECOIN_SYMBOLS.has(symUpper)) {
         stablecoinCashBRL += metricsBRL.currentValue;
-      } else {
-        totalVariableIncomeBRL += metricsBRL.currentValue;
-        totalVariableInvestedBRL += metricsBRL.investedValue;
       }
+      totalVariableIncomeBRL += metricsBRL.currentValue;
+      totalVariableInvestedBRL += metricsBRL.investedValue;
 
       return {
         ...pos,
@@ -282,7 +281,7 @@ export class IntelligentPlanEngine {
         annualReturnPct,
         quantity: pos.quantity,
         averageCost: pos.averagePrice,
-        currentWeightPct: isStablecoin ? 0 : currentWeightPct,
+        currentWeightPct,
         targetWeightPct: rule.targetWeightPct,
         maxWeightPct: rule.maxWeightPct,
         minWeightPct: rule.minWeightPct,

@@ -133,7 +133,7 @@ export function resolveInvestmentTotals(
 ): { value: number; applied?: number; valueBRL: number; appliedBRL?: number } {
   const mode = inv.mode || 'CONSOLIDATED';
 
-  if ((mode === 'DETAILED' || mode === 'CONNECTED') && inv.positions && inv.positions.length > 0) {
+  if (inv.positions && inv.positions.length > 0) {
     let valueBRL = 0;
     let appliedBRL = 0;
     let valueNative = 0;

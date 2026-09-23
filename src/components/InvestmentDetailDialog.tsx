@@ -246,28 +246,36 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-3 gap-3">
-            <Stat 
-              label="Valor atual" 
-              value={`${formatBRL(investment.valueBRL ?? investment.value)}${
-                investment.currency && investment.currency !== "BRL" && investment.value !== (investment.valueBRL ?? investment.value)
-                  ? ` (${investment.currency === "USD" ? "US$" : investment.currency} ${fmtNum(investment.value)})`
-                  : ""
-              }`} 
-              mono 
-              strong 
-            />
-            <Stat 
-              label="Valor aplicado" 
-              value={invested != null ? `${formatBRL(invested)}${
-                investment.currency && investment.currency !== "BRL" && investment.applied && investment.applied !== invested
-                  ? ` (${investment.currency === "USD" ? "US$" : investment.currency} ${fmtNum(investment.applied)})`
-                  : ""
-              }` : "—"} 
-              mono 
-            />
-            <Stat label="% da carteira" value={`${investment.percentage.toFixed(2)}%`} mono />
-          </div>
+          {(() => {
+            const displayValueBRL = effectivePositions.length > 0 && invMetrics.currentValue > 0
+              ? invMetrics.currentValue
+              : (investment.valueBRL ?? investment.value);
+
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                <Stat 
+                  label="Valor atual" 
+                  value={`${formatBRL(displayValueBRL)}${
+                    investment.currency && investment.currency !== "BRL" && investment.value !== displayValueBRL
+                      ? ` (${investment.currency === "USD" ? "US$" : investment.currency} ${fmtNum(investment.value)})`
+                      : ""
+                  }`} 
+                  mono 
+                  strong 
+                />
+                <Stat 
+                  label="Valor aplicado" 
+                  value={invested != null ? `${formatBRL(invested)}${
+                    investment.currency && investment.currency !== "BRL" && investment.applied && investment.applied !== invested
+                      ? ` (${investment.currency === "USD" ? "US$" : investment.currency} ${fmtNum(investment.applied)})`
+                      : ""
+                  }` : "—"} 
+                  mono 
+                />
+                <Stat label="% da carteira" value={`${investment.percentage.toFixed(2)}%`} mono />
+              </div>
+            );
+          })()}
 
           {pnl != null && (
             <div className={`rounded-lg p-3 flex items-center justify-between ${pnlPositive ? "bg-primary/10" : "bg-destructive/10"}`}>
