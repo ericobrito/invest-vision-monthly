@@ -114,7 +114,8 @@ export interface MonthlySnapshot {
 function rateFor(currency: string | undefined, rates?: Record<string, number>): number {
   if (!currency || currency === "BRL") return 1;
   const r = rates?.[currency.toUpperCase()];
-  return Number.isFinite(r) && (r as number) > 0 ? (r as number) : 1;
+  if (Number.isFinite(r) && (r as number) > 0) return r as number;
+  return currency.toUpperCase() === "USD" ? 5.45 : 1;
 }
 
 /**

@@ -103,7 +103,9 @@ class PortfolioCalculationService {
       p.currentPrice,
       p.symbol,
     );
-    const rate = safe(p.fxRate) > 0 ? Number(p.fxRate) : 1;
+    const curUpper = (p.currency || "BRL").toUpperCase();
+    const defaultRate = curUpper === "USD" ? 5.45 : 1;
+    const rate = safe(p.fxRate) > 0 ? Number(p.fxRate) : defaultRate;
     const investedValue = p.appliedAmountBRL != null && p.appliedAmountBRL > 0
       ? Number(p.appliedAmountBRL)
       : native.investedValue * rate;
@@ -122,7 +124,7 @@ class PortfolioCalculationService {
    */
   calculateInvestmentMetrics(inv: InvestmentInput): PortfolioMetrics {
     const mode = inv.mode || "CONSOLIDATED";
-    if ((mode === "DETAILED" || mode === "CONNECTED") && inv.positions && inv.positions.length > 0) {
+    if (inv.positions && inv.positions.length > 0) {
       let investedValue = 0;
       let currentValue = 0;
       for (const p of inv.positions) {

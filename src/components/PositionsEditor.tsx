@@ -201,6 +201,8 @@ const PositionsEditor = ({ positions, onChange }: Props) => {
       currentPrice: p.currentPrice,
       currency: p.currency,
       fxRate: getFxRate(p.currency, fxRates),
+      currentValueBRL: p.currentValueBRL,
+      appliedAmountBRL: p.appliedAmountBRL,
     })),
   });
   const totalAppliedBRL = totalsMetric.investedValue;

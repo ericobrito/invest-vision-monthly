@@ -111,7 +111,7 @@ function deriveMonthlyCrypto(
   if (!snapshot) return 0;
   return snapshot.investments
     .filter((inv) => inv.flags?.includeInVariablePositions === true)
-    .reduce((sum, inv) => sum + inv.value, 0);
+    .reduce((sum, inv) => sum + (inv.valueBRL ?? inv.value), 0);
 }
 
 export default function PosicoesVariaveis() {
