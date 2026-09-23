@@ -145,14 +145,14 @@ const RadarAssimetria = () => {
       currentValueBRL: number;
       appliedAmountBRL: number;
     }> = {
-      "USDT": { quantity: 1542.910000, averagePrice: 1.00, currentPrice: 1.00, currentValueBRL: 7917.73, appliedAmountBRL: 0.00 },
-      "BRK-B": { quantity: 2.597600, averagePrice: 229.16, currentPrice: 508.13, currentValueBRL: 6697.27, appliedAmountBRL: 3020.32 },
-      "RGTI": { quantity: 8.000000, averagePrice: 48.87, currentPrice: 15.18, currentValueBRL: 616.19, appliedAmountBRL: 1983.87 },
-      "GOOGL": { quantity: 4.118000, averagePrice: 94.84, currentPrice: 342.48, currentValueBRL: 7156.03, appliedAmountBRL: 1981.68 },
-      "TSLA": { quantity: 14.082900, averagePrice: 319.69, currentPrice: 376.37, currentValueBRL: 26893.78, appliedAmountBRL: 22843.60 },
-      "META": { quantity: 4.769900, averagePrice: 210.52, currentPrice: 610.68, currentValueBRL: 14779.97, appliedAmountBRL: 5095.14 },
-      "AMD": { quantity: 1.169470, averagePrice: 196.89, currentPrice: 456.16, currentValueBRL: 2706.80, appliedAmountBRL: 1168.33 },
-      "IONQ": { quantity: 5.082210, averagePrice: 66.90, currentPrice: 39.02, currentValueBRL: 1006.21, appliedAmountBRL: 1725.03 },
+      "TSLA": { quantity: 14.082900, averagePrice: 319.69, currentPrice: 380.12, currentValueBRL: 27473.65, appliedAmountBRL: 23106.09 },
+      "META": { quantity: 2.969900, averagePrice: 210.52, currentPrice: 744.10, currentValueBRL: 11341.66, appliedAmountBRL: 3208.75 },
+      "USDT": { quantity: 1542.910000, averagePrice: 1.00, currentPrice: 1.00, currentValueBRL: 7917.57, appliedAmountBRL: 7917.57 },
+      "BRK-B": { quantity: 2.597600, averagePrice: 229.16, currentPrice: 507.17, currentValueBRL: 6761.29, appliedAmountBRL: 3055.04 },
+      "GOOGL": { quantity: 2.958000, averagePrice: 94.84, currentPrice: 337.83, currentValueBRL: 5128.61, appliedAmountBRL: 1439.79 },
+      "IONQ": { quantity: 5.082210, averagePrice: 66.90, currentPrice: 42.54, currentValueBRL: 1109.57, appliedAmountBRL: 1744.95 },
+      "RGTI": { quantity: 8.000000, averagePrice: 48.87, currentPrice: 16.01, currentValueBRL: 657.13, appliedAmountBRL: 2006.48 },
+      "AMD": { quantity: 0.194700, averagePrice: 196.89, currentPrice: 614.61, currentValueBRL: 614.14, appliedAmountBRL: 196.72 },
     };
 
     const knownCryptoPositions: Record<string, {
