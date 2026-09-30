@@ -6,7 +6,7 @@ describe("CryptoTaxEngine", () => {
   const engine = new CryptoTaxEngine();
 
   it("deve aplicar isenção de R$ 35.000 para vendas cripto nacionais no mês", () => {
-    const disposals: CryptoDisposal[] = [
+    const disposals = [
       {
         id: "1",
         dateTime: "2026-09-10T10:00:00Z",
@@ -27,7 +27,7 @@ describe("CryptoTaxEngine", () => {
         taxRegime: "NATIONAL",
         isExempt: true,
       },
-    ];
+    ] as unknown as CryptoDisposal[];
 
     const summary = engine.calculateMonthlySummary("2026-09", disposals);
 
@@ -37,7 +37,7 @@ describe("CryptoTaxEngine", () => {
   });
 
   it("deve calcular imposto devido quando as vendas superam o limite de R$ 35.000", () => {
-    const disposals: CryptoDisposal[] = [
+    const disposals = [
       {
         id: "1",
         dateTime: "2026-09-10T10:00:00Z",
@@ -48,7 +48,7 @@ describe("CryptoTaxEngine", () => {
         taxRegime: "NATIONAL",
         isExempt: false,
       },
-    ];
+    ] as unknown as CryptoDisposal[];
 
     const summary = engine.calculateMonthlySummary("2026-09", disposals);
 
