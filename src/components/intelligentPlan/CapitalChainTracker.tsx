@@ -227,7 +227,7 @@ export default function CapitalChainTracker() {
 
                   <Button
                     variant="outline"
-                    size="xs"
+                    size="sm"
                     onClick={() => {
                       const lastStep = trail.steps[trail.steps.length - 1];
                       setActiveTrailForStep(trail);
@@ -241,7 +241,7 @@ export default function CapitalChainTracker() {
 
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     onClick={() => handleDeleteTrail(trail.id)}
                     className="h-7 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 p-1.5"
                   >

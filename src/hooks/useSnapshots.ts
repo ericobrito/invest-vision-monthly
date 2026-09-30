@@ -38,7 +38,6 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
     .map((inv: any): Investment => {
       let positions = positionsByInvestment.get(inv.id);
-      const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
       const nameLower = (inv.name || "").toLowerCase();
 
       // Template positions for DETAILED/CONNECTED or when Avenue needs position synchronization

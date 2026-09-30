@@ -1,3 +1,4 @@
+import type { CryptoDisposal } from "@/features/cryptoAccounting/types";
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/hooks/useSnapshots";
@@ -456,7 +457,7 @@ export default function IntelligentPlan() {
   );
 
   const cryptoStatus = useMemo(() => {
-    return intelligentPlanEngine.analyzeCryptoTax("2026-09", mockCryptoDisposals, 0);
+    return intelligentPlanEngine.analyzeCryptoTax("2026-09", mockCryptoDisposals as unknown as CryptoDisposal[], 0);
   }, [mockCryptoDisposals]);
 
   // Strategy Simulation scenarios
@@ -795,10 +796,10 @@ export default function IntelligentPlan() {
                       Lucro Acumulado (%) {renderSortIcon("profitPercent")}
                     </th>
                     <th
-                      onClick={() => handleTableSort("annualReturnPct")}
+                      onClick={() => handleTableSort("annualReturnPct" as any)}
                       className="py-3 px-3 text-right cursor-pointer hover:text-foreground transition-colors select-none text-cyan-500 font-bold"
                     >
-                      Rentabilidade Anual (%) {renderSortIcon("annualReturnPct")}
+                      Rentabilidade Anual (%) {renderSortIcon("annualReturnPct" as any)}
                     </th>
                     <th
                       onClick={() => handleTableSort("estimatedRealizedProfitBRL")}
