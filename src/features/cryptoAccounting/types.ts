@@ -79,6 +79,7 @@ export interface CryptoDisposal {
   asset: string;
   quantity: number;
   broker: string;
+  exchange?: string;
   taxRegime: TaxRegime;
   grossProceedsUSD: number;
   grossProceedsBRL: number;
