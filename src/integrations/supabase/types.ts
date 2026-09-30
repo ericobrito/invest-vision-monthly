@@ -645,7 +645,7 @@ export type Database = {
           id?: string
           month: string
           updated_at?: string
-          user_id: string
+          user_id?: string
           value?: number
         }
         Update: {
@@ -681,7 +681,7 @@ export type Database = {
           id?: string
           month: string
           updated_at?: string
-          user_id: string
+          user_id?: string
         }
         Update: {
           actual_aporte?: number | null
@@ -720,7 +720,7 @@ export type Database = {
           target_leisure?: number | null
           target_wealth?: number | null
           updated_at?: string
-          user_id: string
+          user_id?: string
           years_horizon?: number | null
         }
         Update: {
