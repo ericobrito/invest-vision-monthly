@@ -43,7 +43,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 
       // Template positions for DETAILED/CONNECTED or when Avenue needs position synchronization
       const isAvenue = nameLower.includes("avenue") || nameLower.includes("dólar");
-      const isOutdatedAvenue = isAvenue && (!positions || positions.length < 9 || !positions.some(p => p.symbol === "USDT"));
+      const isOutdatedAvenue = isAvenue && (!positions || positions.length < 8 || !positions.some(p => p.symbol === "USDT" && p.quantity >= 1900));
 
       if (isOutdatedAvenue || ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED'))) {
         if (nameLower.includes("coinbase")) {
@@ -143,13 +143,13 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
             {
               symbol: "USDT",
               name: "Tether USDt USD",
-              quantity: 1542.910000,
+              quantity: 1936.560000,
               averagePrice: 1.00,
               currentPrice: 1.00,
-              appliedAmount: 1542.72,
-              currentValue: 1542.72,
-              currentValueBRL: 7917.57,
-              appliedAmountBRL: 1542.72 * effectiveFx,
+              appliedAmount: 1936.56,
+              currentValue: 1936.56,
+              currentValueBRL: 1936.56 * effectiveFx,
+              appliedAmountBRL: 1936.56 * effectiveFx,
               currency: "USD",
               fxRate: effectiveFx,
             },
@@ -215,19 +215,6 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
               currentValue: 119.66,
               currentValueBRL: 614.14,
               appliedAmountBRL: 38.33 * effectiveFx,
-              currency: "USD",
-              fxRate: effectiveFx,
-            },
-            {
-              symbol: "USD",
-              name: "Saldo em Dólar (Cash)",
-              quantity: 321.940000,
-              averagePrice: 1.00,
-              currentPrice: 1.00,
-              appliedAmount: 321.94,
-              currentValue: 321.94,
-              currentValueBRL: 321.94 * effectiveFx,
-              appliedAmountBRL: 321.94 * effectiveFx,
               currency: "USD",
               fxRate: effectiveFx,
             },
