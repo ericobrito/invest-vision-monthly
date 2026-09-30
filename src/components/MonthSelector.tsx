@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { getCleanMonthLabel, type MonthlySnapshot } from "@/data/investments";
 
 interface MonthSelectorProps {
@@ -25,37 +25,45 @@ const MonthSelector = ({ currentIndex, onChange, months }: MonthSelectorProps) =
   }, [currentIndex, months]);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5 bg-card/60 backdrop-blur-md border border-border/70 p-1.5 rounded-2xl shadow-sm max-w-full">
       <button
         onClick={() => onChange(Math.max(0, currentIndex - 1))}
         disabled={currentIndex === 0}
-        className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-foreground"
+        aria-label="Mês Anterior"
+        className="p-1.5 rounded-xl hover:bg-secondary/80 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-foreground shrink-0"
       >
-        <ChevronLeft className="w-5 h-5" />
+        <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <div ref={containerRef} className="flex gap-1 overflow-x-auto scrollbar-hide px-1">
-        {months.map((m, i) => (
-          <button
-            key={m.month}
-            onClick={() => onChange(i)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-              i === currentIndex
-                ? "bg-primary text-primary-foreground shadow-lg"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {getCleanMonthLabel(m.month, m.label)}
-          </button>
-        ))}
+      <div 
+        ref={containerRef} 
+        className="flex items-center gap-1 overflow-x-auto scrollbar-hide px-0.5 touch-pan-x min-w-0 flex-1"
+      >
+        {months.map((m, i) => {
+          const isActive = i === currentIndex;
+          return (
+            <button
+              key={m.month}
+              onClick={() => onChange(i)}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 shrink-0 ${
+                isActive
+                  ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-900/20 scale-[1.02]"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+              }`}
+            >
+              {getCleanMonthLabel(m.month, m.label)}
+            </button>
+          );
+        })}
       </div>
 
       <button
         onClick={() => onChange(Math.min(months.length - 1, currentIndex + 1))}
         disabled={currentIndex === months.length - 1}
-        className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-foreground"
+        aria-label="Próximo Mês"
+        className="p-1.5 rounded-xl hover:bg-secondary/80 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-foreground shrink-0"
       >
-        <ChevronRight className="w-5 h-5" />
+        <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
