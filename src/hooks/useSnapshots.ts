@@ -43,9 +43,9 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 
       // Template positions for DETAILED/CONNECTED or when Avenue needs position synchronization
       const isAvenue = nameLower.includes("avenue") || nameLower.includes("dólar");
-      const isOutdatedAvenue = isAvenue && (!positions || positions.length < 8 || !positions.some(p => p.symbol === "USDT" && p.quantity >= 1900));
+      const mode = isAvenue ? 'DETAILED' : ((inv.mode as InvestmentMode) || 'CONSOLIDATED');
 
-      if (isOutdatedAvenue || ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED'))) {
+      if (isAvenue || ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED'))) {
         if (nameLower.includes("coinbase")) {
           const effectiveFx = fxRates["USD"] || 5.6827;
 
@@ -223,9 +223,9 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
       }
 
       const isForeignPos = positions?.some((p) => (p.currency || "BRL").toUpperCase() !== "BRL");
-      const invCurrency = inv.currency && inv.currency.toUpperCase() !== 'BRL'
+      const invCurrency = isAvenue ? 'USD' : (inv.currency && inv.currency.toUpperCase() !== 'BRL'
         ? inv.currency.toUpperCase()
-        : (isForeignPos ? 'USD' : 'BRL');
+        : (isForeignPos ? 'USD' : 'BRL'));
 
       const totals = resolveInvestmentTotals(
         {
