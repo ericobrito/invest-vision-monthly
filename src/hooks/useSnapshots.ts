@@ -41,8 +41,11 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
       const mode = (inv.mode as InvestmentMode) || 'CONSOLIDATED';
       const nameLower = (inv.name || "").toLowerCase();
 
-      // Fallback template positions ONLY for current DETAILED/CONNECTED investments with no DB positions
-      if ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED')) {
+      // Template positions for DETAILED/CONNECTED or when Avenue needs position synchronization
+      const isAvenue = nameLower.includes("avenue") || nameLower.includes("dólar");
+      const isOutdatedAvenue = isAvenue && (!positions || positions.length < 8 || !positions.some(p => p.symbol === "USDT"));
+
+      if (isOutdatedAvenue || ((!positions || positions.length === 0) && (mode === 'DETAILED' || mode === 'CONNECTED'))) {
         if (nameLower.includes("coinbase")) {
           const effectiveFx = fxRates["USD"] || 5.6827;
 
@@ -107,7 +110,7 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
               fxRate: effectiveFx,
             },
           ];
-        } else if (nameLower.includes("avenue") || nameLower.includes("dólar")) {
+        } else if (isAvenue) {
           const effectiveFx = 5.1322;
 
           positions = [
