@@ -181,11 +181,13 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates) => {
+    getCanonicalPositions: (fxRates, storedValueBRL) => {
       const usdRate = fxRates["USD"] || 5.5223;
-      const targetBRL = 55305.09;
+      const targetBRL = storedValueBRL && storedValueBRL > 20000 ? storedValueBRL : 55305.09;
       const usdtValUSD = 4754.78;
-      const btcValUSD = (targetBRL / usdRate) - usdtValUSD;
+      const targetUSD = targetBRL / usdRate;
+      const btcValUSD = Math.max(0, targetUSD - usdtValUSD);
+      const btcQty = btcValUSD > 0 ? btcValUSD / 77356.24 : 0.068;
       return [
         {
           symbol: "USDT",
@@ -203,7 +205,7 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
         {
           symbol: "BTC",
           name: "Bitcoin",
-          quantity: 0.0680,
+          quantity: btcQty,
           averagePrice: 29882.78,
           currentPrice: 77356.24,
           appliedAmount: 2032.02,

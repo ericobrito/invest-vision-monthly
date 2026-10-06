@@ -729,7 +729,7 @@ export const monthlyData: MonthlySnapshot[] = [
       { name: "Avenue - Dólar", value: 12620.00, valueBRL: 67517.00, applied: 8709.06, appliedBRL: 44696.64, currency: "USD", mode: "DETAILED", percentage: 11.68, totalReturn: 51.06, yearStarted: "2021", annualReturn: 10.21 },
       { name: "XP Investimento - Prev", value: 60500.00, percentage: 10.46, applied: 44625.04, totalReturn: 35.57, yearStarted: "2022", annualReturn: 8.89 },
       { name: "Allu Invest", value: 56212.12, percentage: 9.72, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 10.13 },
-      { name: "Binance", value: 10014.86, valueBRL: 55305.09, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.33, totalReturn: 60.60, yearStarted: "2024", annualReturn: 30.30 },
+      { name: "Binance", value: 10052.40, valueBRL: 55512.30, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.60, totalReturn: 61.20, yearStarted: "2024", annualReturn: 30.60 },
       { name: "Coinbase", value: 3861.70, valueBRL: 21046.26, applied: 2584.21, appliedBRL: 13150.80, currency: "USD", mode: "DETAILED", percentage: 3.64, totalReturn: 60.04, yearStarted: "2024", annualReturn: 18.50 },
       { name: "Estratégia Consórcio", value: 17500.00, percentage: 3.03, applied: 17500.00, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
       { name: "Cripto - Pedro", value: 17500.00, percentage: 3.03, applied: 17500.00, totalReturn: 0.00 },
@@ -738,8 +738,8 @@ export const monthlyData: MonthlySnapshot[] = [
     growth2025: 169800.47,
   },
   {
-    month: "2026-08", label: "Ago 2026", total: 583890.15,
-    change: { value: 5769.85, percentage: 1.00 },
+    month: "2026-08", label: "Ago 2026", total: 584445.06,
+    change: { value: 6324.76, percentage: 1.09 },
     fixedIncome: 66.60, variableIncome: 33.40,
     brazil: 74.40, exterior: 25.60,
     investments: [
@@ -748,7 +748,7 @@ export const monthlyData: MonthlySnapshot[] = [
       { name: "Avenue - Dólar", value: 12650.00, valueBRL: 68310.00, applied: 8709.06, appliedBRL: 44696.64, currency: "USD", mode: "DETAILED", percentage: 11.70, totalReturn: 52.83, yearStarted: "2021", annualReturn: 8.35 },
       { name: "XP Investimento - Prev", value: 61200.00, percentage: 10.48, applied: 44625.04, totalReturn: 37.14, yearStarted: "2022", annualReturn: 6.84 },
       { name: "Allu Invest", value: 56212.12, percentage: 9.63, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 7.41 },
-      { name: "Binance", value: 10014.86, valueBRL: 55305.09, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.33, totalReturn: 60.60, yearStarted: "2024", annualReturn: 30.30 },
+      { name: "Binance", value: 10115.80, valueBRL: 55860.00, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.56, totalReturn: 62.21, yearStarted: "2024", annualReturn: 31.10 },
       { name: "Coinbase", value: 3861.70, valueBRL: 21046.26, applied: 2584.21, appliedBRL: 13150.80, currency: "USD", mode: "DETAILED", percentage: 3.60, totalReturn: 60.04, yearStarted: "2024", annualReturn: 18.50 },
       { name: "Estratégia Consórcio", value: 18500.00, percentage: 3.17, applied: 18500.00, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
       { name: "Cripto - Pedro", value: 17500.00, percentage: 3.00, applied: 17500.00, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
@@ -757,8 +757,8 @@ export const monthlyData: MonthlySnapshot[] = [
     growth2025: 175570.32,
   },
   {
-    month: "2026-09", label: "Set 2026", total: 587384.69,
-    change: { value: 3494.54, percentage: 0.60 },
+    month: "2026-09", label: "Set 2026", total: 587744.60,
+    change: { value: 3299.54, percentage: 0.56 },
     fixedIncome: 66.50, variableIncome: 33.50,
     brazil: 74.30, exterior: 25.70,
     investments: [
@@ -767,7 +767,7 @@ export const monthlyData: MonthlySnapshot[] = [
       { name: "Avenue - Dólar", value: 12670.00, valueBRL: 68671.40, applied: 8709.06, appliedBRL: 44696.64, currency: "USD", mode: "DETAILED", percentage: 11.69, totalReturn: 53.64, yearStarted: "2021", annualReturn: 8.48 },
       { name: "XP Investimento - Prev", value: 61500.00, percentage: 10.47, applied: 44625.04, totalReturn: 37.81, yearStarted: "2022", annualReturn: 6.96 },
       { name: "Allu Invest", value: 56212.12, percentage: 9.57, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 7.41 },
-      { name: "Binance", value: 10014.86, valueBRL: 55305.09, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.33, totalReturn: 60.60, yearStarted: "2024", annualReturn: 30.30 },
+      { name: "Binance", value: 10080.50, valueBRL: 55665.00, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.48, totalReturn: 61.65, yearStarted: "2024", annualReturn: 30.82 },
       { name: "Coinbase", value: 3861.70, valueBRL: 21046.26, applied: 2584.21, appliedBRL: 13150.80, currency: "USD", mode: "DETAILED", percentage: 3.58, totalReturn: 60.04, yearStarted: "2024", annualReturn: 18.50 },
       { name: "Estratégia Consórcio", value: 18800.00, percentage: 3.20, applied: 18800.00, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
       { name: "Cripto - Pedro", value: 17500.00, percentage: 2.98, applied: 17500.00, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
@@ -776,8 +776,8 @@ export const monthlyData: MonthlySnapshot[] = [
     growth2025: 179064.86,
   },
   {
-    month: "2026-10", label: "Out 2026", total: 592838.47,
-    change: { value: 5453.78, percentage: 0.93 },
+    month: "2026-10", label: "Out 2026", total: 593553.38,
+    change: { value: 5808.78, percentage: 0.99 },
     fixedIncome: 66.50, variableIncome: 33.50,
     brazil: 74.30, exterior: 25.70,
     investments: [
@@ -786,7 +786,7 @@ export const monthlyData: MonthlySnapshot[] = [
       { name: "Avenue - Dólar", value: 12690.37, valueBRL: 69162.52, applied: 8709.06, appliedBRL: 44696.64, currency: "USD", mode: "DETAILED", percentage: 11.67, totalReturn: 45.72, yearStarted: "2021", annualReturn: 7.20 },
       { name: "XP Investimento - Prev", value: 61844.08, percentage: 10.43, applied: 44625.04, totalReturn: 38.59, yearStarted: "2022", annualReturn: 7.10 },
       { name: "Allu Invest", value: 56212.12, percentage: 9.48, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 7.41 },
-      { name: "Binance", value: 10014.86, valueBRL: 55305.09, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.33, totalReturn: 60.60, yearStarted: "2024", annualReturn: 30.30 },
+      { name: "Binance", value: 10145.20, valueBRL: 56020.00, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.45, totalReturn: 62.68, yearStarted: "2024", annualReturn: 31.34 },
       { name: "Coinbase", value: 3861.70, valueBRL: 21046.26, applied: 2584.21, appliedBRL: 13150.80, currency: "USD", mode: "DETAILED", percentage: 3.55, totalReturn: 60.04, yearStarted: "2024", annualReturn: 18.50 },
       { name: "Estratégia Consórcio", value: 19010.80, percentage: 3.21, applied: 19010.80, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
       { name: "Cripto - Pedro", value: 17500.00, percentage: 2.95, applied: 17500.00, totalReturn: 0.00, yearStarted: "2024", annualReturn: 0.00 },
