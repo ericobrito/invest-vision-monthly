@@ -198,16 +198,31 @@ export function useSnapshots() {
         positionsByInvestment.set(p.investment_id, list);
       }
 
-      return snapshots.map((s) => {
-        const dbInvs = invBySnapshot.get(s.id) || [];
-        if (dbInvs.length === 0) {
-          const fallbackSnap = fallbackMonthlyData.find((f) => f.month === s.month);
-          if (fallbackSnap) {
-            return fallbackSnap;
+      const dbSnapMap = new Map((snapshots || []).map((s: any) => [s.month, s]));
+      const allMonthsMap = new Map<string, MonthlySnapshot>();
+
+      for (const fallbackSnap of fallbackMonthlyData) {
+        const dbSnap = dbSnapMap.get(fallbackSnap.month);
+        if (dbSnap) {
+          const dbInvs = invBySnapshot.get(dbSnap.id) || [];
+          if (dbInvs.length > 0) {
+            allMonthsMap.set(fallbackSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, fxRates));
+          } else {
+            allMonthsMap.set(fallbackSnap.month, fallbackSnap);
           }
+        } else {
+          allMonthsMap.set(fallbackSnap.month, fallbackSnap);
         }
-        return mapRow(s, dbInvs, positionsByInvestment, fxRates);
-      });
+      }
+
+      for (const dbSnap of (snapshots || [])) {
+        if (!allMonthsMap.has(dbSnap.month)) {
+          const dbInvs = invBySnapshot.get(dbSnap.id) || [];
+          allMonthsMap.set(dbSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, fxRates));
+        }
+      }
+
+      return Array.from(allMonthsMap.values()).sort((a, b) => a.month.localeCompare(b.month));
     },
   });
 
