@@ -50,8 +50,8 @@ export function useSnapshots() {
         fetchFxRatesToBRL(),
       ]);
 
-      if (sErr || iErr || !snapshots || snapshots.length === 0) {
-        console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty table:", { sErr, iErr });
+      if (sErr || iErr || !snapshots || snapshots.length === 0 || !investments || investments.length === 0) {
+        console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty/incomplete tables:", { sErr, iErr });
         return fallbackMonthlyData;
       }
 
@@ -199,7 +199,14 @@ export function useSnapshots() {
       }
 
       return snapshots.map((s) => {
-        return mapRow(s, invBySnapshot.get(s.id) || [], positionsByInvestment, fxRates);
+        const dbInvs = invBySnapshot.get(s.id) || [];
+        if (dbInvs.length === 0) {
+          const fallbackSnap = fallbackMonthlyData.find((f) => f.month === s.month);
+          if (fallbackSnap) {
+            return fallbackSnap;
+          }
+        }
+        return mapRow(s, dbInvs, positionsByInvestment, fxRates);
       });
     },
   });
