@@ -129,12 +129,17 @@ export class InvestmentNormalizationService {
     });
 
     const totalBRL = mappedInvestments.reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
-    const fixedBRL = mappedInvestments
+    const mappedInvestmentsWithPct = mappedInvestments.map((i) => ({
+      ...i,
+      percentage: totalBRL > 0 ? Number((((i.valueBRL ?? i.value) / totalBRL) * 100).toFixed(2)) : i.percentage,
+    }));
+
+    const fixedBRL = mappedInvestmentsWithPct
       .filter((i) => i.incomeType === "fixed")
       .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
     const variableBRL = totalBRL - fixedBRL;
 
-    const brazilBRL = mappedInvestments
+    const brazilBRL = mappedInvestmentsWithPct
       .filter((i) => i.region === "brazil")
       .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
     const exteriorBRL = totalBRL - brazilBRL;
@@ -149,7 +154,7 @@ export class InvestmentNormalizationService {
       month: snapshotRow.month,
       label: snapshotRow.label,
       total: totalBRL,
-      investments: mappedInvestments,
+      investments: mappedInvestmentsWithPct,
       fixedIncome: derivedFixedIncome ?? (snapshotRow.fixed_income != null ? Number(snapshotRow.fixed_income) : undefined),
       variableIncome: derivedVariableIncome ?? (snapshotRow.variable_income != null ? Number(snapshotRow.variable_income) : undefined),
       brazil: derivedBrazil ?? (snapshotRow.brazil != null ? Number(snapshotRow.brazil) : undefined),

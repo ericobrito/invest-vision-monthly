@@ -529,7 +529,7 @@ const Index = () => {
                               </p>
                             ) : (
                               <p className="text-[11px] text-emerald-400 font-medium mt-1">
-                                {t("index.atPeak")}
+                                Renda variável em topo histórico
                               </p>
                             )}
                           </div>

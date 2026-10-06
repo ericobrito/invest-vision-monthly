@@ -197,7 +197,7 @@ export function resolveInvestmentTotals(
 }
 
 
-export const monthlyData: MonthlySnapshot[] = [
+export const rawMonthlyData: MonthlySnapshot[] = [
   {
     month: "2024-01", label: "Jan 2024", total: 321640.33,
     investments: [
@@ -799,6 +799,64 @@ export const monthlyData: MonthlySnapshot[] = [
     growth2025: 184231.98,
   },
 ];
+
+export const monthlyData: MonthlySnapshot[] = (() => {
+  const result: MonthlySnapshot[] = [];
+  for (let idx = 0; idx < rawMonthlyData.length; idx++) {
+    const snap = rawMonthlyData[idx];
+    const prevSnap = idx > 0 ? result[idx - 1] : undefined;
+
+    const normInvs = snap.investments.map((inv) => {
+      const valBRL = inv.valueBRL ?? (inv.currency === "USD" ? inv.value * 5.45 : inv.value);
+      const appBRL = inv.appliedBRL ?? (inv.applied != null ? (inv.currency === "USD" ? inv.applied * 5.45 : inv.applied) : undefined);
+      return {
+        ...inv,
+        valueBRL: valBRL,
+        appliedBRL: appBRL,
+      };
+    });
+
+    const totalBRL = Number(normInvs.reduce((sum, i) => sum + i.valueBRL, 0).toFixed(2));
+
+    const invsWithPct = normInvs.map((inv) => ({
+      ...inv,
+      percentage: totalBRL > 0 ? Number(((inv.valueBRL / totalBRL) * 100).toFixed(2)) : 0,
+    }));
+
+    let change = snap.change;
+    if (prevSnap) {
+      const changeVal = Number((totalBRL - prevSnap.total).toFixed(2));
+      const changePct = prevSnap.total > 0 ? Number(((changeVal / prevSnap.total) * 100).toFixed(2)) : 0;
+      change = { value: changeVal, percentage: changePct };
+    }
+
+    const fixedBRL = invsWithPct
+      .filter((i) => i.incomeType === "fixed" || (!i.incomeType && (i.name.includes("Prev") || i.name.includes("Reserva") || i.name.includes("Renda Fixa") || i.name.includes("Allu") || i.name.includes("Consórcio") || i.name.includes("Sofisa"))))
+      .reduce((s, i) => s + i.valueBRL, 0);
+
+    const fixedIncome = totalBRL > 0 ? Number(((fixedBRL / totalBRL) * 100).toFixed(2)) : snap.fixedIncome;
+    const variableIncome = fixedIncome != null ? Number((100 - fixedIncome).toFixed(2)) : snap.variableIncome;
+
+    const brazilBRL = invsWithPct
+      .filter((i) => i.region === "brazil" || (!i.region && !i.name.includes("Avenue") && !i.name.includes("Binance") && !i.name.includes("Bybit") && !i.name.includes("Coinbase") && !i.name.includes("Bitcoin")))
+      .reduce((s, i) => s + i.valueBRL, 0);
+
+    const brazil = totalBRL > 0 ? Number(((brazilBRL / totalBRL) * 100).toFixed(2)) : snap.brazil;
+    const exterior = brazil != null ? Number((100 - brazil).toFixed(2)) : snap.exterior;
+
+    result.push({
+      ...snap,
+      total: totalBRL,
+      change,
+      fixedIncome,
+      variableIncome,
+      brazil,
+      exterior,
+      investments: invsWithPct,
+    });
+  }
+  return result;
+})();
 
 export const evolutionData = monthlyData.map(m => ({
   month: m.label,
