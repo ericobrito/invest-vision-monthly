@@ -173,45 +173,73 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
   },
   {
-    id: "crypto-exchanges",
-    name: "Bybit / Binance Cripto",
+    id: "binance",
+    name: "Binance",
     match: (name: string) => {
       const n = (name || "").toLowerCase();
-      return n.includes("bybit") || n.includes("binance");
+      return n.includes("binance");
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (_fxRates, storedValueBRL) => {
-      const storedBRL = storedValueBRL || 53084.61;
-      const nativeUSD = 4754.78 + 3178.41;
-      const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
-
+    getCanonicalPositions: (fxRates) => {
+      const usdRate = fxRates["USD"] || 5.5223;
+      const targetBRL = 55305.09;
+      const usdtValUSD = 4754.78;
+      const btcValUSD = (targetBRL / usdRate) - usdtValUSD;
       return [
         {
           symbol: "USDT",
           name: "Tether USD",
-          quantity: 4754.7789,
+          quantity: 4754.78,
           averagePrice: 1.0,
           currentPrice: 1.0,
           appliedAmount: 4754.78,
-          currentValue: 4754.78,
-          currentValueBRL: 4754.78 * effectiveFx,
+          currentValue: usdtValUSD,
+          currentValueBRL: usdtValUSD * usdRate,
           appliedAmountBRL: 4754.78 * 5.074,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "BTC",
           name: "Bitcoin",
-          quantity: 0.041088,
+          quantity: 0.0680,
           averagePrice: 29882.78,
           currentPrice: 77356.24,
-          appliedAmount: 1227.82,
-          currentValue: 3178.41,
-          currentValueBRL: 3178.41 * effectiveFx,
-          appliedAmountBRL: 1227.82 * 5.074,
+          appliedAmount: 2032.02,
+          currentValue: btcValUSD,
+          currentValueBRL: btcValUSD * usdRate,
+          appliedAmountBRL: 2032.02 * 5.074,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
+        },
+      ];
+    },
+  },
+  {
+    id: "bybit",
+    name: "Bybit - Cripto",
+    match: (name: string) => {
+      const n = (name || "").toLowerCase();
+      return n.includes("bybit");
+    },
+    forcedMode: "DETAILED",
+    forcedCurrency: "USD",
+    getCanonicalPositions: (fxRates) => {
+      const usdRate = fxRates["USD"] || 5.5223;
+      return [
+        {
+          symbol: "USDT",
+          name: "Tether USD",
+          quantity: 4754.78,
+          averagePrice: 1.0,
+          currentPrice: 1.0,
+          appliedAmount: 4754.78,
+          currentValue: 4754.78,
+          currentValueBRL: 4754.78 * usdRate,
+          appliedAmountBRL: 4754.78 * 5.074,
+          currency: "USD",
+          fxRate: usdRate,
         },
       ];
     },
