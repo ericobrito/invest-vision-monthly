@@ -17,7 +17,7 @@ import InvestmentDetailDialog from "@/components/InvestmentDetailDialog";
 import ExportImportDialog from "@/components/ExportImportDialog";
 import LanguageToggle from "@/components/LanguageToggle";
 import ThemeToggle from "@/components/ThemeToggle";
-import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator, ChevronDown, FileSpreadsheet, Download, Upload, Zap, Bot } from "lucide-react";
+import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator, ChevronDown, FileSpreadsheet, Download, Upload, Zap, Bot, UserCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -218,6 +218,11 @@ const Index = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer text-xs">
+                  <Link to="/analisador-perfil" className="flex items-center gap-2 text-emerald-400 font-medium">
+                    <UserCheck className="w-4 h-4 text-emerald-400" /> Analisador de Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer text-xs">
                   <Link to="/admin/incidents" className="flex items-center gap-2 text-amber-400 font-medium">
                     <Bot className="w-4 h-4 text-amber-400" /> Agente de Incidentes
                   </Link>
@@ -333,6 +338,11 @@ const Index = () => {
                   <SheetClose asChild>
                     <Link to="/metas" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-secondary text-foreground">
                       <Trophy className="w-4 h-4 text-amber-400" /> {t("nav.goals")}
+                    </Link>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/analisador-perfil" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold bg-emerald-500/10 text-emerald-400">
+                      <UserCheck className="w-4 h-4 text-emerald-400" /> Analisador de Perfil
                     </Link>
                   </SheetClose>
 

@@ -17,13 +17,11 @@ import IncidentCenter from "./pages/IncidentCenter";
 import PassiveIncomeSimulator from "./pages/PassiveIncomeSimulator";
 import WealthGoalsManager from "./pages/WealthGoalsManager";
 import VariableIncomeMoversDashboard from "./pages/VariableIncomeMoversDashboard";
-import CryptoAccountingDashboard from "./pages/CryptoAccountingDashboard";
-import RadarETF from "./pages/RadarETF";
-import IntelligentPlan from "./pages/IntelligentPlan";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Landing from "./pages/Landing";
+import AnalisadorPerfil from "./pages/AnalisadorPerfil";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +100,8 @@ const App = () => {
                 <Route path="/desempenho-variavel" element={<ProtectedRoute><VariableIncomeMoversDashboard /></ProtectedRoute>} />
                 <Route path="/maiores-altas" element={<ProtectedRoute><VariableIncomeMoversDashboard /></ProtectedRoute>} />
                 <Route path="/contabilidade-cripto" element={<ProtectedRoute><CryptoAccountingDashboard /></ProtectedRoute>} />
+                <Route path="/analisador-perfil" element={<ProtectedRoute><AnalisadorPerfil /></ProtectedRoute>} />
+                <Route path="/perfil-patrimonial" element={<ProtectedRoute><AnalisadorPerfil /></ProtectedRoute>} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
