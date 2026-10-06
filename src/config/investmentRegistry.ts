@@ -248,10 +248,10 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
   },
   {
     id: "bitcoin",
-    name: "Bitcoin",
+    name: "Bitcoin - (API Mercado Bitcoin)",
     match: (name: string) => {
       const n = (name || "").toLowerCase();
-      return n === "bitcoin" || n === "btc" || (n.includes("bitcoin") && !n.includes("binance") && !n.includes("mercado"));
+      return n.includes("mercado bitcoin") || n === "bitcoin" || n === "btc" || (n.includes("bitcoin") && !n.includes("binance"));
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
