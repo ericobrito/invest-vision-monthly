@@ -37,7 +37,6 @@ function inferRegion(name: string, explicitRegion?: string): Region {
 function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>, fxRates: FxRates): MonthlySnapshot {
   return InvestmentNormalizationService.normalizeSnapshot(row, investments, positionsByInvestment, fxRates);
 }
-}
 
 export function useSnapshots() {
   const query = useQuery({
