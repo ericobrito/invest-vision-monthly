@@ -216,6 +216,36 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
       ];
     },
   },
+  {
+    id: "bitcoin",
+    name: "Bitcoin",
+    match: (name: string) => {
+      const n = (name || "").toLowerCase();
+      return n === "bitcoin" || n === "btc" || (n.includes("bitcoin") && !n.includes("binance") && !n.includes("mercado"));
+    },
+    forcedMode: "DETAILED",
+    forcedCurrency: "USD",
+    getCanonicalPositions: (fxRates) => {
+      const usdRate = fxRates["USD"] || 5.5223;
+      const valUSD = 1014.07;
+      const valBRL = 5600.00;
+      return [
+        {
+          symbol: "BTC",
+          name: "Bitcoin",
+          quantity: 0.0149,
+          averagePrice: 48000,
+          currentPrice: 68000,
+          appliedAmount: 960,
+          currentValue: valUSD,
+          currentValueBRL: valBRL,
+          appliedAmountBRL: 5303.98,
+          currency: "USD",
+          fxRate: usdRate,
+        },
+      ];
+    },
+  },
 ];
 
 export function findCanonicalRule(investmentName: string): InvestmentCanonicalRule | undefined {
