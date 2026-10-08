@@ -36,7 +36,42 @@ export function calculateVariablePeakProjection(allSnapshots: MonthlySnapshot[])
   const latestSnapshot = allSnapshots[allSnapshots.length - 1];
   const currentTotal = latestSnapshot.total;
 
-  // Track historical peaks for every variable asset/position across all snapshots
+  // 1. Identify active variable assets/positions currently held in the latest snapshot (current > 0)
+  const currentActiveAssets = new Map<string, number>();
+
+  latestSnapshot.investments.forEach((inv) => {
+    let positions = inv.positions;
+    const rule = CANONICAL_INVESTMENT_RULES.find((r) => r.match(inv.name));
+    if ((!positions || positions.length === 0) && rule) {
+      positions = rule.getCanonicalPositions({});
+    }
+
+    if (positions && positions.length > 0) {
+      positions.forEach((p) => {
+        const sym = (p.symbol || p.name || "").toUpperCase().trim();
+        if (!sym || sym === "USDT" || sym === "USDC") return;
+
+        const fx = p.fxRate || (p.currency === "USD" ? 5.45 : 1);
+        const valBRL = p.currentValueBRL ?? p.currentValue * fx;
+        if (valBRL > 0) {
+          const prev = currentActiveAssets.get(sym) || 0;
+          currentActiveAssets.set(sym, prev + valBRL);
+        }
+      });
+    } else {
+      const isVariable = inv.incomeType === "variable" || inferIncomeType(inv.name) === "variable";
+      if (isVariable) {
+        const key = inv.name.trim();
+        const valBRL = inv.valueBRL ?? (inv.currency === "USD" ? inv.value * 5.45 : inv.value);
+        if (valBRL > 0) {
+          const prev = currentActiveAssets.get(key) || 0;
+          currentActiveAssets.set(key, prev + valBRL);
+        }
+      }
+    }
+  });
+
+  // 2. Track historical values across all snapshots ONLY for currently active assets
   const assetHistoryMap = new Map<string, number[]>();
 
   allSnapshots.forEach((snap) => {
@@ -50,20 +85,17 @@ export function calculateVariablePeakProjection(allSnapshots: MonthlySnapshot[])
       if (positions && positions.length > 0) {
         positions.forEach((p) => {
           const sym = (p.symbol || p.name || "").toUpperCase().trim();
-          // Skip cash / stablecoins like USDT if not considered variable risk asset
-          if (!sym || sym === "USDT" || sym === "USDC") return;
+          if (!currentActiveAssets.has(sym)) return;
 
-          const fx = p.fxRate || (p.currency === "USD" ? 5.1322 : 1);
+          const fx = p.fxRate || (p.currency === "USD" ? 5.45 : 1);
           const valBRL = p.currentValueBRL ?? p.currentValue * fx;
-
           const list = assetHistoryMap.get(sym) || [];
           list.push(valBRL);
           assetHistoryMap.set(sym, list);
         });
       } else {
-        const isVariable = inv.incomeType === "variable" || inferIncomeType(inv.name) === "variable";
-        if (isVariable) {
-          const key = inv.name.trim();
+        const key = inv.name.trim();
+        if (currentActiveAssets.has(key)) {
           const valBRL = inv.valueBRL ?? (inv.currency === "USD" ? inv.value * 5.45 : inv.value);
           const list = assetHistoryMap.get(key) || [];
           list.push(valBRL);
@@ -73,39 +105,24 @@ export function calculateVariablePeakProjection(allSnapshots: MonthlySnapshot[])
     });
   });
 
-  // Calculate gaps for assets present in the current portfolio vs their historical peak
+  // 3. Calculate gap and peak ensuring peak >= current for every active asset
   let totalVariablePeakGap = 0;
   const assetDetails: VariableAssetPeakDetail[] = [];
 
-  assetHistoryMap.forEach((values, assetKey) => {
-    const peak = Math.max(...values);
-    // Find current value in latest snapshot
-    let current = 0;
-    latestSnapshot.investments.forEach((inv) => {
-      let positions = inv.positions;
-      const rule = CANONICAL_INVESTMENT_RULES.find((r) => r.match(inv.name));
-      if ((!positions || positions.length === 0) && rule) {
-        positions = rule.getCanonicalPositions({});
-      }
-
-      if (positions && positions.length > 0) {
-        positions.forEach((p) => {
-          const sym = (p.symbol || p.name || "").toUpperCase().trim();
-          if (sym === assetKey) {
-            const fx = p.fxRate || (p.currency === "USD" ? 5.1322 : 1);
-            current += p.currentValueBRL ?? p.currentValue * fx;
-          }
-        });
-      } else if (inv.name.trim() === assetKey) {
-        current += inv.valueBRL ?? (inv.currency === "USD" ? inv.value * 5.45 : inv.value);
-      }
-    });
-
+  currentActiveAssets.forEach((current, assetKey) => {
+    const historicalValues = assetHistoryMap.get(assetKey) || [];
+    // Peak is always at least equal to current value
+    const peak = Math.max(current, ...historicalValues);
     const gap = Math.max(0, peak - current);
-    if (gap > 0 || current > 0) {
-      assetDetails.push({ name: assetKey, current, peak, gap });
-      totalVariablePeakGap += gap;
-    }
+
+    assetDetails.push({ name: assetKey, current, peak, gap });
+    totalVariablePeakGap += gap;
+  });
+
+  // Sort: assets with gap first (highest gap top), then assets at peak
+  assetDetails.sort((a, b) => {
+    if (b.gap !== a.gap) return b.gap - a.gap;
+    return b.current - a.current;
   });
 
   const projectedTotalAtPeak = currentTotal + totalVariablePeakGap;
