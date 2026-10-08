@@ -22,7 +22,7 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
       const usdRate = fxRates["USD"] || 5.47;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 12546.35;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 68628.53;
       const baseUSD = targetBRL / usdRate;
       const scale = baseUSD / 12279.97;
       return [
