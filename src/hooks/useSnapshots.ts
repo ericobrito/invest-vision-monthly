@@ -220,7 +220,20 @@ export function useSnapshots() {
         }
       }
 
-      return Array.from(allMonthsMap.values()).sort((a, b) => a.month.localeCompare(b.month));
+      const sortedSnapshots = Array.from(allMonthsMap.values()).sort((a, b) => a.month.localeCompare(b.month));
+
+      return sortedSnapshots.map((snap) => {
+        const total = snap.investments.reduce((sum, inv) => sum + (inv.valueBRL ?? inv.value), 0);
+        const investmentsWithPct = snap.investments.map((inv) => ({
+          ...inv,
+          percentage: total > 0 ? Number((((inv.valueBRL ?? inv.value) / total) * 100).toFixed(2)) : inv.percentage,
+        }));
+        return {
+          ...snap,
+          total,
+          investments: investmentsWithPct,
+        };
+      });
     },
   });
 
