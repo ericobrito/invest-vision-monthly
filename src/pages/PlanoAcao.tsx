@@ -255,15 +255,15 @@ const PlanoAcao = () => {
     return snapshot.applied ?? snapshot.investments.reduce((acc, inv) => acc + (inv.applied ?? inv.value), 0);
   }, [snapshot]);
 
-  // CAGR based on active portfolio tracking window (Jan 2024 to present)
+  // CAGR based on active portfolio tracking window (Jan 2024 to snapshot date)
   const cagrCurrent = useMemo(() => {
     if (!snapshot) return 0;
-    return calculateActivePortfolioCAGR(snapshot.total, totalApplied, "2024-01-01");
+    return calculateActivePortfolioCAGR(snapshot.total, totalApplied, "2024-01-01", snapshot.month ? `${snapshot.month}-01` : undefined);
   }, [snapshot, totalApplied]);
 
   const cagrProjected = useMemo(() => {
     if (!snapshot) return 0;
-    return calculateActivePortfolioCAGR(peakProjection.projectedTotalAtPeak, totalApplied, "2024-01-01");
+    return calculateActivePortfolioCAGR(peakProjection.projectedTotalAtPeak, totalApplied, "2024-01-01", snapshot.month ? `${snapshot.month}-01` : undefined);
   }, [snapshot, totalApplied, peakProjection]);
 
   const portfolioReturn = useMemo(() => computePortfolioReturn(classifiedAssets), [classifiedAssets]);

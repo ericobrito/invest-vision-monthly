@@ -204,18 +204,14 @@ const InvestmentTable = ({ snapshot, onEditInvestment, onDetailInvestment }: Inv
   const totalValue = portfolio.currentValue > 0 ? portfolio.currentValue : snapshot.total;
   const overallTotalReturn = totalApplied > 0 ? portfolio.profitPercent : undefined;
 
-  const oldestYear = snapshot.investments
-    .filter(i => i.yearStarted)
-    .map(i => i.yearStarted!)
-    .sort()[0];
   let overallAnnualReturn: number | undefined;
-  if (oldestYear && totalApplied > 0 && totalValue > 0) {
-    const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
-    const years = (new Date().getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-    if (years >= 1) {
+  if (totalApplied > 0 && totalValue > 0) {
+    const startDate = new Date("2024-01-01");
+    const endDate = snapshot.month ? new Date(`${snapshot.month}-01`) : new Date();
+    const diffDays = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const years = diffDays / 365.25;
+    if (years > 0) {
       overallAnnualReturn = (Math.pow(totalValue / totalApplied, 1 / years) - 1) * 100;
-    } else if (years > 0) {
-      overallAnnualReturn = overallTotalReturn;
     }
   }
 
