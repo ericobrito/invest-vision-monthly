@@ -105,8 +105,14 @@ export class InvestmentNormalizationService {
         finalAppliedBRL = totals.appliedBRL;
       } else {
         // CONSOLIDATED mode: inv.value and inv.applied are stored in BRL scale
-        finalValueBRL = rawValueBRL ?? rawNum;
-        finalAppliedBRL = rawAppliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined);
+        const safeValueBRL = (rawValueBRL != null && rawValueBRL <= rawNum * 2) ? rawValueBRL : rawNum;
+        const safeAppliedBRL = (rawAppliedBRL != null && rawAppliedBRL <= (Number(inv.applied) || 0) * 2)
+          ? rawAppliedBRL
+          : (inv.applied != null ? Number(inv.applied) : undefined);
+
+        finalValueBRL = safeValueBRL;
+        finalAppliedBRL = safeAppliedBRL;
+
         if (invCurrency === "USD") {
           const rate = fxRates["USD"] || 5.60;
           finalValue = rate > 0 ? Number((finalValueBRL / rate).toFixed(2)) : finalValueBRL;
