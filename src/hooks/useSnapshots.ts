@@ -60,11 +60,14 @@ export function useSnapshots() {
             return fallbackMonthlyData.map((snap) => ({
               ...snap,
               investments: snap.investments.map((inv) => {
-                const isUSD = inv.currency === "USD" || (inv.name && (inv.name.includes("Avenue") || inv.name.includes("Binance") || inv.name.includes("Coinbase") || inv.name.includes("Dólar") || inv.name.includes("Bitcoin - (API Mercado Bitcoin)")));
-                if (!isUSD) return inv;
-                const valueBRL = inv.value * usdRate;
-                const appliedBRL = inv.applied != null ? inv.applied * usdRate : inv.appliedBRL;
-                return { ...inv, currency: "USD", valueBRL, appliedBRL };
+                const totals = resolveInvestmentTotals(inv);
+                return {
+                  ...inv,
+                  value: totals.value,
+                  applied: totals.applied,
+                  valueBRL: totals.valueBRL,
+                  appliedBRL: totals.appliedBRL,
+                };
               }),
             }));
           }

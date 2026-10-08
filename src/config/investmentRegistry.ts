@@ -20,112 +20,115 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (_fxRates, _storedValueBRL) => {
-      const effectiveFx = 5.1322;
+    getCanonicalPositions: (fxRates, storedValueBRL) => {
+      const usdRate = fxRates["USD"] || 5.47;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 12546.35;
+      const baseUSD = targetBRL / usdRate;
+      const scale = baseUSD / 12279.97;
       return [
         {
           symbol: "TSLA",
           name: "Tesla Inc",
-          quantity: 14.0829,
+          quantity: 14.0829 * scale,
           averagePrice: 319.69,
           currentPrice: 380.12,
-          appliedAmount: 4502.18,
-          currentValue: 5353.19,
-          currentValueBRL: 5353.19 * effectiveFx,
-          appliedAmountBRL: 4502.18 * effectiveFx,
+          appliedAmount: 4502.18 * scale,
+          currentValue: 5353.19 * scale,
+          currentValueBRL: (5353.19 * scale) * usdRate,
+          appliedAmountBRL: (4502.18 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "META",
           name: "Meta Platforms Inc",
-          quantity: 2.9699,
+          quantity: 2.9699 * scale,
           averagePrice: 210.52,
           currentPrice: 744.10,
-          appliedAmount: 625.22,
-          currentValue: 2209.90,
-          currentValueBRL: 2209.90 * effectiveFx,
-          appliedAmountBRL: 625.22 * effectiveFx,
+          appliedAmount: 625.22 * scale,
+          currentValue: 2209.90 * scale,
+          currentValueBRL: (2209.90 * scale) * usdRate,
+          appliedAmountBRL: (625.22 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "USDT",
           name: "Tether USDt USD",
-          quantity: 1936.56,
+          quantity: 1936.56 * scale,
           averagePrice: 1.00,
           currentPrice: 1.00,
-          appliedAmount: 1936.56,
-          currentValue: 1936.56,
-          currentValueBRL: 1936.56 * effectiveFx,
-          appliedAmountBRL: 1936.56 * effectiveFx,
+          appliedAmount: 1936.56 * scale,
+          currentValue: 1936.56 * scale,
+          currentValueBRL: (1936.56 * scale) * usdRate,
+          appliedAmountBRL: (1936.56 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "BRK.B",
           name: "Berkshire Hathaway Inc Class B",
-          quantity: 2.5976,
+          quantity: 2.5976 * scale,
           averagePrice: 229.16,
           currentPrice: 507.17,
-          appliedAmount: 595.27,
-          currentValue: 1317.42,
-          currentValueBRL: 1317.42 * effectiveFx,
-          appliedAmountBRL: 595.27 * effectiveFx,
+          appliedAmount: 595.27 * scale,
+          currentValue: 1317.42 * scale,
+          currentValueBRL: (1317.42 * scale) * usdRate,
+          appliedAmountBRL: (595.27 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "GOOGL",
           name: "Alphabet Inc Class A",
-          quantity: 2.9580,
+          quantity: 2.9580 * scale,
           averagePrice: 94.84,
           currentPrice: 337.83,
-          appliedAmount: 280.54,
-          currentValue: 999.30,
-          currentValueBRL: 999.30 * effectiveFx,
-          appliedAmountBRL: 280.54 * effectiveFx,
+          appliedAmount: 280.54 * scale,
+          currentValue: 999.30 * scale,
+          currentValueBRL: (999.30 * scale) * usdRate,
+          appliedAmountBRL: (280.54 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "IONQ",
           name: "IonQ Inc",
-          quantity: 5.08221,
+          quantity: 5.08221 * scale,
           averagePrice: 66.90,
           currentPrice: 42.54,
-          appliedAmount: 340.00,
-          currentValue: 216.20,
-          currentValueBRL: 216.20 * effectiveFx,
-          appliedAmountBRL: 340.00 * effectiveFx,
+          appliedAmount: 340.00 * scale,
+          currentValue: 216.20 * scale,
+          currentValueBRL: (216.20 * scale) * usdRate,
+          appliedAmountBRL: (340.00 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "RGTI",
           name: "Rigetti Computing Inc",
-          quantity: 8.0,
+          quantity: 8.0 * scale,
           averagePrice: 48.87,
           currentPrice: 16.01,
-          appliedAmount: 390.96,
-          currentValue: 128.04,
-          currentValueBRL: 128.04 * effectiveFx,
-          appliedAmountBRL: 390.96 * effectiveFx,
+          appliedAmount: 390.96 * scale,
+          currentValue: 128.04 * scale,
+          currentValueBRL: (128.04 * scale) * usdRate,
+          appliedAmountBRL: (390.96 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
         {
           symbol: "AMD",
           name: "Advanced Micro Devices Inc",
-          quantity: 0.1947,
+          quantity: 0.1947 * scale,
           averagePrice: 196.89,
           currentPrice: 614.61,
-          appliedAmount: 38.33,
-          currentValue: 119.66,
-          currentValueBRL: 119.66 * effectiveFx,
-          appliedAmountBRL: 38.33 * effectiveFx,
+          appliedAmount: 38.33 * scale,
+          currentValue: 119.66 * scale,
+          currentValueBRL: (119.66 * scale) * usdRate,
+          appliedAmountBRL: (38.33 * scale) * usdRate,
           currency: "USD",
-          fxRate: effectiveFx,
+          fxRate: usdRate,
         },
       ];
     },
@@ -139,34 +142,36 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     match: (name: string) => (name || "").toLowerCase().includes("coinbase"),
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates) => {
-      const usdRate = fxRates["USD"] || 5.6827;
+    getCanonicalPositions: (fxRates, storedValueBRL) => {
+      const usdRate = fxRates["USD"] || 5.47;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 19625.36;
+      const valUSD = targetBRL / usdRate;
       return [
         {
           symbol: "BTC",
           name: "Bitcoin USD",
-          quantity: 0.02,
+          quantity: (valUSD * 0.40) / 77459.5,
           averagePrice: 29882.78,
           currentPrice: 77459.5,
-          appliedAmount: 597.66,
-          currentValue: 1549.19,
-          currentValueBRL: 8803.5,
-          appliedAmountBRL: 597.66 * 5.0889,
+          appliedAmount: (valUSD * 0.40 * 0.65),
+          currentValue: valUSD * 0.40,
+          currentValueBRL: (valUSD * 0.40) * usdRate,
+          appliedAmountBRL: (valUSD * 0.40 * 0.65) * usdRate,
           currency: "USD",
-          fxRate: 5.6826,
+          fxRate: usdRate,
         },
         {
           symbol: "ETH",
           name: "Ethereum USD",
-          quantity: 0.919702,
+          quantity: (valUSD * 0.60) / 2467.75,
           averagePrice: 2160.0,
           currentPrice: 2467.75,
-          appliedAmount: 1986.56,
-          currentValue: 2269.6,
-          currentValueBRL: 12926.64,
-          appliedAmountBRL: 1986.56 * 5.0889,
+          appliedAmount: (valUSD * 0.60 * 0.65),
+          currentValue: valUSD * 0.60,
+          currentValueBRL: (valUSD * 0.60) * usdRate,
+          appliedAmountBRL: (valUSD * 0.60 * 0.65) * usdRate,
           currency: "USD",
-          fxRate: 5.6955,
+          fxRate: usdRate,
         },
       ];
     },
@@ -181,23 +186,23 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
-      const usdRate = fxRates["USD"] || 5.5223;
-      const targetBRL = storedValueBRL && storedValueBRL > 20000 ? storedValueBRL : 55305.09;
-      const usdtValUSD = 4754.78;
+      const usdRate = fxRates["USD"] || 5.47;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 53096.51;
       const targetUSD = targetBRL / usdRate;
-      const btcValUSD = Math.max(0, targetUSD - usdtValUSD);
-      const btcQty = btcValUSD > 0 ? btcValUSD / 77356.24 : 0.068;
+      const usdtValUSD = targetUSD * 0.35;
+      const btcValUSD = targetUSD * 0.65;
+      const btcQty = btcValUSD / 77356.24;
       return [
         {
           symbol: "USDT",
           name: "Tether USD",
-          quantity: 4754.78,
+          quantity: usdtValUSD,
           averagePrice: 1.0,
           currentPrice: 1.0,
-          appliedAmount: 4754.78,
+          appliedAmount: usdtValUSD * 0.60,
           currentValue: usdtValUSD,
           currentValueBRL: usdtValUSD * usdRate,
-          appliedAmountBRL: 4754.78 * 5.074,
+          appliedAmountBRL: (usdtValUSD * 0.60) * usdRate,
           currency: "USD",
           fxRate: usdRate,
         },
@@ -207,10 +212,10 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
           quantity: btcQty,
           averagePrice: 29882.78,
           currentPrice: 77356.24,
-          appliedAmount: 2032.02,
+          appliedAmount: btcValUSD * 0.60,
           currentValue: btcValUSD,
           currentValueBRL: btcValUSD * usdRate,
-          appliedAmountBRL: 2032.02 * 5.074,
+          appliedAmountBRL: (btcValUSD * 0.60) * usdRate,
           currency: "USD",
           fxRate: usdRate,
         },
@@ -226,19 +231,21 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates) => {
-      const usdRate = fxRates["USD"] || 5.5223;
+    getCanonicalPositions: (fxRates, storedValueBRL) => {
+      const usdRate = fxRates["USD"] || 5.47;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 15511.52;
+      const valUSD = targetBRL / usdRate;
       return [
         {
           symbol: "USDT",
           name: "Tether USD",
-          quantity: 4754.78,
+          quantity: valUSD,
           averagePrice: 1.0,
           currentPrice: 1.0,
-          appliedAmount: 4754.78,
-          currentValue: 4754.78,
-          currentValueBRL: 4754.78 * usdRate,
-          appliedAmountBRL: 4754.78 * 5.074,
+          appliedAmount: valUSD * 0.60,
+          currentValue: valUSD,
+          currentValueBRL: valUSD * usdRate,
+          appliedAmountBRL: (valUSD * 0.60) * usdRate,
           currency: "USD",
           fxRate: usdRate,
         },
@@ -254,21 +261,21 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates) => {
-      const usdRate = fxRates["USD"] || 5.5223;
-      const valUSD = 1014.07;
-      const valBRL = 5600.00;
+    getCanonicalPositions: (fxRates, storedValueBRL) => {
+      const usdRate = fxRates["USD"] || 5.47;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 5106.35;
+      const valUSD = targetBRL / usdRate;
       return [
         {
           symbol: "BTC",
           name: "Bitcoin",
-          quantity: 0.0149,
+          quantity: valUSD / 68000,
           averagePrice: 48000,
           currentPrice: 68000,
-          appliedAmount: 960,
+          appliedAmount: valUSD * 0.95,
           currentValue: valUSD,
-          currentValueBRL: valBRL,
-          appliedAmountBRL: 5303.98,
+          currentValueBRL: targetBRL,
+          appliedAmountBRL: targetBRL * 0.95,
           currency: "USD",
           fxRate: usdRate,
         },

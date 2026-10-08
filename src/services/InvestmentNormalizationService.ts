@@ -67,7 +67,8 @@ export class InvestmentNormalizationService {
       if (mode === "DETAILED") {
         const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
         if (!hasValidPositions && rule) {
-          positions = rule.getCanonicalPositions(fxRates, Number(inv.value));
+          const targetBRL = inv.value_brl != null ? Number(inv.value_brl) : inv.valueBRL != null ? Number(inv.valueBRL) : Number(inv.value);
+          positions = rule.getCanonicalPositions(fxRates, targetBRL);
         }
       } else {
         positions = undefined;
