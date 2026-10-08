@@ -4,9 +4,10 @@ import { useSnapshots } from "@/hooks/useSnapshots";
 import type { Investment, MonthlySnapshot } from "@/data/investments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Lightbulb, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { Flame, Sparkles, Zap, ArrowLeft, Lightbulb, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { calculateVariablePeakProjection, calculateActivePortfolioCAGR } from "@/utils/portfolioProjections";
 
 const CDI_BENCHMARK = 12;
 const TARGET_MIN = 20;
@@ -43,16 +44,31 @@ interface Scenario {
 
 function classifyAssets(investments: Investment[], total: number): ClassifiedAsset[] {
   return investments.map((inv) => {
-    const allocation = total > 0 ? (inv.value / total) * 100 : 0;
-    const annualReturn = inv.annualReturn ?? 0;
+    const currentValue = inv.valueBRL ?? inv.value;
+    const appliedValue = inv.appliedBRL ?? inv.applied ?? currentValue;
+    const allocation = total > 0 ? (currentValue / total) * 100 : 0;
+    
+    let annualReturn = inv.annualReturn ?? 0;
+    if (inv.yearStarted && appliedValue > 0 && currentValue > 0) {
+      const start = new Date(inv.yearStarted);
+      const years = Math.max(0.1, (new Date().getTime() - start.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      if (years >= 1) {
+        annualReturn = (Math.pow(currentValue / appliedValue, 1 / years) - 1) * 100;
+      } else if (years > 0) {
+        annualReturn = ((currentValue - appliedValue) / appliedValue) * 100;
+      }
+    } else if (appliedValue > 0 && currentValue > 0 && (!inv.annualReturn || inv.annualReturn === 0)) {
+      annualReturn = ((currentValue - appliedValue) / appliedValue) * 100;
+    }
+
     const classification: "low" | "medium" | "high" =
       annualReturn < CDI_BENCHMARK ? "low" : annualReturn < 20 ? "medium" : "high";
 
     return {
       name: inv.name,
-      value: inv.value,
+      value: currentValue,
       allocation,
-      applied: inv.applied ?? inv.value,
+      applied: appliedValue,
       annualReturn,
       totalReturn: inv.totalReturn ?? 0,
       classification,
@@ -82,7 +98,8 @@ function isCrypto(name: string): boolean {
 function generateScenario(
   assets: ClassifiedAsset[],
   total: number,
-  intensity: "conservative" | "balanced" | "aggressive"
+  intensity: "conservative" | "balanced" | "aggressive",
+  baselineReturn?: number
 ): Scenario {
   // FIX 1: distinct capital movement per scenario
   const budgetPercent = intensity === "conservative" ? 3 : intensity === "balanced" ? 6 : 12;
@@ -120,8 +137,10 @@ function generateScenario(
 
   // FIX 2: total_reduction is what we actually freed
   const totalReduction = actions.reduce((s, a) => s + Math.abs(a.changeValue), 0);
+  const rawCurrentReturn = computePortfolioReturn(assets);
+  const currentReturn = baselineReturn !== undefined ? baselineReturn : rawCurrentReturn;
+
   if (totalReduction <= 0) {
-    const currentReturn = computePortfolioReturn(assets);
     const labels = {
       conservative: { name: "Conservador", desc: "Pequenas mudanças, menor risco" },
       balanced: { name: "Balanceado", desc: "Mudanças moderadas" },
@@ -184,7 +203,7 @@ function generateScenario(
 
   actions.push(...increases);
 
-  // Simulate new return
+  // Simulate new return based on rebalancing gain delta
   const assetMap = new Map(assets.map((a) => [a.name, { ...a }]));
   for (const action of actions) {
     const a = assetMap.get(action.name);
@@ -192,8 +211,9 @@ function generateScenario(
       a.allocation = action.newAllocation;
     }
   }
-  const newReturn = computePortfolioReturn([...assetMap.values()]);
-  const currentReturn = computePortfolioReturn(assets);
+  const rawNewReturn = computePortfolioReturn([...assetMap.values()]);
+  const rebalanceDelta = rawNewReturn - rawCurrentReturn;
+  const expectedReturn = currentReturn + rebalanceDelta;
 
   const labels = {
     conservative: { name: "Conservador", desc: `Movimentar ~${budgetPercent}% do portfólio — menor risco` },
@@ -205,7 +225,7 @@ function generateScenario(
     name: labels[intensity].name,
     description: labels[intensity].desc,
     actions: actions.filter((a) => Math.abs(a.changePercent) >= 0.2),
-    expectedReturn: newReturn,
+    expectedReturn,
     currentReturn,
     totalReduced: totalReduction,
     totalReallocated: allocatedTotal,
@@ -226,18 +246,39 @@ const PlanoAcao = () => {
     return classifyAssets(snapshot.investments, snapshot.total);
   }, [snapshot]);
 
+  const peakProjection = useMemo(() => {
+    return calculateVariablePeakProjection(monthlyData);
+  }, [monthlyData]);
+
+  const totalApplied = useMemo(() => {
+    if (!snapshot) return 0;
+    return snapshot.applied ?? snapshot.investments.reduce((acc, inv) => acc + (inv.applied ?? inv.value), 0);
+  }, [snapshot]);
+
+  // CAGR based on active portfolio tracking window (Jan 2024 to present)
+  const cagrCurrent = useMemo(() => {
+    if (!snapshot) return 0;
+    return calculateActivePortfolioCAGR(snapshot.total, totalApplied, "2024-01-01");
+  }, [snapshot, totalApplied]);
+
+  const cagrProjected = useMemo(() => {
+    if (!snapshot) return 0;
+    return calculateActivePortfolioCAGR(peakProjection.projectedTotalAtPeak, totalApplied, "2024-01-01");
+  }, [snapshot, totalApplied, peakProjection]);
+
   const portfolioReturn = useMemo(() => computePortfolioReturn(classifiedAssets), [classifiedAssets]);
 
-  const gap = TARGET_MIN - portfolioReturn;
+  const gapCurrent = TARGET_MIN - cagrCurrent;
+  const gapProjected = TARGET_MIN - cagrProjected;
 
   const scenarios = useMemo(() => {
     if (!snapshot || classifiedAssets.length === 0) return [];
     return [
-      generateScenario(classifiedAssets, snapshot.total, "conservative"),
-      generateScenario(classifiedAssets, snapshot.total, "balanced"),
-      generateScenario(classifiedAssets, snapshot.total, "aggressive"),
+      generateScenario(classifiedAssets, snapshot.total, "conservative", cagrCurrent),
+      generateScenario(classifiedAssets, snapshot.total, "balanced", cagrCurrent),
+      generateScenario(classifiedAssets, snapshot.total, "aggressive", cagrCurrent),
     ];
-  }, [classifiedAssets, snapshot]);
+  }, [classifiedAssets, snapshot, cagrCurrent]);
 
   const lowAssets = classifiedAssets.filter((a) => a.classification === "low");
   const medAssets = classifiedAssets.filter((a) => a.classification === "medium");
@@ -270,7 +311,7 @@ const PlanoAcao = () => {
             <div className="shrink-0">
               <h1 className="text-base sm:text-xl font-bold text-foreground whitespace-nowrap">Plano de Ação Inteligente</h1>
               <p className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
-                Sugestões de rebalanceamento para otimizar retornos
+                Sugestões de rebalanceamento e projeções de topo para otimizar retornos
               </p>
             </div>
           </div>
@@ -284,49 +325,150 @@ const PlanoAcao = () => {
           </div>
         ) : (
           <>
-            {/* Performance Atual + Gap */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Card className="border-primary/30">
-                <CardContent className="p-5 text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Rentabilidade Atual (ponderada)</p>
-                  <p className={`text-2xl font-bold ${portfolioReturn >= TARGET_MIN ? "text-primary" : portfolioReturn >= CDI_BENCHMARK ? "text-yellow-500" : "text-destructive"}`}>
-                    {pct(portfolioReturn)} ao ano
+            {/* Performance Atual + Projeção + Metas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Rentabilidade Anualizada Atual (CAGR Real) */}
+              <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-background">
+                <CardContent className="p-5 text-center flex flex-col justify-between h-full">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium mb-1">Ret. Anualizado Atual (CAGR)</p>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight font-mono">
+                      {pct(cagrCurrent)} <span className="text-sm font-normal text-muted-foreground">a.a.</span>
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2 border-t border-border/50 pt-1.5">
+                    Janela ativa da carteira (Jan/2024 até o presente)
                   </p>
                 </CardContent>
               </Card>
-              <Card className="border-primary/30">
-                <CardContent className="p-5 text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Meta Mínima</p>
-                  <p className="text-2xl font-bold text-foreground">{pct(TARGET_MIN)} ao ano</p>
-                  {gap > 0 ? (
-                    <p className="text-sm text-destructive mt-1">
-                      Você está {pct(gap)} abaixo da sua meta
+
+              {/* Card 2: Retorno Projetado no Topo da Renda Variável */}
+              <Card className="border-cyan-500/40 bg-gradient-to-br from-cyan-500/10 via-background to-background">
+                <CardContent className="p-5 text-center flex flex-col justify-between h-full">
+                  <div>
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-cyan-400 font-semibold mb-1">
+                      <Flame className="w-3.5 h-3.5 fill-cyan-400" /> Projeção RV no Topo
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-cyan-400 tracking-tight font-mono">
+                      {pct(cagrProjected)} <span className="text-sm font-normal text-cyan-300/70">a.a.</span>
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-cyan-300/80 mt-2 border-t border-cyan-500/20 pt-1.5 font-medium">
+                    🔥 Meta Mínima de 20% atingida no topo!
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Meta Mínima */}
+              <Card className="border-border">
+                <CardContent className="p-5 text-center flex flex-col justify-between h-full">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium mb-1">Meta Mínima Desejada</p>
+                    <p className="text-2xl font-bold text-foreground font-mono">{pct(TARGET_MIN)} <span className="text-sm font-normal text-muted-foreground">a.a.</span></p>
+                  </div>
+                  {gapProjected <= 0 ? (
+                    <p className="text-[11px] text-emerald-400 mt-2 border-t border-border/50 pt-1.5 font-semibold">
+                      ✅ Atingida na Projeção de Topo (+{pct(Math.abs(gapProjected))})
                     </p>
                   ) : (
-                    <p className="text-sm text-primary mt-1">
-                      ✅ Meta atingida! (+{pct(Math.abs(gap))})
+                    <p className="text-[11px] text-yellow-500 mt-2 border-t border-border/50 pt-1.5">
+                      Gap Atual: {pct(gapCurrent)}
                     </p>
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-primary/30">
-                <CardContent className="p-5 text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Meta Agressiva</p>
-                  <p className="text-2xl font-bold text-foreground">{pct(TARGET_AGGRESSIVE)} ao ano</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Gap: {pct(Math.max(0, TARGET_AGGRESSIVE - portfolioReturn))}
+
+              {/* Card 4: Meta Agressiva */}
+              <Card className="border-border">
+                <CardContent className="p-5 text-center flex flex-col justify-between h-full">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium mb-1">Meta Agressiva</p>
+                    <p className="text-2xl font-bold text-foreground font-mono">{pct(TARGET_AGGRESSIVE)} <span className="text-sm font-normal text-muted-foreground">a.a.</span></p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2 border-t border-border/50 pt-1.5">
+                    Gap Projetado: {pct(Math.max(0, TARGET_AGGRESSIVE - cagrProjected))}
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Progress bar */}
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Progresso em relação à meta</span>
-                  <span className="text-sm text-muted-foreground">{pct(portfolioReturn)} / {pct(TARGET_MIN)}</span>
+            {/* Progress bar em relação ao CAGR e à Meta */}
+            <Card className="border-border/80">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    Progresso de Rentabilidade Anualizada (Jan/2024 Base)
+                  </span>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    Atual: <strong className="text-primary">{pct(cagrCurrent)} a.a.</strong> | Projetado Topo: <strong className="text-cyan-400">{pct(cagrProjected)} a.a.</strong> / Meta: {pct(TARGET_MIN)} a.a.
+                  </span>
                 </div>
+                <div className="relative pt-1">
+                  <Progress value={Math.min(100, (cagrCurrent / TARGET_MIN) * 100)} className="h-3 bg-secondary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Painel Explicativo da Projeção de Renda Variável no Topo */}
+            <Card className="border-cyan-500/30 bg-gradient-to-r from-cyan-950/20 via-background to-emerald-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-cyan-400">
+                  <Flame className="w-5 h-5 text-cyan-400" />
+                  Projeção de Renda Variável em Simultâneo no Topo
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Simulação caso todos os ativos individuais de Renda Variável e Cripto (BTC, ETH, TSLA, META, GOOGL, etc.) retornem simultaneamente aos seus preços máximos históricos de pico.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl bg-background/60 border border-border text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Patrimônio Atual</p>
+                    <p className="text-xl font-bold text-foreground font-mono">{fmt(snapshot.total)}</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-center">
+                    <p className="text-xs text-cyan-300 mb-1">Patrimônio Projetado no Topo</p>
+                    <p className="text-xl font-extrabold text-cyan-400 font-mono">{fmt(peakProjection.projectedTotalAtPeak)}</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center">
+                    <p className="text-xs text-emerald-300 mb-1">Potencial de Valorização</p>
+                    <p className="text-xl font-extrabold text-emerald-400 font-mono">
+                      +{fmt(peakProjection.totalVariablePeakGap)} <span className="text-xs font-normal">(+{pct(peakProjection.projectedGainPct)})</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Detalhes dos Ativos de RV no Topo */}
+                {peakProjection.assetDetails.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border/50">
+                    <p className="text-xs font-semibold text-foreground">Ativos Considerados na Projeção de Topo:</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {peakProjection.assetDetails.map((asset) => (
+                        <div
+                          key={asset.name}
+                          className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40 border border-border/40 text-xs"
+                        >
+                          <div>
+                            <span className="font-semibold text-foreground">{asset.name}</span>
+                            <p className="text-[10px] text-muted-foreground">
+                              Atual: {fmt(asset.current)} | Pico: {fmt(asset.peak)}
+                            </p>
+                          </div>
+                          {asset.gap > 0 ? (
+                            <span className="text-emerald-400 font-medium font-mono">
+                              +{fmt(asset.gap)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground font-mono">No Topo</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
                 <Progress value={Math.min(100, (portfolioReturn / TARGET_MIN) * 100)} className="h-3" />
               </CardContent>
             </Card>

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { calculateVariablePeakProjection, calculateActivePortfolioCAGR } from "@/utils/portfolioProjections";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -456,40 +457,17 @@ const Index = () => {
                   const diffFromMaxPct = maxTotal > 0 ? (diffFromMax / maxTotal) * 100 : 0;
                   const isAtPeak = diffFromMax >= 0;
 
-                  // Variable Income Peak Projection
-                  const variableInvs = snapshot.investments.filter(i => i.incomeType === 'variable');
-                  let totalVariablePeakGap = 0;
-                  
-                  variableInvs.forEach(currInv => {
-                    const histValues = monthlyData.flatMap(s => 
-                      s.investments
-                        .filter(i => i.name === currInv.name)
-                        .map(i => i.valueBRL ?? i.value)
-                    );
-                    const peak = histValues.length > 0 ? Math.max(...histValues) : (currInv.valueBRL ?? currInv.value);
-                    const current = currInv.valueBRL ?? currInv.value;
-                    const gap = peak > current ? peak - current : 0;
-                    totalVariablePeakGap += gap;
-                  });
+                  // Variable Income Peak Projection (Simultaneous Peak for all Variable Assets & Positions: BTC, TSLA, META, GOOGL, etc.)
+                  const peakProjection = calculateVariablePeakProjection(monthlyData);
+                  const projectedTotalAtPeak = peakProjection.projectedTotalAtPeak;
+                  const totalVariablePeakGap = peakProjection.totalVariablePeakGap;
+                  const projectedGainPct = peakProjection.projectedGainPct;
 
-                  const projectedTotalAtPeak = snapshot.total + totalVariablePeakGap;
-                  const projectedGainPct = snapshot.total > 0 ? (totalVariablePeakGap / snapshot.total) * 100 : 0;
-
-                  // Projected Annualized Return Calculation
+                  // Projected Annualized Return Calculation (CAGR based on active portfolio tracking timeframe since Jan 2024)
                   const totalApplied = snapshot.investments.reduce((s, i) => s + (i.appliedBRL ?? i.applied ?? 0), 0);
-                  const oldestYear = snapshot.investments
-                    .filter(i => i.yearStarted)
-                    .map(i => i.yearStarted!)
-                    .sort()[0];
                   let projectedAnnualReturn: number | undefined;
-                  if (oldestYear && totalApplied > 0 && projectedTotalAtPeak > 0) {
-                    const startDate = new Date(oldestYear.length === 4 ? `${oldestYear}-01-01` : oldestYear);
-                    const years = (new Date().getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-                    if (years >= 1) {
-                      projectedAnnualReturn = (Math.pow(projectedTotalAtPeak / totalApplied, 1 / years) - 1) * 100;
-                    } else if (years > 0) {
-                      projectedAnnualReturn = ((projectedTotalAtPeak - totalApplied) / totalApplied) * 100;
-                    }
+                  if (totalApplied > 0 && projectedTotalAtPeak > 0) {
+                    projectedAnnualReturn = calculateActivePortfolioCAGR(projectedTotalAtPeak, totalApplied, "2024-01-01");
                   }
 
                   return (
