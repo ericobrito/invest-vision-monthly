@@ -469,9 +469,6 @@ const PlanoAcao = () => {
                 )}
               </CardContent>
             </Card>
-                <Progress value={Math.min(100, (portfolioReturn / TARGET_MIN) * 100)} className="h-3" />
-              </CardContent>
-            </Card>
 
             {/* Classificação de Ativos */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
