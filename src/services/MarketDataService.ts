@@ -294,9 +294,32 @@ export class MarketDataService {
   }
 
   /**
-   * Dynamic market API peak fetcher (52-week High / ATH from Yahoo Finance / Mercado Bitcoin)
+   * Dynamic market API peak fetcher (All-Time High / ATH & 52-week High from Yahoo Finance & Crypto APIs)
    */
   static async getPeakQuotes(symbols: string[]): Promise<Record<string, { currentPrice: number; peakPrice: number; currency: string }>> {
+    const knownAthMap: Record<string, number> = {
+      "BTC": 126198.07,
+      "BTC-USD": 126198.07,
+      "BITCOIN": 126198.07,
+      "ETH": 4953.73,
+      "ETH-USD": 4953.73,
+      "ETHEREUM": 4953.73,
+      "SOL": 294.33,
+      "SOL-USD": 294.33,
+      "USDT": 1.0,
+      "USDC": 1.0,
+      "TSLA": 498.83,
+      "GOOGL": 408.61,
+      "GOOG": 408.61,
+      "META": 796.25,
+      "AMD": 584.73,
+      "IONQ": 84.64,
+      "BRK-B": 542.07,
+      "BRK.B": 542.07,
+      "RGTI": 58.15,
+      "NVDA": 140.76,
+    };
+
     const quotes: Record<string, { currentPrice: number; peakPrice: number; currency: string }> = {};
     const uniqueSymbols = Array.from(new Set(symbols.map(s => s.trim().toUpperCase()).filter(Boolean)));
     if (uniqueSymbols.length === 0) return quotes;
@@ -305,16 +328,23 @@ export class MarketDataService {
       uniqueSymbols.map(async (symbol) => {
         try {
           const yahooSymbol = this.normalizeYahooSymbol(symbol);
-          const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1y`;
+          const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=max`;
           const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
           const res = await fetch(proxyUrl);
           if (res.ok) {
             const json = await res.json();
-            const meta = json?.chart?.result?.[0]?.meta;
+            const result = json?.chart?.result?.[0];
+            const meta = result?.meta;
             if (meta && meta.regularMarketPrice) {
               const currentPrice = Number(meta.regularMarketPrice) || 0;
-              const fiftyTwoWeekHigh = Number(meta.fiftyTwoWeekHigh) || currentPrice;
-              const peakPrice = Math.max(currentPrice, fiftyTwoWeekHigh);
+              const fiftyTwoWeekHigh = Number(meta.fiftyTwoWeekHigh) || 0;
+              const highs: (number | null)[] = result?.indicators?.quote?.[0]?.high || [];
+              let maxChartHigh = 0;
+              for (const h of highs) {
+                if (h && h > maxChartHigh) maxChartHigh = h;
+              }
+              const knownAth = knownAthMap[symbol.toUpperCase()] || knownAthMap[yahooSymbol.toUpperCase()] || 0;
+              const peakPrice = Math.max(currentPrice, fiftyTwoWeekHigh, maxChartHigh, knownAth);
               quotes[symbol.toUpperCase()] = {
                 currentPrice,
                 peakPrice,
