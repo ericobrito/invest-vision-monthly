@@ -85,6 +85,14 @@ export function useSnapshots() {
         const latestSymbols = fetchedPositions
           .filter((p: any) => latestInvestmentIds.has(p.investment_id) && p.symbol)
           .map((p: any) => p.symbol.toUpperCase());
+
+        // Extract crypto/stock symbols from connected investment names if missing
+        latestInvestments.forEach((inv: any) => {
+          const nameLower = (inv.name || "").toLowerCase();
+          if (nameLower.includes("bitcoin") || nameLower.includes("btc")) latestSymbols.push("BTC");
+          if (nameLower.includes("ethereum") || nameLower.includes("eth")) latestSymbols.push("ETH");
+          if (nameLower.includes("solana") || nameLower.includes("sol")) latestSymbols.push("SOL");
+        });
           
         if (latestSymbols.length > 0 || latestInvestments.some((inv: any) => inv.currency === "USD")) {
           try {
@@ -94,6 +102,9 @@ export function useSnapshots() {
             ]);
             liveQuotes = quotesRes;
             liveUsdBrl = usdBrlRes;
+            if (liveUsdBrl > 0) {
+              fxRates["USD"] = liveUsdBrl;
+            }
           } catch (e) {
             console.error("Failed to load live market data:", e);
           }
@@ -136,41 +147,10 @@ export function useSnapshots() {
             : (Number(p.applied_amount) || 0);
 
           if (p.currency === "USD") {
-            const parentInv = (investments || []).find((inv: any) => inv.id === p.investment_id);
-            const parentName = (parentInv?.name || "").toLowerCase();
-
-            if (parentName.includes("binance") || parentName.includes("bybit")) {
-              const storedBRL = Number((parentInv as any)?.valueBRL) || (Number(parentInv?.value) > 20000 ? Number(parentInv?.value) : 55305.09);
-              const nativeUSD = 4754.78 + 3178.41;
-              const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.9719;
-              fxRate = effectiveFx;
-              currentValueBRL = currentValue * effectiveFx;
-              appliedAmountBRL = rawAppliedNative * 5.0740;
-            } else if (parentName.includes("coinbase")) {
-              if (sym === "ETH") {
-                currentPrice = 2467.75;
-                currentValue = 2269.60;
-                currentValueBRL = 12926.64;
-                fxRate = 5.6955;
-                appliedAmountBRL = rawAppliedNative * 5.0889;
-              } else if (sym === "BTC") {
-                currentPrice = 77459.50;
-                currentValue = 1549.19;
-                currentValueBRL = 8803.50;
-                fxRate = 5.6826;
-                appliedAmountBRL = rawAppliedNative * 5.0889;
-              } else {
-                const usdRate = fxRates["USD"] || liveUsdBrl || 5.6827;
-                fxRate = usdRate;
-                currentValueBRL = currentValue * usdRate;
-                appliedAmountBRL = rawAppliedNative * usdRate;
-              }
-            } else {
-              const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
-              fxRate = usdRate;
-              currentValueBRL = currentValue * usdRate;
-              appliedAmountBRL = rawAppliedNative * usdRate;
-            }
+            const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
+            fxRate = usdRate;
+            currentValueBRL = currentValue * usdRate;
+            appliedAmountBRL = rawAppliedNative * usdRate;
           } else {
             currentValueBRL = currentValue;
             appliedAmountBRL = rawAppliedNative;
