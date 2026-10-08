@@ -500,7 +500,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     investments: [
       { name: "Allu Invest", value: 159060.66, percentage: 27.02, applied: 100000.00, totalReturn: 59.06, yearStarted: "2022", annualReturn: 14.77 },
       { name: "NuBank - Reserva", value: 98625.63, percentage: 16.75, applied: 98625.63, totalReturn: 0.00 },
-      { name: "Avenue - Dólar", value: 70648.31, percentage: 12.00, applied: 30000.00, totalReturn: 135.49, yearStarted: "2021", annualReturn: 27.10 },
+      { name: "Avenue - Dólar", value: 68648.31, percentage: 12.00, applied: 30000.00, totalReturn: 128.83, yearStarted: "2021", annualReturn: 25.77 },
       { name: "Ajx Capital", value: 76007.79, percentage: 12.91, applied: 53188.84, totalReturn: 42.90, yearStarted: "2024", annualReturn: 21.45 },
       { name: "Bybit - Cripto", value: 60156.32, percentage: 10.22, applied: 25274.01, totalReturn: 138.02, yearStarted: "2024", annualReturn: 69.01 },
       { name: "XP Investimento - Prev", value: 53206.57, percentage: 9.04, applied: 43314.14, totalReturn: 22.84, yearStarted: "2022", annualReturn: 5.71 },
@@ -519,7 +519,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     investments: [
       { name: "Allu Invest", value: 159060.66, percentage: 26.75, applied: 100000.00, totalReturn: 59.06, yearStarted: "2022", annualReturn: 14.77 },
       { name: "NuBank - Reserva", value: 105837.82, percentage: 17.80, applied: 89962.15, totalReturn: 17.65, yearStarted: "2024", annualReturn: 8.82 },
-      { name: "Avenue - Dólar", value: 78804.22, percentage: 13.25, applied: 35000.00, totalReturn: 125.15, yearStarted: "2021", annualReturn: 25.03 },
+      { name: "Avenue - Dólar", value: 68804.22, percentage: 13.25, applied: 35000.00, totalReturn: 96.58, yearStarted: "2021", annualReturn: 19.32 },
       { name: "Ajx Capital", value: 76007.79, percentage: 12.78, applied: 53188.84, totalReturn: 42.90, yearStarted: "2024", annualReturn: 21.45 },
       { name: "Bybit - Cripto", value: 61030.89, percentage: 10.26, applied: 25274.01, totalReturn: 141.48, yearStarted: "2024", annualReturn: 70.74 },
       { name: "XP Investimento - Prev", value: 53677.27, percentage: 9.03, applied: 43314.14, totalReturn: 23.93, yearStarted: "2022", annualReturn: 5.98 },
@@ -538,7 +538,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     investments: [
       { name: "Allu Invest", value: 159060.66, percentage: 25.79, applied: 100000.00, totalReturn: 59.06, yearStarted: "2022", annualReturn: 14.77 },
       { name: "NuBank - Reserva", value: 109068.21, percentage: 17.68, applied: 93962.15, totalReturn: 16.08, yearStarted: "2024", annualReturn: 8.04 },
-      { name: "Avenue - Dólar", value: 88875.92, percentage: 14.41, applied: 35000.00, totalReturn: 153.93, yearStarted: "2021", annualReturn: 30.79 },
+      { name: "Avenue - Dólar", value: 69162.52, percentage: 14.41, applied: 35000.00, totalReturn: 97.61, yearStarted: "2021", annualReturn: 19.52 },
       { name: "Ajx Capital", value: 76007.79, percentage: 12.32, applied: 53188.84, totalReturn: 42.90, yearStarted: "2024", annualReturn: 21.45 },
       { name: "Bybit - Cripto", value: 65742.87, percentage: 10.66, applied: 25274.01, totalReturn: 160.12, yearStarted: "2024", annualReturn: 80.06 },
       { name: "XP Investimento - Prev", value: 54486.02, percentage: 8.83, applied: 43314.14, totalReturn: 25.79, yearStarted: "2022", annualReturn: 6.45 },
@@ -557,7 +557,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     investments: [
       { name: "Allu Invest", value: 159060.66, percentage: 26.10, applied: 100000.00, totalReturn: 59.06, yearStarted: "2022", annualReturn: 14.77 },
       { name: "NuBank - Reserva", value: 106127.64, percentage: 17.41, applied: 93962.15, totalReturn: 12.95, yearStarted: "2024", annualReturn: 6.47 },
-      { name: "Avenue - Dólar", value: 80672.30, percentage: 13.24, applied: 35000.00, totalReturn: 130.49, yearStarted: "2021", annualReturn: 26.10 },
+      { name: "Avenue - Dólar", value: 67672.30, percentage: 13.24, applied: 35000.00, totalReturn: 93.35, yearStarted: "2021", annualReturn: 18.67 },
       { name: "Ajx Capital", value: 76007.79, percentage: 12.47, applied: 53188.84, totalReturn: 42.90, yearStarted: "2024", annualReturn: 21.45 },
       { name: "Bybit - Cripto", value: 63002.98, percentage: 10.34, applied: 25274.01, totalReturn: 149.28, yearStarted: "2024", annualReturn: 74.64 },
       { name: "XP Investimento - Prev", value: 55502.12, percentage: 9.11, applied: 43314.14, totalReturn: 28.14, yearStarted: "2022", annualReturn: 7.03 },
@@ -575,7 +575,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     brazil: 74.16, exterior: 24.22,
     investments: [
       { name: "NuBank - Reserva", value: 157499.71, percentage: 28.76, applied: 138599.75, totalReturn: 13.64, yearStarted: "2024", annualReturn: 6.82 },
-      { name: "Avenue - Dólar", value: 82186.07, percentage: 15.01, applied: 35000.00, totalReturn: 134.82, yearStarted: "2021", annualReturn: 26.96 },
+      { name: "Avenue - Dólar", value: 66186.07, percentage: 15.01, applied: 35000.00, totalReturn: 89.10, yearStarted: "2021", annualReturn: 17.82 },
       { name: "Ajx Capital", value: 76007.79, percentage: 13.88, applied: 53188.84, totalReturn: 42.90, yearStarted: "2024", annualReturn: 21.45 },
       { name: "Allu Invest", value: 56212.12, percentage: 10.26, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 10.13 },
       { name: "XP Investimento - Prev", value: 55502.12, percentage: 10.13, applied: 43314.14, totalReturn: 28.14, yearStarted: "2022", annualReturn: 7.03 },
@@ -594,7 +594,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     brazil: 74.28, exterior: 24.12,
     investments: [
       { name: "NuBank - Reserva", value: 157499.71, percentage: 28.28, applied: 138599.75, totalReturn: 13.64, yearStarted: "2024", annualReturn: 6.82 },
-      { name: "Avenue - Dólar", value: 93215.07, percentage: 16.74, applied: 35000.00, totalReturn: 166.33, yearStarted: "2021", annualReturn: 33.27 },
+      { name: "Avenue - Dólar", value: 68215.07, percentage: 16.74, applied: 35000.00, totalReturn: 94.90, yearStarted: "2021", annualReturn: 18.98 },
       { name: "Ajx Capital", value: 76007.79, percentage: 13.65, applied: 53188.84, totalReturn: 42.90, yearStarted: "2024", annualReturn: 21.45 },
       { name: "Allu Invest", value: 56212.12, percentage: 10.09, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 10.13 },
       { name: "XP Investimento - Prev", value: 55886.31, percentage: 10.04, applied: 43314.14, totalReturn: 29.03, yearStarted: "2022", annualReturn: 7.26 },
@@ -613,7 +613,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     brazil: 74.74, exterior: 23.72,
     investments: [
       { name: "NuBank - Reserva", value: 173062.96, percentage: 29.95, applied: 138599.75, totalReturn: 24.87, yearStarted: "2024", annualReturn: 12.43 },
-      { name: "Avenue - Dólar", value: 88140.05, percentage: 15.25, applied: 35000.00, totalReturn: 151.83, yearStarted: "2021", annualReturn: 30.37 },
+      { name: "Avenue - Dólar", value: 67140.05, percentage: 15.25, applied: 35000.00, totalReturn: 91.83, yearStarted: "2021", annualReturn: 18.37 },
       { name: "Ajx Capital", value: 86732.22, percentage: 15.01, applied: 75910.14, totalReturn: 14.26, yearStarted: "2024", annualReturn: 7.13 },
       { name: "XP Investimento - Prev", value: 56671.02, percentage: 9.81, applied: 43314.14, totalReturn: 30.84, yearStarted: "2022", annualReturn: 7.71 },
       { name: "Allu Invest", value: 56212.12, percentage: 9.73, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 10.13 },
@@ -633,7 +633,7 @@ export const rawMonthlyData: MonthlySnapshot[] = [
     investments: [
       { name: "NuBank - Reserva", value: 173062.96, percentage: 30.17, applied: 138599.75, totalReturn: 24.87, yearStarted: "2024", annualReturn: 12.43 },
       { name: "Ajx Capital", value: 86732.22, percentage: 15.12, applied: 75910.14, totalReturn: 14.26, yearStarted: "2024", annualReturn: 7.13 },
-      { name: "Avenue - Dólar", value: 81522.99, percentage: 14.21, applied: 35000.00, totalReturn: 132.92, yearStarted: "2021", annualReturn: 26.58 },
+      { name: "Avenue - Dólar", value: 66522.99, percentage: 14.21, applied: 35000.00, totalReturn: 90.07, yearStarted: "2021", annualReturn: 18.01 },
       { name: "XP Investimento - Prev", value: 57470.55, percentage: 10.02, applied: 43314.14, totalReturn: 32.68, yearStarted: "2022", annualReturn: 8.17 },
       { name: "Allu Invest", value: 56212.12, percentage: 9.80, applied: 40000.00, totalReturn: 40.53, yearStarted: "2022", annualReturn: 10.13 },
       { name: "Binance", value: 10014.86, valueBRL: 55305.09, applied: 6786.80, appliedBRL: 34436.22, currency: "USD", mode: "DETAILED", percentage: 9.66, totalReturn: 60.60, yearStarted: "2024", annualReturn: 30.30 },
@@ -812,15 +812,13 @@ export const monthlyData: MonthlySnapshot[] = (() => {
     const prevSnap = idx > 0 ? result[idx - 1] : undefined;
 
     const normInvs = snap.investments.map((inv) => {
-      const isUSD = inv.currency === "USD" || (inv.name && (inv.name.includes("Avenue") || inv.name.includes("Binance") || inv.name.includes("Coinbase") || inv.name.includes("Dólar") || inv.name.includes("Bitcoin - (API Mercado Bitcoin)")));
-      const rate = isUSD ? 5.6827 : 1;
-      const valBRL = isUSD ? inv.value * rate : (inv.valueBRL ?? inv.value);
-      const appBRL = isUSD && inv.applied != null ? inv.applied * rate : (inv.appliedBRL ?? (inv.applied != null ? inv.applied * rate : undefined));
+      const totals = resolveInvestmentTotals(inv);
       return {
         ...inv,
-        currency: isUSD ? "USD" : (inv.currency || "BRL"),
-        valueBRL: valBRL,
-        appliedBRL: appBRL,
+        value: totals.value,
+        applied: totals.applied,
+        valueBRL: totals.valueBRL,
+        appliedBRL: totals.appliedBRL,
       };
     });
 
