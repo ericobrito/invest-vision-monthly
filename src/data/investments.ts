@@ -807,10 +807,13 @@ export const monthlyData: MonthlySnapshot[] = (() => {
     const prevSnap = idx > 0 ? result[idx - 1] : undefined;
 
     const normInvs = snap.investments.map((inv) => {
-      const valBRL = inv.valueBRL ?? (inv.currency === "USD" ? inv.value * 5.45 : inv.value);
-      const appBRL = inv.appliedBRL ?? (inv.applied != null ? (inv.currency === "USD" ? inv.applied * 5.45 : inv.applied) : undefined);
+      const isUSD = inv.currency === "USD" || (inv.name && (inv.name.includes("Avenue") || inv.name.includes("Binance") || inv.name.includes("Coinbase") || inv.name.includes("Dólar") || inv.name.includes("Bitcoin - (API Mercado Bitcoin)")));
+      const rate = isUSD ? 5.6827 : 1;
+      const valBRL = isUSD ? inv.value * rate : (inv.valueBRL ?? inv.value);
+      const appBRL = isUSD && inv.applied != null ? inv.applied * rate : (inv.appliedBRL ?? (inv.applied != null ? inv.applied * rate : undefined));
       return {
         ...inv,
+        currency: isUSD ? "USD" : (inv.currency || "BRL"),
         valueBRL: valBRL,
         appliedBRL: appBRL,
       };

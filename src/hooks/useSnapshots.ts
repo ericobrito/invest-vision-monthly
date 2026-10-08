@@ -41,8 +41,8 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 export function useSnapshots() {
   const query = useQuery({
     queryKey: ["snapshots"],
-    staleTime: 5 * 60 * 1000, // 5 minutes cache to prevent unnecessary refetches
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds cache for fresh live updates
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<MonthlySnapshot[]> => {
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
         supabase.from("monthly_snapshots").select("*").order("month"),
@@ -52,6 +52,24 @@ export function useSnapshots() {
 
       if (sErr || iErr || !snapshots || snapshots.length === 0 || !investments || investments.length === 0) {
         console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty/incomplete tables:", { sErr, iErr });
+        try {
+          const liveRate = await MarketDataService.getUsdBrl();
+          if (liveRate > 0) {
+            const usdRate = liveRate;
+            return fallbackMonthlyData.map((snap) => ({
+              ...snap,
+              investments: snap.investments.map((inv) => {
+                const isUSD = inv.currency === "USD" || (inv.name && (inv.name.includes("Avenue") || inv.name.includes("Binance") || inv.name.includes("Coinbase") || inv.name.includes("Dólar") || inv.name.includes("Bitcoin - (API Mercado Bitcoin)")));
+                if (!isUSD) return inv;
+                const valueBRL = inv.value * usdRate;
+                const appliedBRL = inv.applied != null ? inv.applied * usdRate : inv.appliedBRL;
+                return { ...inv, currency: "USD", valueBRL, appliedBRL };
+              }),
+            }));
+          }
+        } catch (e) {
+          console.warn("Fallback USD rate fetch failed:", e);
+        }
         return fallbackMonthlyData;
       }
 
