@@ -186,13 +186,18 @@ export function resolveInvestmentTotals(
   }
 
   // CONSOLIDATED
-  const native = Number(inv.value) || 0;
-  const rate = rateFor(inv.currency, fxRates);
+  const valBRL = (inv as any).valueBRL != null ? Number((inv as any).valueBRL) : (Number(inv.value) || 0);
+  const appBRL = (inv as any).appliedBRL != null ? Number((inv as any).appliedBRL) : (inv.applied != null ? Number(inv.applied) : undefined);
+  const isForeign = inv.currency && inv.currency.toUpperCase() !== "BRL";
+  const rate = isForeign ? rateFor(inv.currency, fxRates) : 1;
+  const valNative = (isForeign && rate > 0) ? Number((valBRL / rate).toFixed(2)) : valBRL;
+  const appNative = (isForeign && appBRL != null && rate > 0) ? Number((appBRL / rate).toFixed(2)) : appBRL;
+
   return {
-    value: native,
-    applied: inv.applied,
-    valueBRL: native * rate,
-    appliedBRL: inv.applied != null ? Number(inv.applied) * rate : undefined,
+    value: valNative,
+    applied: appNative,
+    valueBRL: valBRL,
+    appliedBRL: appBRL,
   };
 }
 

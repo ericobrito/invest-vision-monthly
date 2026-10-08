@@ -83,7 +83,9 @@ export class InvestmentNormalizationService {
       const rawAppliedBRL = inv.applied_amount_brl != null ? Number(inv.applied_amount_brl) : inv.appliedBRL != null ? Number(inv.appliedBRL) : undefined;
 
       let finalValue = rawNum;
-      let finalValueBRL = rawValueBRL;
+      let finalValueBRL = rawValueBRL ?? rawNum;
+      let finalApplied = inv.applied != null ? Number(inv.applied) : undefined;
+      let finalAppliedBRL = rawAppliedBRL ?? finalApplied;
 
       if (mode === "DETAILED" && positions && positions.length > 0) {
         const totals = resolveInvestmentTotals(
@@ -99,14 +101,19 @@ export class InvestmentNormalizationService {
         );
         finalValue = totals.value;
         finalValueBRL = totals.valueBRL;
+        finalApplied = totals.applied;
+        finalAppliedBRL = totals.appliedBRL;
       } else {
-        // CONSOLIDATED mode: inv.value is stored in BRL scale
+        // CONSOLIDATED mode: inv.value and inv.applied are stored in BRL scale
         finalValueBRL = rawValueBRL ?? rawNum;
+        finalAppliedBRL = rawAppliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined);
         if (invCurrency === "USD") {
           const rate = fxRates["USD"] || 5.60;
           finalValue = rate > 0 ? Number((finalValueBRL / rate).toFixed(2)) : finalValueBRL;
+          finalApplied = (finalAppliedBRL != null && rate > 0) ? Number((finalAppliedBRL / rate).toFixed(2)) : finalAppliedBRL;
         } else {
           finalValue = finalValueBRL;
+          finalApplied = finalAppliedBRL;
         }
       }
 
@@ -119,10 +126,10 @@ export class InvestmentNormalizationService {
         name: inv.name,
         value: finalValue,
         valueBRL: finalValueBRL,
-        appliedBRL: rawAppliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined),
+        applied: finalApplied,
+        appliedBRL: finalAppliedBRL,
         currency: invCurrency,
         percentage: Number(inv.percentage || 0),
-        applied: totals.applied,
         totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
         annualReturn: annualRateVal,
         annualRate: annualRateVal,
