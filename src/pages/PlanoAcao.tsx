@@ -8,6 +8,8 @@ import { Flame, Sparkles, Zap, ArrowLeft, Lightbulb, TrendingUp, TrendingDown, A
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { calculateVariablePeakProjection, calculateActivePortfolioCAGR } from "@/utils/portfolioProjections";
+import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
+
 
 const CDI_BENCHMARK = 12;
 const TARGET_MIN = 20;
@@ -250,21 +252,51 @@ const PlanoAcao = () => {
     return calculateVariablePeakProjection(monthlyData);
   }, [monthlyData]);
 
+  const portfolioMetrics = useMemo(() => {
+    if (!snapshot) return { investedValue: 0, currentValue: 0, profit: 0, profitPercent: 0 };
+    return portfolioCalculationService.calculatePortfolioMetrics(
+      snapshot.investments.map((inv) => ({
+        name: inv.name,
+        mode: inv.mode || "CONSOLIDATED",
+        positions: (inv.positions ?? []).map((p) => ({
+          symbol: p.symbol,
+          quantity: p.quantity,
+          averagePrice: p.averagePrice,
+          currentPrice: p.currentPrice,
+          currency: p.currency,
+          fxRate: p.fxRate ?? (p.currency === "USD" ? 5.45 : 1),
+          currentValueBRL: p.currentValueBRL,
+          appliedAmountBRL: p.appliedAmountBRL,
+        })),
+        appliedBRL: inv.appliedBRL ?? inv.applied,
+        currentValueBRL: inv.valueBRL ?? inv.value,
+      })),
+    );
+  }, [snapshot]);
+
   const totalApplied = useMemo(() => {
     if (!snapshot) return 0;
-    return (snapshot as any).applied ?? snapshot.investments.reduce((acc, inv) => acc + (inv.applied ?? inv.value), 0);
-  }, [snapshot]);
+    return portfolioMetrics.investedValue > 0
+      ? portfolioMetrics.investedValue
+      : (snapshot as any).applied ?? snapshot.investments.reduce((acc, inv) => acc + (inv.applied ?? inv.value), 0);
+  }, [snapshot, portfolioMetrics]);
+
+  const totalValue = useMemo(() => {
+    if (!snapshot) return 0;
+    return portfolioMetrics.currentValue > 0 ? portfolioMetrics.currentValue : snapshot.total;
+  }, [snapshot, portfolioMetrics]);
 
   // CAGR based on active portfolio tracking window (Jan 2024 to snapshot date)
   const cagrCurrent = useMemo(() => {
-    if (!snapshot) return 0;
-    return calculateActivePortfolioCAGR(snapshot.total, totalApplied, "2024-01-01", snapshot.month ? `${snapshot.month}-01` : undefined);
-  }, [snapshot, totalApplied]);
+    if (!snapshot || totalApplied <= 0 || totalValue <= 0) return 0;
+    return calculateActivePortfolioCAGR(totalValue, totalApplied, "2024-01-01", snapshot.month ? `${snapshot.month}-01` : undefined);
+  }, [snapshot, totalValue, totalApplied]);
 
   const cagrProjected = useMemo(() => {
-    if (!snapshot) return 0;
-    return calculateActivePortfolioCAGR(peakProjection.projectedTotalAtPeak, totalApplied, "2024-01-01", snapshot.month ? `${snapshot.month}-01` : undefined);
-  }, [snapshot, totalApplied, peakProjection]);
+    if (!snapshot || totalApplied <= 0) return 0;
+    const projectedTotal = totalValue + peakProjection.totalVariablePeakGap;
+    return calculateActivePortfolioCAGR(projectedTotal, totalApplied, "2024-01-01", snapshot.month ? `${snapshot.month}-01` : undefined);
+  }, [snapshot, totalValue, totalApplied, peakProjection]);
 
   const portfolioReturn = useMemo(() => computePortfolioReturn(classifiedAssets), [classifiedAssets]);
 
