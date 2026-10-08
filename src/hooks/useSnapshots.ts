@@ -140,7 +140,7 @@ export function useSnapshots() {
             const parentName = (parentInv?.name || "").toLowerCase();
 
             if (parentName.includes("binance") || parentName.includes("bybit")) {
-              const storedBRL = Number(parentInv?.valueBRL) || (Number(parentInv?.value) > 20000 ? Number(parentInv?.value) : 55305.09);
+              const storedBRL = Number((parentInv as any)?.valueBRL) || (Number(parentInv?.value) > 20000 ? Number(parentInv?.value) : 55305.09);
               const nativeUSD = 4754.78 + 3178.41;
               const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.9719;
               fxRate = effectiveFx;
