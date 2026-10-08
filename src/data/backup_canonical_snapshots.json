@@ -1,0 +1,109 @@
+{
+  "version": "1.0.0",
+  "name": "backup_canonical_portfolio",
+  "description": "Backup oficial canônico de snapshots mensais e investimentos. Topo histórico R$ 616.753,73 em Set/2025, Avenue <= R$ 70.000,00 BRL.",
+  "createdAt": "2026-10-08T19:18:00-03:00",
+  "ath": {
+    "month": "2025-09",
+    "total": 616753.73,
+    "label": "Set 2025"
+  },
+  "constraints": {
+    "avenueMaxBRL": 70000.00,
+    "noDuplicateFX": true
+  },
+  "snapshots": [
+    {
+      "month": "2024-01",
+      "label": "Jan 2024",
+      "total": 321640.33,
+      "investments": [
+        { "name": "XP Investimento - Prev", "value": 82196.37, "percentage": 25.56 },
+        { "name": "Allu Invest", "value": 60000.00, "percentage": 18.65 },
+        { "name": "Avenue - Dólar", "value": 29165.71, "percentage": 9.07 },
+        { "name": "NuBank - Reserva", "value": 26387.37, "percentage": 8.20 },
+        { "name": "XP Investimento - Ações", "value": 25564.37, "percentage": 7.95 },
+        { "name": "Bitcoin - (API Mercado Bitcoin)", "value": 25512.14, "percentage": 7.93 },
+        { "name": "Renda Fixa - Nuinvest", "value": 18974.63, "percentage": 5.90 },
+        { "name": "Ajx Capital", "value": 18000.00, "percentage": 5.60 },
+        { "name": "XP Investimento - FII", "value": 17764.10, "percentage": 5.52 },
+        { "name": "Cripto - Pedro", "value": 17500.00, "percentage": 5.44 },
+        { "name": "Bitcoin - Binance", "value": 575.64, "percentage": 0.18 }
+      ]
+    },
+    {
+      "month": "2024-02",
+      "label": "Fev 2024",
+      "total": 351212.93,
+      "change": { "value": 29572.60, "percentage": 8.42 },
+      "investments": [
+        { "name": "XP Investimento - Prev", "value": 84435.64, "percentage": 24.04 },
+        { "name": "Allu Invest", "value": 60000.00, "percentage": 17.08 },
+        { "name": "Bitcoin - (API Mercado Bitcoin)", "value": 43767.52, "percentage": 12.46 },
+        { "name": "Avenue - Dólar", "value": 38243.66, "percentage": 10.89 },
+        { "name": "NuBank - Reserva", "value": 26387.37, "percentage": 7.51 },
+        { "name": "XP Investimento - Ações", "value": 25564.37, "percentage": 7.28 },
+        { "name": "Renda Fixa - Nuinvest", "value": 18974.63, "percentage": 5.40 },
+        { "name": "Ajx Capital", "value": 18000.00, "percentage": 5.13 },
+        { "name": "XP Investimento - FII", "value": 17764.10, "percentage": 5.06 },
+        { "name": "Cripto - Pedro", "value": 17500.00, "percentage": 4.98 },
+        { "name": "Bitcoin - Binance", "value": 575.64, "percentage": 0.16 }
+      ]
+    },
+    {
+      "month": "2025-08",
+      "label": "Ago 2025",
+      "total": 594610.98,
+      "change": { "value": 5915.17, "percentage": 0.99 },
+      "investments": [
+        { "name": "Allu Invest", "value": 159060.66, "applied": 100000.00 },
+        { "name": "NuBank - Reserva", "value": 105837.82, "applied": 89962.15 },
+        { "name": "Bybit - Cripto", "value": 71030.89, "applied": 25274.01 },
+        { "name": "Ajx Capital", "value": 76007.79, "applied": 53188.84 },
+        { "name": "Avenue - Dólar", "value": 68804.22, "applied": 35000.00 },
+        { "name": "XP Investimento - Prev", "value": 53677.27, "applied": 43314.14 },
+        { "name": "Robo - XP", "value": 25300.13, "applied": 29482.14 },
+        { "name": "Cripto - Pedro", "value": 17500.00, "applied": 17500.00 },
+        { "name": "Bitcoin - (API Mercado Bitcoin)", "value": 10285.17, "applied": 5303.98 },
+        { "name": "Estratégia Consórcio", "value": 7107.03, "applied": 7107.03 }
+      ]
+    },
+    {
+      "month": "2025-09",
+      "label": "Set 2025",
+      "total": 616753.73,
+      "change": { "value": 22142.75, "percentage": 3.59 },
+      "isATH": true,
+      "investments": [
+        { "name": "Allu Invest", "value": 159060.66, "applied": 100000.00 },
+        { "name": "NuBank - Reserva", "value": 109068.21, "applied": 93962.15 },
+        { "name": "Bybit - Cripto", "value": 85456.27, "applied": 25274.01 },
+        { "name": "Ajx Capital", "value": 76007.79, "applied": 53188.84 },
+        { "name": "Avenue - Dólar", "value": 69162.52, "applied": 35000.00 },
+        { "name": "XP Investimento - Prev", "value": 54486.02, "applied": 43314.14 },
+        { "name": "Robo - XP", "value": 28280.10, "applied": 29482.14 },
+        { "name": "Cripto - Pedro", "value": 17500.00, "applied": 17500.00 },
+        { "name": "Bitcoin - (API Mercado Bitcoin)", "value": 9994.45, "applied": 5303.98 },
+        { "name": "Estratégia Consórcio", "value": 7737.71, "applied": 7737.71 }
+      ]
+    },
+    {
+      "month": "2025-10",
+      "label": "Out 2025",
+      "total": 609483.93,
+      "change": { "value": -7269.80, "percentage": -1.19 },
+      "investments": [
+        { "name": "Allu Invest", "value": 159060.66, "applied": 100000.00 },
+        { "name": "NuBank - Reserva", "value": 106127.64, "applied": 93962.15 },
+        { "name": "Bybit - Cripto", "value": 76002.98, "applied": 25274.01 },
+        { "name": "Ajx Capital", "value": 76007.79, "applied": 53188.84 },
+        { "name": "Avenue - Dólar", "value": 67672.30, "applied": 35000.00 },
+        { "name": "XP Investimento - Prev", "value": 55502.12, "applied": 43314.14 },
+        { "name": "Robo - XP", "value": 34221.90, "applied": 29482.14 },
+        { "name": "Cripto - Pedro", "value": 17500.00, "applied": 17500.00 },
+        { "name": "Bitcoin - (API Mercado Bitcoin)", "value": 9074.40, "applied": 5303.98 },
+        { "name": "Estratégia Consórcio", "value": 8314.14, "applied": 8314.14 }
+      ]
+    }
+  ]
+}
