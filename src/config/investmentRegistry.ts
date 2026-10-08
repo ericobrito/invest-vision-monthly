@@ -129,9 +129,8 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
         },
       ];
     },
-    isPositionValid: (_positions) => {
-      // Always enforce canonical override for Avenue to prevent DB divergence
-      return false;
+    isPositionValid: (positions) => {
+      return Array.isArray(positions) && positions.length > 0;
     },
   },
   {

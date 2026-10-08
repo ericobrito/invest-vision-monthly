@@ -44,42 +44,71 @@ export class InvestmentNormalizationService {
       (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
     );
 
-    const mappedInvestments: Investment[] = sortedInvestments.map((inv: any): Investment => {
+    // 1. Deduplicate raw investments by normalized name within the snapshot
+    const uniqueInvestments: any[] = [];
+    const seenNames = new Set<string>();
+    for (const inv of sortedInvestments) {
+      const normName = (inv.name || "").trim().toLowerCase();
+      if (!seenNames.has(normName)) {
+        seenNames.add(normName);
+        uniqueInvestments.push(inv);
+      }
+    }
+
+    const mappedInvestments: Investment[] = uniqueInvestments.map((inv: any): Investment => {
       let positions = positionsByInvestment.get(inv.id);
       const rule = findCanonicalRule(inv.name);
 
       let mode = (inv.mode as InvestmentMode) || "CONSOLIDATED";
-      if (rule?.forcedMode) {
+      if (mode === "DETAILED" && rule?.forcedMode) {
         mode = rule.forcedMode;
       }
 
-      // Check if positions should be overridden by canonical registry
-      const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
-
-      if (!hasValidPositions && rule) {
-        positions = rule.getCanonicalPositions(fxRates, Number(inv.value));
-      } else if (!positions && (mode === "DETAILED" || mode === "CONNECTED")) {
-        positions = [];
+      if (mode === "DETAILED") {
+        const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
+        if (!hasValidPositions && rule) {
+          positions = rule.getCanonicalPositions(fxRates, Number(inv.value));
+        }
+      } else {
+        positions = undefined;
       }
 
       const isForeignPos = positions?.some((p) => (p.currency || "BRL").toUpperCase() !== "BRL");
-      const invCurrency = rule?.forcedCurrency ?? (
-        inv.currency && inv.currency.toUpperCase() !== "BRL"
-          ? inv.currency.toUpperCase()
-          : (isForeignPos ? "USD" : "BRL")
-      );
+      const invCurrency = inv.currency && inv.currency.toUpperCase() !== "BRL"
+        ? inv.currency.toUpperCase()
+        : (isForeignPos ? "USD" : (mode === "DETAILED" && rule?.forcedCurrency ? rule.forcedCurrency : "BRL"));
 
-      const totals = resolveInvestmentTotals(
-        {
-          mode,
-          value: Number(inv.value),
-          applied: inv.applied != null ? Number(inv.applied) : undefined,
-          positions,
-          currency: invCurrency,
-        },
-        undefined,
-        fxRates
-      );
+      const rawNum = Number(inv.value) || 0;
+      const rawValueBRL = inv.value_brl != null ? Number(inv.value_brl) : inv.valueBRL != null ? Number(inv.valueBRL) : undefined;
+      const rawAppliedBRL = inv.applied_amount_brl != null ? Number(inv.applied_amount_brl) : inv.appliedBRL != null ? Number(inv.appliedBRL) : undefined;
+
+      let finalValue = rawNum;
+      let finalValueBRL = rawValueBRL;
+
+      if (mode === "DETAILED" && positions && positions.length > 0) {
+        const totals = resolveInvestmentTotals(
+          {
+            mode,
+            value: rawNum,
+            applied: inv.applied != null ? Number(inv.applied) : undefined,
+            positions,
+            currency: invCurrency,
+          },
+          undefined,
+          fxRates
+        );
+        finalValue = totals.value;
+        finalValueBRL = totals.valueBRL;
+      } else {
+        // CONSOLIDATED mode: inv.value is stored in BRL scale
+        finalValueBRL = rawValueBRL ?? rawNum;
+        if (invCurrency === "USD") {
+          const rate = fxRates["USD"] || 5.60;
+          finalValue = rate > 0 ? Number((finalValueBRL / rate).toFixed(2)) : finalValueBRL;
+        } else {
+          finalValue = finalValueBRL;
+        }
+      }
 
       const incomeType = inferIncomeType(inv.name, inv.income_type);
       const region = inferRegion(inv.name, inv.region);
@@ -88,9 +117,9 @@ export class InvestmentNormalizationService {
       return {
         id: inv.id,
         name: inv.name,
-        value: totals.value,
-        valueBRL: totals.valueBRL,
-        appliedBRL: totals.appliedBRL,
+        value: finalValue,
+        valueBRL: finalValueBRL,
+        appliedBRL: rawAppliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined),
         currency: invCurrency,
         percentage: Number(inv.percentage || 0),
         applied: totals.applied,

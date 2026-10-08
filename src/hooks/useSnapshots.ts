@@ -41,7 +41,8 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
 export function useSnapshots() {
   const query = useQuery({
     queryKey: ["snapshots"],
-    staleTime: 30 * 1000, // 30 seconds cache for fresh live updates
+    staleTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<MonthlySnapshot[]> => {
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
