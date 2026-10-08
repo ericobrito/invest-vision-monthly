@@ -292,4 +292,42 @@ export class MarketDataService {
     const res = await this.fetchFromBackend([]);
     return res.usdbrl;
   }
+
+  /**
+   * Dynamic market API peak fetcher (52-week High / ATH from Yahoo Finance / Mercado Bitcoin)
+   */
+  static async getPeakQuotes(symbols: string[]): Promise<Record<string, { currentPrice: number; peakPrice: number; currency: string }>> {
+    const quotes: Record<string, { currentPrice: number; peakPrice: number; currency: string }> = {};
+    const uniqueSymbols = Array.from(new Set(symbols.map(s => s.trim().toUpperCase()).filter(Boolean)));
+    if (uniqueSymbols.length === 0) return quotes;
+
+    await Promise.all(
+      uniqueSymbols.map(async (symbol) => {
+        try {
+          const yahooSymbol = this.normalizeYahooSymbol(symbol);
+          const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1y`;
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+          const res = await fetch(proxyUrl);
+          if (res.ok) {
+            const json = await res.json();
+            const meta = json?.chart?.result?.[0]?.meta;
+            if (meta && meta.regularMarketPrice) {
+              const currentPrice = Number(meta.regularMarketPrice) || 0;
+              const fiftyTwoWeekHigh = Number(meta.fiftyTwoWeekHigh) || currentPrice;
+              const peakPrice = Math.max(currentPrice, fiftyTwoWeekHigh);
+              quotes[symbol.toUpperCase()] = {
+                currentPrice,
+                peakPrice,
+                currency: meta.currency || "USD",
+              };
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch dynamic peak quote for ${symbol}:`, err);
+        }
+      })
+    );
+
+    return quotes;
+  }
 }

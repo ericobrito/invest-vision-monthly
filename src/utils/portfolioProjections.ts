@@ -28,7 +28,16 @@ export interface PeakProjectionResult {
   assetDetails: VariableAssetPeakDetail[];
 }
 
-export function calculateVariablePeakProjection(allSnapshots: MonthlySnapshot[]): PeakProjectionResult {
+export interface ApiPeakQuote {
+  currentPrice: number;
+  peakPrice: number;
+  currency?: string;
+}
+
+export function calculateVariablePeakProjection(
+  allSnapshots: MonthlySnapshot[],
+  apiPeaksMap?: Record<string, ApiPeakQuote>
+): PeakProjectionResult {
   if (!allSnapshots || allSnapshots.length === 0) {
     return { projectedTotalAtPeak: 0, totalVariablePeakGap: 0, projectedGainPct: 0, assetDetails: [] };
   }
@@ -105,14 +114,25 @@ export function calculateVariablePeakProjection(allSnapshots: MonthlySnapshot[])
     });
   });
 
-  // 3. Calculate gap and peak ensuring peak >= current for every active asset
+  // 3. Calculate gap and peak incorporating dynamic API peak quotes
   let totalVariablePeakGap = 0;
   const assetDetails: VariableAssetPeakDetail[] = [];
 
   currentActiveAssets.forEach((current, assetKey) => {
     const historicalValues = assetHistoryMap.get(assetKey) || [];
-    // Peak is always at least equal to current value
-    const peak = Math.max(current, ...historicalValues);
+
+    // Calculate dynamic peak multiplier from API if available
+    let peakFromApi = 0;
+    const apiQuote = apiPeaksMap ? (apiPeaksMap[assetKey] || apiPeaksMap[assetKey.toUpperCase()]) : undefined;
+    if (apiQuote && apiQuote.currentPrice > 0 && apiQuote.peakPrice > 0) {
+      const ratio = apiQuote.peakPrice / apiQuote.currentPrice;
+      if (Number.isFinite(ratio) && ratio >= 1) {
+        peakFromApi = current * ratio;
+      }
+    }
+
+    // Peak is the maximum of current value, historical max BRL, and dynamic API peak BRL
+    const peak = Math.max(current, peakFromApi, ...historicalValues);
     const gap = Math.max(0, peak - current);
 
     assetDetails.push({ name: assetKey, current, peak, gap });

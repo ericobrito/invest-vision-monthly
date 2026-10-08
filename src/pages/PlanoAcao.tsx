@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/hooks/useSnapshots";
 import type { Investment, MonthlySnapshot } from "@/data/investments";
@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { calculateVariablePeakProjection, calculateActivePortfolioCAGR } from "@/utils/portfolioProjections";
 import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
+import { MarketDataService } from "@/services/MarketDataService";
 
 
 const CDI_BENCHMARK = 12;
@@ -237,11 +238,33 @@ function generateScenario(
 const PlanoAcao = () => {
   const { data: monthlyData = [], isLoading } = useSnapshots();
   const [activeScenario, setActiveScenario] = useState("balanced");
+  const [apiPeaks, setApiPeaks] = useState<Record<string, { currentPrice: number; peakPrice: number; currency: string }>>({});
 
   const snapshot = useMemo(() => {
     if (monthlyData.length === 0) return null;
     return monthlyData[monthlyData.length - 1];
   }, [monthlyData]);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    const symbols: string[] = [];
+    snapshot.investments.forEach((inv) => {
+      (inv.positions ?? []).forEach((p) => {
+        if (p.symbol) symbols.push(p.symbol);
+      });
+      if (inv.incomeType === "variable" || (inv.name && (inv.name.toLowerCase().includes("bitcoin") || inv.name.toLowerCase().includes("btc")))) {
+        symbols.push(inv.name);
+      }
+    });
+
+    if (symbols.length > 0) {
+      MarketDataService.getPeakQuotes(symbols).then((quotes) => {
+        if (quotes && Object.keys(quotes).length > 0) {
+          setApiPeaks(quotes);
+        }
+      });
+    }
+  }, [snapshot]);
 
   const classifiedAssets = useMemo(() => {
     if (!snapshot) return [];
@@ -249,8 +272,8 @@ const PlanoAcao = () => {
   }, [snapshot]);
 
   const peakProjection = useMemo(() => {
-    return calculateVariablePeakProjection(monthlyData);
-  }, [monthlyData]);
+    return calculateVariablePeakProjection(monthlyData, apiPeaks);
+  }, [monthlyData, apiPeaks]);
 
   const portfolioMetrics = useMemo(() => {
     if (!snapshot) return { investedValue: 0, currentValue: 0, profit: 0, profitPercent: 0 };
