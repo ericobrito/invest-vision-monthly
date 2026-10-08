@@ -145,8 +145,8 @@ export function resolveInvestmentTotals(
       valueNative += cv;
       appliedNative += ap;
       const rate = p.fxRate ?? rateFor(p.currency, fxRates);
-      const cvBRL = p.currentValueBRL != null ? Number(p.currentValueBRL) : cv * rate;
-      const apBRL = p.appliedAmountBRL != null ? Number(p.appliedAmountBRL) : ap * rate;
+      const cvBRL = cv * rate;
+      const apBRL = ap * rate;
       valueBRL += cvBRL;
       appliedBRL += apBRL;
       // eslint-disable-next-line no-console
