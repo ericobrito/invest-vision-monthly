@@ -252,7 +252,7 @@ const PlanoAcao = () => {
 
   const totalApplied = useMemo(() => {
     if (!snapshot) return 0;
-    return snapshot.applied ?? snapshot.investments.reduce((acc, inv) => acc + (inv.applied ?? inv.value), 0);
+    return (snapshot as any).applied ?? snapshot.investments.reduce((acc, inv) => acc + (inv.applied ?? inv.value), 0);
   }, [snapshot]);
 
   // CAGR based on active portfolio tracking window (Jan 2024 to snapshot date)
