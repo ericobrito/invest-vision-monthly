@@ -38,12 +38,17 @@ function mapRow(row: any, investments: any[], positionsByInvestment: Map<string,
   return InvestmentNormalizationService.normalizeSnapshot(row, investments, positionsByInvestment, fxRates);
 }
 
+/** Auto-refresh interval: 5 minutes (markets update frequently during the day) */
+const SNAPSHOTS_REFETCH_INTERVAL = 5 * 60 * 1000;
+
 export function useSnapshots() {
   const query = useQuery({
     queryKey: ["snapshots"],
     staleTime: 0,
     gcTime: 0,
     refetchOnWindowFocus: true,
+    refetchInterval: SNAPSHOTS_REFETCH_INTERVAL,
+    refetchIntervalInBackground: false, // Only poll while the tab is active
     queryFn: async (): Promise<MonthlySnapshot[]> => {
       const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
         supabase.from("monthly_snapshots").select("*").order("month"),

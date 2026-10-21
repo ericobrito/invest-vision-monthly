@@ -18,6 +18,7 @@ import ExportImportDialog from "@/components/ExportImportDialog";
 import LanguageToggle from "@/components/LanguageToggle";
 import ThemeToggle from "@/components/ThemeToggle";
 import { BarChart3, Plus, Pencil, Trash2, Target, Landmark, Lightbulb, Coins, Menu, ShieldCheck, PiggyBank, Trophy, Flame, Calculator, ChevronDown, FileSpreadsheet, Download, Upload, Zap, Bot, UserCheck } from "lucide-react";
+import { MarketSyncBadge } from "@/components/MarketSyncBadge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -251,6 +252,7 @@ const Index = () => {
               <Plus className="w-3.5 h-3.5" /> {t("nav.newMonth")}
             </Button>
             <div className="flex items-center gap-1 border-l border-border/60 pl-2 ml-1">
+              <MarketSyncBadge />
               <LanguageToggle />
               <ThemeToggle />
             </div>
