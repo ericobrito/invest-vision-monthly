@@ -189,19 +189,20 @@ export function useSnapshots() {
                 }
               }
 
-              // 2. Avenue: real USD custody balance ($12,427.49) converted at live commercial USDBRL
+              // 2. Avenue: real USD custody balance ($12,519.00) converted at live commercial USDBRL
               if (n.includes("avenue")) {
-                const usdBalance = 12427.49;
+                const usdBalance = 12519.00;
                 val = usdBalance;
                 valBRL = Number((usdBalance * rate).toFixed(2));
                 const avenuePositions: Position[] = [
                   { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 380.12, appliedAmount: 4502.18, currentValue: 5353.19, currentValueBRL: Number((5353.19 * rate).toFixed(2)), currency: "USD", fxRate: rate },
                   { symbol: "META", name: "Meta Platforms Inc", quantity: 2.969900, averagePrice: 210.52, currentPrice: 744.10, appliedAmount: 625.22, currentValue: 2209.90, currentValueBRL: Number((2209.90 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "USDT", name: "Tether USDt USD", quantity: 1542.910000, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 1542.72, currentValue: 1542.72, currentValueBRL: Number((1542.72 * rate).toFixed(2)), currency: "USD", fxRate: rate },
+                  { symbol: "USDT", name: "Dólar / Saldo em Conta", quantity: 2175.29, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 2175.29, currentValue: 2175.29, currentValueBRL: Number((2175.29 * rate).toFixed(2)), currency: "USD", fxRate: rate },
                   { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 507.17, appliedAmount: 595.27, currentValue: 1317.42, currentValueBRL: Number((1317.42 * rate).toFixed(2)), currency: "USD", fxRate: rate },
                   { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.958000, averagePrice: 94.84, currentPrice: 337.83, appliedAmount: 280.54, currentValue: 999.30, currentValueBRL: Number((999.30 * rate).toFixed(2)), currency: "USD", fxRate: rate },
                   { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 42.54, appliedAmount: 340.00, currentValue: 216.20, currentValueBRL: Number((216.20 * rate).toFixed(2)), currency: "USD", fxRate: rate },
                   { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 16.01, appliedAmount: 390.96, currentValue: 128.04, currentValueBRL: Number((128.04 * rate).toFixed(2)), currency: "USD", fxRate: rate },
+                  { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.194700, averagePrice: 196.89, currentPrice: 614.61, appliedAmount: 38.33, currentValue: 119.66, currentValueBRL: Number((119.66 * rate).toFixed(2)), currency: "USD", fxRate: rate },
                 ];
                 return {
                   ...inv,

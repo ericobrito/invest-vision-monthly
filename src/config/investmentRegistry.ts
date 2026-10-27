@@ -23,9 +23,9 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
       const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : (12427.49 * usdRate);
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : (12519.00 * usdRate);
       const baseUSD = targetBRL / usdRate;
-      const scale = baseUSD / 12427.49;
+      const scale = baseUSD / 12519.00;
       return [
         {
           symbol: "TSLA",
@@ -55,14 +55,14 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
         },
         {
           symbol: "USDT",
-          name: "Tether USDt USD",
-          quantity: 1936.56 * scale,
+          name: "Dólar / Saldo em Conta",
+          quantity: 2175.29 * scale,
           averagePrice: 1.00,
           currentPrice: 1.00,
-          appliedAmount: 1936.56 * scale,
-          currentValue: 1936.56 * scale,
-          currentValueBRL: (1936.56 * scale) * usdRate,
-          appliedAmountBRL: (1936.56 * scale) * usdRate,
+          appliedAmount: 2175.29 * scale,
+          currentValue: 2175.29 * scale,
+          currentValueBRL: (2175.29 * scale) * usdRate,
+          appliedAmountBRL: (2175.29 * scale) * usdRate,
           currency: "USD",
           fxRate: usdRate,
         },
