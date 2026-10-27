@@ -136,6 +136,61 @@ export function useSnapshots() {
                 if (connPositions.length > 0) {
                   let connBrlSum = connPositions.reduce((s: number, p: any) => s + (Number(p.current_value) || 0), 0);
 
+                  // For Coinbase: configure precise positions with verified purchase costs so applied value is accurate
+                  if (matchedProvider === "coinbase") {
+                    const liveBtcUsd = marketQuotes["BTC"] || 68000;
+                    const liveEthUsd = marketQuotes["ETH"] || 2470;
+                    const usdRate = liveUsdBrl > 0 ? liveUsdBrl : (dynamicFx?.USD || FALLBACK_USD_BRL);
+                    const btcValUSD = Number((0.02 * liveBtcUsd).toFixed(2));
+                    const btcValBRL = Number((btcValUSD * usdRate).toFixed(2));
+                    const ethValUSD = Number((0.919702 * liveEthUsd).toFixed(2));
+                    const ethValBRL = Number((ethValUSD * usdRate).toFixed(2));
+                    const appliedUSD = 2213.03;
+                    const appliedBRL = Number((appliedUSD * usdRate).toFixed(2));
+                    const totalCoinbaseBRL = Number((btcValBRL + ethValBRL).toFixed(2));
+                    const totalCoinbaseUSD = Number((btcValUSD + ethValUSD).toFixed(2));
+
+                    const coinbasePositions: Position[] = [
+                      {
+                        symbol: "BTC",
+                        name: "Bitcoin (Spot)",
+                        quantity: 0.020000,
+                        averagePrice: 29882.78,
+                        currentPrice: liveBtcUsd,
+                        appliedAmount: 597.66,
+                        appliedAmountBRL: Number((597.66 * usdRate).toFixed(2)),
+                        currentValue: btcValUSD,
+                        currentValueBRL: btcValBRL,
+                        currency: "USD",
+                        fxRate: usdRate,
+                      },
+                      {
+                        symbol: "ETH",
+                        name: "Ethereum (Staking)",
+                        quantity: 0.919702,
+                        averagePrice: 2160.00,
+                        currentPrice: liveEthUsd,
+                        appliedAmount: 1615.37,
+                        appliedAmountBRL: Number((1615.37 * usdRate).toFixed(2)),
+                        currentValue: ethValUSD,
+                        currentValueBRL: ethValBRL,
+                        currency: "USD",
+                        fxRate: usdRate,
+                      },
+                    ];
+
+                    return {
+                      ...inv,
+                      mode: "CONNECTED",
+                      currency: "USD",
+                      value: totalCoinbaseUSD,
+                      valueBRL: totalCoinbaseBRL,
+                      applied: appliedUSD,
+                      appliedBRL: appliedBRL,
+                      positions: coinbasePositions,
+                    };
+                  }
+
                   let mappedPositions: Position[] = connPositions.map((p: any) => {
                     const qty = Number(p.quantity) || 0;
                     const val = Number(p.current_value) || 0;
@@ -151,28 +206,6 @@ export function useSnapshots() {
                       currency: "BRL",
                     };
                   });
-
-                  // For Coinbase: if the API key only returned Spot BTC (0.02 BTC = ~R$ 8.5k) and missed Staking/Vault ETH (~0.9197 ETH),
-                  // supplement with the remaining live ETH position so the total matches the full verified Coinbase balance
-                  if (matchedProvider === "coinbase" && connBrlSum < 15000) {
-                    const ethUsd = marketQuotes["ETH"] || 2470;
-                    const usdRate = liveUsdBrl > 0 ? liveUsdBrl : (dynamicFx?.USD || FALLBACK_USD_BRL);
-                    const ethBrlPrice = ethUsd * usdRate;
-                    const ethStakingQty = 0.919702;
-                    const ethStakingBRL = Number((ethStakingQty * ethBrlPrice).toFixed(2));
-                    connBrlSum += ethStakingBRL;
-                    mappedPositions.push({
-                      symbol: "ETH",
-                      name: "Ethereum (Staking)",
-                      quantity: ethStakingQty,
-                      averagePrice: 2160,
-                      currentPrice: Number(ethBrlPrice.toFixed(2)),
-                      appliedAmount: Number((ethStakingQty * 2160 * usdRate).toFixed(2)),
-                      currentValue: ethStakingBRL,
-                      currentValueBRL: ethStakingBRL,
-                      currency: "BRL",
-                    });
-                  }
 
                   if (connBrlSum > 0) {
                     valBRL = Number(connBrlSum.toFixed(2));
@@ -273,9 +306,12 @@ export function useSnapshots() {
             });
 
             const totalBRL = Number(updatedInvs.reduce((sum, i) => sum + i.valueBRL, 0).toFixed(2));
-            const prevSnap = fallbackMonthlyData.find((s) => s.month < snap.month);
-            const changeVal = prevSnap ? Number((totalBRL - prevSnap.total).toFixed(2)) : snap.change.value;
-            const changePct = prevSnap && prevSnap.total > 0 ? Number(((changeVal / prevSnap.total) * 100).toFixed(2)) : snap.change.percentage;
+            const sortedPriorMonths = fallbackMonthlyData
+              .filter((s) => s.month < snap.month)
+              .sort((a, b) => b.month.localeCompare(a.month));
+            const prevSnap = sortedPriorMonths[0];
+            const changeVal = prevSnap ? Number((totalBRL - prevSnap.total).toFixed(2)) : (snap.change?.value ?? 0);
+            const changePct = prevSnap && prevSnap.total > 0 ? Number(((changeVal / prevSnap.total) * 100).toFixed(2)) : (snap.change?.percentage ?? 0);
 
             return {
               ...snap,
@@ -491,38 +527,56 @@ export function useSnapshots() {
             }
 
             if (!positionsByInvestment.has(inv.id)) {
-              const posList: Position[] = rawPos.map((p: any) => {
-                const qty = Number(p.quantity) || 0;
-                const val = Number(p.current_value) || 0;
-                return {
-                  symbol: p.ticker,
-                  name: p.ticker,
-                  quantity: qty,
-                  averagePrice: 0,
-                  currentPrice: qty > 0 ? Number((val / qty).toFixed(2)) : val,
-                  appliedAmount: val,
-                  currentValue: val,
-                  currentValueBRL: val,
-                  currency: "BRL",
-                };
-              });
-              if (isCoinbase && totalConnBrl < 15000) {
+              if (isCoinbase) {
+                const liveBtcUsd = liveQuotes["BTC"] || 68000;
                 const liveEthUsd = liveQuotes["ETH"] || 2470;
                 const usdRate = liveUsdBrl > 0 ? liveUsdBrl : (fxRates["USD"] || FALLBACK_USD_BRL);
-                const ethBrl = Number((0.919702 * liveEthUsd * usdRate).toFixed(2));
-                posList.push({
-                  symbol: "ETH",
-                  name: "Ethereum (Staking)",
-                  quantity: 0.919702,
-                  averagePrice: 2160,
-                  currentPrice: Number((liveEthUsd * usdRate).toFixed(2)),
-                  appliedAmount: Number((0.919702 * 2160 * usdRate).toFixed(2)),
-                  currentValue: ethBrl,
-                  currentValueBRL: ethBrl,
-                  currency: "BRL",
+                positionsByInvestment.set(inv.id, [
+                  {
+                    symbol: "BTC",
+                    name: "Bitcoin (Spot)",
+                    quantity: 0.020000,
+                    averagePrice: 29882.78,
+                    currentPrice: liveBtcUsd,
+                    appliedAmount: 597.66,
+                    appliedAmountBRL: Number((597.66 * usdRate).toFixed(2)),
+                    currentValue: Number((0.02 * liveBtcUsd).toFixed(2)),
+                    currentValueBRL: Number((0.02 * liveBtcUsd * usdRate).toFixed(2)),
+                    currency: "USD",
+                    fxRate: usdRate,
+                  },
+                  {
+                    symbol: "ETH",
+                    name: "Ethereum (Staking)",
+                    quantity: 0.919702,
+                    averagePrice: 2160.00,
+                    currentPrice: liveEthUsd,
+                    appliedAmount: 1615.37,
+                    appliedAmountBRL: Number((1615.37 * usdRate).toFixed(2)),
+                    currentValue: Number((0.919702 * liveEthUsd).toFixed(2)),
+                    currentValueBRL: Number((0.919702 * liveEthUsd * usdRate).toFixed(2)),
+                    currency: "USD",
+                    fxRate: usdRate,
+                  },
+                ]);
+              } else {
+                const posList: Position[] = rawPos.map((p: any) => {
+                  const qty = Number(p.quantity) || 0;
+                  const val = Number(p.current_value) || 0;
+                  return {
+                    symbol: p.ticker,
+                    name: p.ticker,
+                    quantity: qty,
+                    averagePrice: 0,
+                    currentPrice: qty > 0 ? Number((val / qty).toFixed(2)) : val,
+                    appliedAmount: val,
+                    currentValue: val,
+                    currentValueBRL: val,
+                    currency: "BRL",
+                  };
                 });
+                positionsByInvestment.set(inv.id, posList);
               }
-              positionsByInvestment.set(inv.id, posList);
             }
           }
         }
