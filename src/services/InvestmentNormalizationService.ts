@@ -63,7 +63,7 @@ export class InvestmentNormalizationService {
     }
 
     const mappedInvestments: Investment[] = uniqueInvestments.map((inv: any): Investment => {
-      let positions = positionsByInvestment.get(inv.id);
+      let positions = positionsByInvestment.get(inv.id) || inv.positions;
       const connAssets = connectionAssetsByInvestment?.get(inv.id) || (inv.connection_id ? connectionAssetsByInvestment?.get(inv.connection_id) : undefined);
       const isConnected = !!(connAssets && connAssets.length > 0) || inv.mode === "CONNECTED" || !!inv.connection_id;
       const rule = findCanonicalRule(inv.name);
@@ -81,6 +81,8 @@ export class InvestmentNormalizationService {
           const targetBRL = inv.value_brl != null ? Number(inv.value_brl) : inv.valueBRL != null ? Number(inv.valueBRL) : Number(inv.value);
           positions = rule.getCanonicalPositions(fxRates, targetBRL);
         }
+      } else if (mode === "CONNECTED") {
+        // Preserve connected positions if already populated
       } else {
         positions = undefined;
       }

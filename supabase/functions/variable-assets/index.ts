@@ -732,6 +732,21 @@ async function fetchCoinbase(
     };
     logRawResponse("COINBASE RAW RESPONSE", data);
     const positions = data.breakdown?.spot_positions ?? data.spot_positions ?? [];
+    for (const pos of positions) {
+      const ticker = String(pos.asset ?? "").toUpperCase();
+      if (!ticker) continue;
+      const quantity = safeNumber(pos.total_balance_crypto);
+      const fiatValue = safeNumber(pos.total_balance_fiat);
+      if (quantity <= 0 && fiatValue <= 0) continue;
+      const normalized = {
+        ticker,
+        quantity,
+        usdValue: fiatValue > 0 ? fiatValue : undefined,
+        walletType: "PORTFOLIO_SPOT",
+      } satisfies NormalizedBalance;
+      onNormalized?.(normalized);
+      upsert(normalized);
+    }
     return positions.length;
   };
 
@@ -831,6 +846,41 @@ async function fetchCoinbase(
         console.error(`[Coinbase] portfolio ${pid} fetch failed:`, e instanceof Error ? e.message : e);
       }
     }
+  }
+
+  // Fetch Staking / Earn positions
+  try {
+    const stakingData = await coinbaseGet(
+      key,
+      secret,
+      host,
+      "/api/v3/brokerage/staking/positions",
+      new URLSearchParams(),
+    ) as {
+      positions?: Array<{
+        asset?: string;
+        amount?: string | number;
+        native_amount?: { value?: string; currency?: string };
+      }>;
+    };
+    logRawResponse("COINBASE STAKING RESPONSE", stakingData);
+    for (const st of (stakingData.positions ?? [])) {
+      const ticker = String(st.asset ?? "").toUpperCase();
+      if (!ticker) continue;
+      const quantity = safeNumber(st.amount);
+      const nativeVal = safeNumber(st.native_amount?.value);
+      if (quantity <= 0 && nativeVal <= 0) continue;
+      const normalized = {
+        ticker,
+        quantity,
+        usdValue: st.native_amount?.currency?.toUpperCase() === "USD" ? nativeVal : undefined,
+        walletType: "STAKING",
+      } satisfies NormalizedBalance;
+      onNormalized?.(normalized);
+      upsert(normalized);
+    }
+  } catch (e) {
+    console.warn("[Coinbase] Staking positions fetch failed:", e instanceof Error ? e.message : e);
   }
 
   await fetchCfmBalanceSummary();
