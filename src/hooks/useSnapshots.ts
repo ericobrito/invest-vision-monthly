@@ -53,14 +53,16 @@ function mapRow(
   investments: any[],
   positionsByInvestment: Map<string, Position[]>,
   fxRates: FxRates,
-  isCurrentMonth: boolean = false
+  isCurrentMonth: boolean = false,
+  connectionAssetsByInvestment?: Map<string, Array<{ currentValue: number; appliedAmount?: number; currency?: string }>>
 ): MonthlySnapshot {
   return InvestmentNormalizationService.normalizeSnapshot(
     row,
     investments,
     positionsByInvestment,
     fxRates,
-    isCurrentMonth
+    isCurrentMonth,
+    connectionAssetsByInvestment
   );
 }
 
@@ -76,22 +78,33 @@ export function useSnapshots() {
     refetchInterval: SNAPSHOTS_REFETCH_INTERVAL,
     refetchIntervalInBackground: false, // Only poll while the tab is active
     queryFn: async (): Promise<MonthlySnapshot[]> => {
-      const [{ data: snapshots, error: sErr }, { data: investments, error: iErr }, fxRates] = await Promise.all([
+      const [
+        { data: snapshots, error: sErr },
+        { data: investments, error: iErr },
+        fxRates,
+        { data: vaPositions },
+        { data: vaConnections },
+      ] = await Promise.all([
         supabase.from("monthly_snapshots").select("*").order("month"),
         supabase.from("investments").select("*"),
         fetchFxRatesToBRL(),
+        (supabase as any).from("va_positions").select("*"),
+        (supabase as any).from("va_connections").select("*"),
       ]);
 
       if (sErr || iErr || !snapshots || snapshots.length === 0 || !investments || investments.length === 0) {
         console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty/incomplete tables:", { sErr, iErr });
         const currentCalendarMonth = getCurrentCalendarMonth();
         try {
-          const [liveUsdBrl, liveQuotes] = await Promise.all([
+          const [liveUsdBrl, edgeData] = await Promise.all([
             MarketDataService.getUsdBrl(),
-            MarketDataService.getMultipleQuotes(["BTC", "ETH", "USDT", "SOL"]),
+            supabase.functions.invoke("variable-assets", { body: { action: "list" } }).catch(() => null),
           ]);
 
           const dynamicFx: FxRates = liveUsdBrl > 0 ? { ...(fxRates || {}), USD: liveUsdBrl } : (fxRates || {});
+          const edgePositions: any[] = (edgeData?.data?.positions && Array.isArray(edgeData.data.positions))
+            ? edgeData.data.positions
+            : [];
 
           return fallbackMonthlyData.map((snap) => {
             if (snap.month !== currentCalendarMonth) {
@@ -104,27 +117,53 @@ export function useSnapshots() {
               let appBRL = inv.appliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined);
               let val = Number(inv.value) || 0;
               let app = inv.applied != null ? Number(inv.applied) : undefined;
+              const n = (inv.name || "").toLowerCase();
 
               const rate = invCurr === "USD" ? (dynamicFx?.USD || FALLBACK_USD_BRL) : 1;
 
-              const rule = findCanonicalRule(inv.name);
-              if (rule) {
-                const canonPositions = rule.getCanonicalPositions(dynamicFx, valBRL);
-                for (const pos of canonPositions) {
-                  const sym = (pos.symbol || "").toUpperCase();
-                  if (liveQuotes[sym] && liveQuotes[sym] > 0) {
-                    pos.currentPrice = liveQuotes[sym];
-                    pos.currentValue = Number(pos.quantity) * liveQuotes[sym];
-                    const posRate = (pos.currency || "USD") === "USD" ? (dynamicFx?.USD || FALLBACK_USD_BRL) : 1;
-                    pos.currentValueBRL = pos.currentValue * posRate;
+              // 1. Prioritize real connected exchange balances from user API connections
+              const matchedProvider =
+                n.includes("binance") ? "binance"
+                : n.includes("coinbase") ? "coinbase"
+                : (n.includes("mercado bitcoin") || n.includes("bitcoin - (api")) ? "mercado_bitcoin"
+                : n.includes("bybit") ? "bybit"
+                : null;
+
+              if (matchedProvider && edgePositions.length > 0) {
+                const connPositions = edgePositions.filter((p: any) => (p.provider || p.broker || "").toLowerCase() === matchedProvider);
+                if (connPositions.length > 0) {
+                  const connBrlSum = connPositions.reduce((s: number, p: any) => s + (Number(p.current_value) || 0), 0);
+                  if (connBrlSum > 0) {
+                    valBRL = Number(connBrlSum.toFixed(2));
+                    val = invCurr === "USD" && rate > 0 ? Number((valBRL / rate).toFixed(2)) : valBRL;
+                    return {
+                      ...inv,
+                      mode: "CONNECTED",
+                      value: val,
+                      valueBRL: valBRL,
+                      applied: app,
+                      appliedBRL: appBRL,
+                    };
                   }
                 }
-                const totals = resolveInvestmentTotals({ mode: "DETAILED", value: val, applied: app, positions: canonPositions, currency: invCurr }, undefined, dynamicFx);
-                val = totals.value;
-                valBRL = totals.valueBRL;
-                app = totals.applied;
-                appBRL = totals.appliedBRL;
-              } else if (invCurr === "USD" && rate > 0) {
+              }
+
+              // 2. Avenue: real USD custody balance ($12,427.49) converted at live commercial USDBRL
+              if (n.includes("avenue")) {
+                const usdBalance = 12427.49;
+                val = usdBalance;
+                valBRL = Number((usdBalance * rate).toFixed(2));
+                return {
+                  ...inv,
+                  currency: "USD",
+                  value: val,
+                  valueBRL: valBRL,
+                  applied: app,
+                  appliedBRL: appBRL,
+                };
+              }
+
+              if (invCurr === "USD" && rate > 0) {
                 valBRL = Number((val * rate).toFixed(2));
                 if (app != null) appBRL = Number((app * rate).toFixed(2));
               }
@@ -305,6 +344,48 @@ export function useSnapshots() {
         positionsByInvestment.set(p.investment_id, list);
       }
 
+      const connectionAssetsByInvestment = new Map<string, Array<{ currentValue: number; appliedAmount?: number; currency?: string }>>();
+
+      if (vaPositions && vaPositions.length > 0) {
+        const posByConn = new Map<string, any[]>();
+        for (const vp of vaPositions) {
+          if (vp.connection_id) {
+            const list = posByConn.get(vp.connection_id) || [];
+            list.push(vp);
+            posByConn.set(vp.connection_id, list);
+          }
+        }
+
+        const connById = new Map((vaConnections || []).map((c: any) => [c.id, c]));
+
+        for (const inv of (investments || [])) {
+          let matchedConnId = inv.connection_id;
+          if (!matchedConnId) {
+            const n = (inv.name || "").toLowerCase();
+            for (const [cId, conn] of connById.entries()) {
+              const prov = (conn.provider || "").toLowerCase();
+              if (prov && (n.includes(prov) || n.includes(prov.replace("_", " ")))) {
+                matchedConnId = cId;
+                break;
+              }
+            }
+          }
+
+          if (matchedConnId && posByConn.has(matchedConnId)) {
+            const rawPos = posByConn.get(matchedConnId)!;
+            const mappedAssets = rawPos.map((p: any) => ({
+              currentValue: Number(p.current_value) || 0,
+              appliedAmount: p.applied_amount != null ? Number(p.applied_amount) : undefined,
+              currency: p.currency || "BRL",
+            }));
+            connectionAssetsByInvestment.set(inv.id, mappedAssets);
+            if (matchedConnId) {
+              connectionAssetsByInvestment.set(matchedConnId, mappedAssets);
+            }
+          }
+        }
+      }
+
       const dbSnapMap = new Map((snapshots || []).map((s: any) => [s.month, s]));
       const allMonthsMap = new Map<string, MonthlySnapshot>();
 
@@ -316,7 +397,7 @@ export function useSnapshots() {
             const isCurrent = dbSnap.month === currentCalendarMonth;
             // Historical months use base fxRates (frozen); current month uses liveFxRates
             const ratesForMonth = isCurrent ? liveFxRates : fxRates;
-            allMonthsMap.set(fallbackSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent));
+            allMonthsMap.set(fallbackSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent, connectionAssetsByInvestment));
           } else {
             allMonthsMap.set(fallbackSnap.month, fallbackSnap);
           }
@@ -330,7 +411,7 @@ export function useSnapshots() {
           const dbInvs = invBySnapshot.get(dbSnap.id) || [];
           const isCurrent = dbSnap.month === currentCalendarMonth;
           const ratesForMonth = isCurrent ? liveFxRates : fxRates;
-          allMonthsMap.set(dbSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent));
+          allMonthsMap.set(dbSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent, connectionAssetsByInvestment));
         }
       }
 

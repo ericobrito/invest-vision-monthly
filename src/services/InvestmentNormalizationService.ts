@@ -44,7 +44,8 @@ export class InvestmentNormalizationService {
     rawInvestments: any[],
     positionsByInvestment: Map<string, Position[]>,
     fxRates: FxRates,
-    isCurrentMonth: boolean = false
+    isCurrentMonth: boolean = false,
+    connectionAssetsByInvestment?: Map<string, Array<{ currentValue: number; appliedAmount?: number; currency?: string }>>
   ): MonthlySnapshot {
     const sortedInvestments = [...rawInvestments].sort(
       (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
@@ -63,14 +64,18 @@ export class InvestmentNormalizationService {
 
     const mappedInvestments: Investment[] = uniqueInvestments.map((inv: any): Investment => {
       let positions = positionsByInvestment.get(inv.id);
+      const connAssets = connectionAssetsByInvestment?.get(inv.id) || (inv.connection_id ? connectionAssetsByInvestment?.get(inv.connection_id) : undefined);
+      const isConnected = !!(connAssets && connAssets.length > 0) || inv.mode === "CONNECTED" || !!inv.connection_id;
       const rule = findCanonicalRule(inv.name);
 
-      let mode = (inv.mode as InvestmentMode) || "CONSOLIDATED";
-      if (mode === "DETAILED" && rule?.forcedMode) {
+      let mode: InvestmentMode = isConnected
+        ? "CONNECTED"
+        : ((inv.mode as InvestmentMode) || "CONSOLIDATED");
+      if (mode === "DETAILED" && rule?.forcedMode && !isConnected) {
         mode = rule.forcedMode;
       }
 
-      if (mode === "DETAILED") {
+      if (mode === "DETAILED" && !isConnected) {
         const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
         if (!hasValidPositions && rule) {
           const targetBRL = inv.value_brl != null ? Number(inv.value_brl) : inv.valueBRL != null ? Number(inv.valueBRL) : Number(inv.value);
@@ -94,7 +99,22 @@ export class InvestmentNormalizationService {
       let finalApplied = inv.applied != null ? Number(inv.applied) : undefined;
       let finalAppliedBRL = rawAppliedBRL ?? finalApplied;
 
-      if (mode === "DETAILED" && positions && positions.length > 0) {
+      if (mode === "CONNECTED" && connAssets && connAssets.length > 0) {
+        const totals = resolveInvestmentTotals(
+          {
+            mode: "CONNECTED",
+            value: rawNum,
+            applied: inv.applied != null ? Number(inv.applied) : undefined,
+            currency: invCurrency,
+          },
+          connAssets,
+          fxRates
+        );
+        finalValue = totals.value;
+        finalValueBRL = totals.valueBRL;
+        finalApplied = totals.applied;
+        finalAppliedBRL = totals.appliedBRL;
+      } else if (mode === "DETAILED" && positions && positions.length > 0) {
         const totals = resolveInvestmentTotals(
           {
             mode,
