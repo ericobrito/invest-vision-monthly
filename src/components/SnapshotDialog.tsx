@@ -19,6 +19,7 @@ import {
 import type { MonthlySnapshot, IncomeType, Region, Position } from "@/data/investments";
 import { computeDerivedFields } from "@/hooks/useSnapshots";
 import { fetchFxRatesToBRL } from "@/lib/fx";
+import { FALLBACK_USD_BRL } from "@/config/marketDefaults";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -98,7 +99,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
   const [investments, setInvestments] = useState<InvestmentRow[]>([]);
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [copiedFromPrev, setCopiedFromPrev] = useState(false);
-  const [fxRates, setFxRates] = useState<Record<string, number>>({ USD: 5.6 });
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ USD: FALLBACK_USD_BRL });
 
   useEffect(() => {
     if (open) {
@@ -207,7 +208,7 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
       .map((inv) => {
         const val = Number(inv.value) || 0;
         const app = Number(inv.applied) || 0;
-        const rate = inv.currency === "USD" ? (fxRates["USD"] || 5.60) : 1;
+        const rate = inv.currency === "USD" ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
         const valueBRL = val * rate;
         const appliedBRL = app * rate;
         

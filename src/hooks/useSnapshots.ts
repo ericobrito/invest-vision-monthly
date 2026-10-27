@@ -6,6 +6,11 @@ import { resolveInvestmentTotals, getCleanMonthLabel, monthlyData as fallbackMon
 import { fetchFxRatesToBRL, getFxRate, type FxRates } from "@/lib/fx";
 import { MarketDataService } from "@/services/MarketDataService";
 import { InvestmentNormalizationService } from "@/services/InvestmentNormalizationService";
+import {
+  FALLBACK_USD_BRL,
+  sanitizeCryptoAveragePrice,
+  inferAllSymbolsFromInvestments,
+} from "@/config/marketDefaults";
 
 function inferIncomeType(name: string, explicitType?: string): IncomeType {
   if (explicitType === 'fixed' || explicitType === 'variable') return explicitType;
@@ -34,8 +39,28 @@ function inferRegion(name: string, explicitRegion?: string): Region {
   return 'brazil';
 }
 
-function mapRow(row: any, investments: any[], positionsByInvestment: Map<string, Position[]>, fxRates: FxRates): MonthlySnapshot {
-  return InvestmentNormalizationService.normalizeSnapshot(row, investments, positionsByInvestment, fxRates);
+/** Current calendar month in YYYY-MM format — the ONLY month where live prices apply. */
+function getCurrentCalendarMonth(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function mapRow(
+  row: any,
+  investments: any[],
+  positionsByInvestment: Map<string, Position[]>,
+  fxRates: FxRates,
+  isCurrentMonth: boolean = false
+): MonthlySnapshot {
+  return InvestmentNormalizationService.normalizeSnapshot(
+    row,
+    investments,
+    positionsByInvestment,
+    fxRates,
+    isCurrentMonth
+  );
 }
 
 /** Auto-refresh interval: 5 minutes (markets update frequently during the day) */
@@ -100,50 +125,76 @@ export function useSnapshots() {
         invBySnapshot.set(inv.snapshot_id, list);
       }
 
-      // Fetch live data for the latest snapshot's symbols and USD/BRL FX rate
+      // ─── Live quotes: ONLY applied to the current calendar month ───────────
+      // Historical snapshots must remain frozen at their saved DB values.
+      const currentCalendarMonth = getCurrentCalendarMonth();
       let liveQuotes: Record<string, number> = {};
       let liveUsdBrl = 0;
-      const latestDbSnapshot = snapshots && snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
 
-      if (latestDbSnapshot) {
-        const latestInvestments = invBySnapshot.get(latestDbSnapshot.id) || [];
-        const latestInvestmentIds = new Set(latestInvestments.map((i: any) => i.id));
-        
-        const latestSymbols = fetchedPositions
-          .filter((p: any) => latestInvestmentIds.has(p.investment_id) && p.symbol)
+      // The snapshot whose month matches today's calendar month (not just the newest DB row)
+      const currentMonthDbSnapshot = (snapshots || []).find(
+        (s: any) => s.month === currentCalendarMonth
+      ) ?? null;
+
+      // If no snapshot exists yet for the current month, fall back to the latest DB row
+      // but ONLY if it is also the current calendar month — never apply live data to past months.
+      const liveTargetSnapshot = currentMonthDbSnapshot;
+
+      if (liveTargetSnapshot) {
+        const liveInvestments = invBySnapshot.get(liveTargetSnapshot.id) || [];
+        const liveInvestmentIds = new Set(liveInvestments.map((i: any) => i.id));
+
+        const liveSymbols: string[] = fetchedPositions
+          .filter((p: any) => liveInvestmentIds.has(p.investment_id) && p.symbol)
           .map((p: any) => p.symbol.toUpperCase());
 
-        // Extract crypto/stock symbols from connected investment names if missing
-        latestInvestments.forEach((inv: any) => {
-          const nameLower = (inv.name || "").toLowerCase();
-          if (nameLower.includes("bitcoin") || nameLower.includes("btc")) latestSymbols.push("BTC");
-          if (nameLower.includes("ethereum") || nameLower.includes("eth")) latestSymbols.push("ETH");
-          if (nameLower.includes("solana") || nameLower.includes("sol")) latestSymbols.push("SOL");
-        });
-          
-        if (latestSymbols.length > 0 || latestInvestments.some((inv: any) => inv.currency === "USD")) {
+        // Augment with crypto symbols inferred from investment names (data-driven via marketDefaults)
+        const inferredSymbols = inferAllSymbolsFromInvestments(liveInvestments);
+        for (const sym of inferredSymbols) {
+          if (!liveSymbols.includes(sym)) liveSymbols.push(sym);
+        }
+
+        const needsLiveData =
+          liveSymbols.length > 0 ||
+          liveInvestments.some((inv: any) => (inv.currency || "").toUpperCase() === "USD");
+
+        if (needsLiveData) {
           try {
             const [quotesRes, usdBrlRes] = await Promise.all([
-              MarketDataService.getMultipleQuotes(latestSymbols),
-              MarketDataService.getUsdBrl()
+              MarketDataService.getMultipleQuotes(liveSymbols),
+              MarketDataService.getUsdBrl(),
             ]);
             liveQuotes = quotesRes;
             liveUsdBrl = usdBrlRes;
-            if (liveUsdBrl > 0) {
-              fxRates["USD"] = liveUsdBrl;
-            }
+            console.log(`[useSnapshots] Live data fetched for ${currentCalendarMonth}:`, {
+              usdBrl: liveUsdBrl,
+              quotes: liveQuotes,
+            });
           } catch (e) {
-            console.error("Failed to load live market data:", e);
+            console.error("[useSnapshots] Failed to load live market data:", e);
           }
         }
+      } else {
+        console.log(
+          `[useSnapshots] No snapshot for current month ${currentCalendarMonth} — skipping live data. All months frozen.`
+        );
       }
+
+      // Set of investment IDs that belong to the current calendar month snapshot
+      const liveInvestmentIds = liveTargetSnapshot
+        ? new Set((invBySnapshot.get(liveTargetSnapshot.id) || []).map((i: any) => i.id))
+        : new Set<string>();
+
+      // Build a separate fxRates map for the current month that has the live USD rate.
+      // Historical months will keep using the cached/static fxRates WITHOUT the live override.
+      const liveFxRates: FxRates = liveUsdBrl > 0
+        ? { ...fxRates, USD: liveUsdBrl }
+        : { ...fxRates };
 
       for (const p of fetchedPositions) {
         const list = positionsByInvestment.get(p.investment_id) || [];
-        const isLatest = latestDbSnapshot && p.investment_id && (() => {
-          const latestInvestments = invBySnapshot.get(latestDbSnapshot.id) || [];
-          return latestInvestments.some((inv: any) => inv.id === p.investment_id);
-        })();
+        // Only positions belonging to the current-calendar-month snapshot get live prices
+        const isCurrentMonthPosition = liveInvestmentIds.has(p.investment_id);
 
         let currentPrice = Number(p.current_price);
         let averagePrice = Number(p.average_price);
@@ -153,16 +204,11 @@ export function useSnapshots() {
         let appliedAmountBRL = p.applied_amount_brl != null ? Number(p.applied_amount_brl) : undefined;
 
         const sym = (p.symbol || "").toUpperCase();
-        // Sanitize legacy/uninitialized average prices for crypto
-        if (sym === "ETH" && (averagePrice <= 0 || averagePrice < 500)) {
-          averagePrice = 2160.00;
-        } else if (sym === "BTC" && (averagePrice <= 0 || averagePrice < 5000)) {
-          averagePrice = 29882.78;
-        } else if (sym === "SOL" && (averagePrice <= 0 || averagePrice < 10)) {
-          averagePrice = 95.00;
-        }
+        // Sanitize legacy/uninitialized average prices using centralized fallback table
+        averagePrice = sanitizeCryptoAveragePrice(sym, averagePrice);
 
-        if (isLatest) {
+        if (isCurrentMonthPosition) {
+          // ✅ Current month: apply live prices from APIs
           const livePrice = liveQuotes[sym];
           if (livePrice !== undefined && livePrice > 0) {
             currentPrice = livePrice;
@@ -174,7 +220,7 @@ export function useSnapshots() {
             : (Number(p.applied_amount) || 0);
 
           if (p.currency === "USD") {
-            const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
+            const usdRate = liveUsdBrl > 0 ? liveUsdBrl : (fxRates["USD"] || FALLBACK_USD_BRL);
             fxRate = usdRate;
             currentValueBRL = currentValue * usdRate;
             appliedAmountBRL = rawAppliedNative * usdRate;
@@ -183,6 +229,7 @@ export function useSnapshots() {
             appliedAmountBRL = rawAppliedNative;
           }
         }
+        // ❄️ Historical months: currentPrice / currentValue / currentValueBRL stay as stored in DB
 
         list.push({
           id: p.id,
@@ -213,7 +260,10 @@ export function useSnapshots() {
         if (dbSnap) {
           const dbInvs = invBySnapshot.get(dbSnap.id) || [];
           if (dbInvs.length > 0) {
-            allMonthsMap.set(fallbackSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, fxRates));
+            const isCurrent = dbSnap.month === currentCalendarMonth;
+            // Historical months use base fxRates (frozen); current month uses liveFxRates
+            const ratesForMonth = isCurrent ? liveFxRates : fxRates;
+            allMonthsMap.set(fallbackSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent));
           } else {
             allMonthsMap.set(fallbackSnap.month, fallbackSnap);
           }
@@ -225,7 +275,9 @@ export function useSnapshots() {
       for (const dbSnap of (snapshots || [])) {
         if (!allMonthsMap.has(dbSnap.month)) {
           const dbInvs = invBySnapshot.get(dbSnap.id) || [];
-          allMonthsMap.set(dbSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, fxRates));
+          const isCurrent = dbSnap.month === currentCalendarMonth;
+          const ratesForMonth = isCurrent ? liveFxRates : fxRates;
+          allMonthsMap.set(dbSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent));
         }
       }
 
@@ -295,7 +347,7 @@ export function computeDerivedFields(
   fxRates?: Record<string, number>
 ): Pick<SnapshotFormData, 'total' | 'changeValue' | 'changePercentage' | 'fixedIncome' | 'variableIncome' | 'brazil' | 'exterior' | 'growth2025'> {
   // Convert each investment to BRL value first before performing any calculations
-  const rates = fxRates || { USD: 5.6 };
+  const rates = fxRates || { USD: FALLBACK_USD_BRL };
   const invsBRL = investments.map(inv => {
     const rate = inv.currency === "USD" ? (rates["USD"] || 1) : 1;
     const valueBRL = inv.value * rate;
@@ -1036,7 +1088,7 @@ export async function propagateDetailedValues(latestSnapId: string, detailedInvs
         let fxRateAt = p.fx_rate_at;
 
         if (p.currency === "USD") {
-          const usdRate = fxRates["USD"] || liveUsdBrl || 5.60;
+          const usdRate = fxRates["USD"] || liveUsdBrl || FALLBACK_USD_BRL;
           fxRate = usdRate;
           fxRateAt = nowIso;
           currentValueBRL = currentValue * usdRate;

@@ -2,6 +2,7 @@ import type { MonthlySnapshot, Investment, Position, IncomeType, Region, Investm
 import { resolveInvestmentTotals } from "@/data/investments";
 import { findCanonicalRule } from "@/config/investmentRegistry";
 import type { FxRates } from "@/lib/fx";
+import { FALLBACK_USD_BRL } from "@/config/marketDefaults";
 
 function inferIncomeType(name: string, explicitType?: string): IncomeType {
   if (explicitType === "fixed" || explicitType === "variable") return explicitType;
@@ -33,12 +34,17 @@ function inferRegion(name: string, explicitRegion?: string): Region {
 export class InvestmentNormalizationService {
   /**
    * Normalizes a raw snapshot and its raw DB investments into a canonical MonthlySnapshot.
+   *
+   * @param isCurrentMonth - When true (current calendar month), values are recalculated
+   *   with live FX rates and live market prices. When false (historical month), values
+   *   are read verbatim from the DB — NO recalculation with current exchange rates.
    */
   static normalizeSnapshot(
     snapshotRow: any,
     rawInvestments: any[],
     positionsByInvestment: Map<string, Position[]>,
-    fxRates: FxRates
+    fxRates: FxRates,
+    isCurrentMonth: boolean = false
   ): MonthlySnapshot {
     const sortedInvestments = [...rawInvestments].sort(
       (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
@@ -104,8 +110,8 @@ export class InvestmentNormalizationService {
         finalValueBRL = totals.valueBRL;
         finalApplied = totals.applied;
         finalAppliedBRL = totals.appliedBRL;
-      } else {
-        // CONSOLIDATED mode: inv.value and inv.applied are stored in BRL scale
+      } else if (isCurrentMonth) {
+        // ✅ Current month, CONSOLIDATED: recalculate with live FX rates
         const safeValueBRL = (rawValueBRL != null && rawValueBRL <= rawNum * 2) ? rawValueBRL : rawNum;
         const safeAppliedBRL = (rawAppliedBRL != null && rawAppliedBRL <= (Number(inv.applied) || 0) * 2)
           ? rawAppliedBRL
@@ -115,13 +121,19 @@ export class InvestmentNormalizationService {
         finalAppliedBRL = safeAppliedBRL;
 
         if (invCurrency === "USD") {
-          const rate = fxRates["USD"] || 5.60;
+          const rate = fxRates["USD"] || FALLBACK_USD_BRL;
           finalValue = rate > 0 ? Number((finalValueBRL / rate).toFixed(2)) : finalValueBRL;
           finalApplied = (finalAppliedBRL != null && rate > 0) ? Number((finalAppliedBRL / rate).toFixed(2)) : finalAppliedBRL;
         } else {
           finalValue = finalValueBRL;
           finalApplied = finalAppliedBRL;
         }
+      } else {
+        // ❄️ Historical month: use values exactly as stored in DB — no live FX recalculation
+        finalValueBRL = rawValueBRL ?? rawNum;
+        finalAppliedBRL = rawAppliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined);
+        finalValue = rawNum;
+        finalApplied = inv.applied != null ? Number(inv.applied) : undefined;
       }
 
       const incomeType = inferIncomeType(inv.name, inv.income_type);
