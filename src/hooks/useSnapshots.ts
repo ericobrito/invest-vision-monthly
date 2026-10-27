@@ -6,6 +6,7 @@ import { resolveInvestmentTotals, getCleanMonthLabel, monthlyData as fallbackMon
 import { fetchFxRatesToBRL, getFxRate, type FxRates } from "@/lib/fx";
 import { MarketDataService } from "@/services/MarketDataService";
 import { InvestmentNormalizationService } from "@/services/InvestmentNormalizationService";
+import { findCanonicalRule } from "@/config/investmentRegistry";
 import {
   FALLBACK_USD_BRL,
   sanitizeCryptoAveragePrice,
@@ -83,29 +84,81 @@ export function useSnapshots() {
 
       if (sErr || iErr || !snapshots || snapshots.length === 0 || !investments || investments.length === 0) {
         console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty/incomplete tables:", { sErr, iErr });
+        const currentCalendarMonth = getCurrentCalendarMonth();
         try {
-          const liveRate = await MarketDataService.getUsdBrl();
-          if (liveRate > 0) {
-            const usdRate = liveRate;
-            return fallbackMonthlyData.map((snap) => ({
+          const [liveUsdBrl, liveQuotes] = await Promise.all([
+            MarketDataService.getUsdBrl(),
+            MarketDataService.getMultipleQuotes(["BTC", "ETH", "USDT", "SOL"]),
+          ]);
+
+          const dynamicFx: FxRates = liveUsdBrl > 0 ? { ...(fxRates || {}), USD: liveUsdBrl } : (fxRates || {});
+
+          return fallbackMonthlyData.map((snap) => {
+            if (snap.month !== currentCalendarMonth) {
+              return snap;
+            }
+
+            const updatedInvs = snap.investments.map((inv) => {
+              const invCurr = (inv.currency || "BRL").toUpperCase();
+              let valBRL = inv.valueBRL ?? (Number(inv.value) || 0);
+              let appBRL = inv.appliedBRL ?? (inv.applied != null ? Number(inv.applied) : undefined);
+              let val = Number(inv.value) || 0;
+              let app = inv.applied != null ? Number(inv.applied) : undefined;
+
+              const rate = invCurr === "USD" ? (dynamicFx?.USD || FALLBACK_USD_BRL) : 1;
+
+              const rule = findCanonicalRule(inv.name);
+              if (rule) {
+                const canonPositions = rule.getCanonicalPositions(dynamicFx, valBRL);
+                for (const pos of canonPositions) {
+                  const sym = (pos.symbol || "").toUpperCase();
+                  if (liveQuotes[sym] && liveQuotes[sym] > 0) {
+                    pos.currentPrice = liveQuotes[sym];
+                    pos.currentValue = Number(pos.quantity) * liveQuotes[sym];
+                    const posRate = (pos.currency || "USD") === "USD" ? (dynamicFx?.USD || FALLBACK_USD_BRL) : 1;
+                    pos.currentValueBRL = pos.currentValue * posRate;
+                  }
+                }
+                const totals = resolveInvestmentTotals({ mode: "DETAILED", value: val, applied: app, positions: canonPositions, currency: invCurr }, undefined, dynamicFx);
+                val = totals.value;
+                valBRL = totals.valueBRL;
+                app = totals.applied;
+                appBRL = totals.appliedBRL;
+              } else if (invCurr === "USD" && rate > 0) {
+                valBRL = Number((val * rate).toFixed(2));
+                if (app != null) appBRL = Number((app * rate).toFixed(2));
+              }
+
+              return {
+                ...inv,
+                value: val,
+                valueBRL: valBRL,
+                applied: app,
+                appliedBRL: appBRL,
+              };
+            });
+
+            const totalBRL = Number(updatedInvs.reduce((sum, i) => sum + i.valueBRL, 0).toFixed(2));
+            const prevSnap = fallbackMonthlyData.find((s) => s.month < snap.month);
+            const changeVal = prevSnap ? Number((totalBRL - prevSnap.total).toFixed(2)) : snap.change.value;
+            const changePct = prevSnap && prevSnap.total > 0 ? Number(((changeVal / prevSnap.total) * 100).toFixed(2)) : snap.change.percentage;
+
+            return {
               ...snap,
-              investments: snap.investments.map((inv) => {
-                const totals = resolveInvestmentTotals(inv);
-                return {
-                  ...inv,
-                  value: totals.value,
-                  applied: totals.applied,
-                  valueBRL: totals.valueBRL,
-                  appliedBRL: totals.appliedBRL,
-                };
-              }),
-            }));
-          }
+              total: totalBRL,
+              change: { value: changeVal, percentage: changePct },
+              investments: updatedInvs.map((inv) => ({
+                ...inv,
+                percentage: totalBRL > 0 ? Number(((inv.valueBRL / totalBRL) * 100).toFixed(2)) : inv.percentage,
+              })),
+            };
+          });
         } catch (e) {
-          console.warn("Fallback USD rate fetch failed:", e);
+          console.warn("[useSnapshots] Live market sync failed for fallback data:", e);
         }
         return fallbackMonthlyData;
       }
+
 
       const investmentIds = (investments || []).map((i: any) => i.id);
       const positionsByInvestment = new Map<string, Position[]>();

@@ -97,6 +97,44 @@ export class MarketDataService {
     if (symbols.length > 0) {
       await Promise.all(
         symbols.map(async (symbol) => {
+          const sym = symbol.toUpperCase().trim();
+          if (sym === "USDT" || sym === "USDC") {
+            quotes[sym] = 1.0;
+            return;
+          }
+
+          const cryptoList = ["BTC", "ETH", "SOL", "BNB", "ADA", "XRP", "DOGE", "LINK", "AVAX", "DOT"];
+          if (cryptoList.includes(sym)) {
+            try {
+              const bRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+              if (bRes.ok) {
+                const bData = await bRes.json();
+                const price = Number(bData?.price);
+                if (Number.isFinite(price) && price > 0) {
+                  quotes[sym] = price;
+                  console.log({ symbol: sym, marketPrice: price, source: "Binance API" });
+                  return;
+                }
+              }
+            } catch (err) {
+              console.warn(`[MarketDataService] Binance direct fetch failed for ${sym}:`, err);
+            }
+
+            try {
+              const cRes = await fetch(`https://api.coinbase.com/v2/prices/${sym}-USD/spot`);
+              if (cRes.ok) {
+                const cData = await cRes.json();
+                const price = Number(cData?.data?.amount);
+                if (Number.isFinite(price) && price > 0) {
+                  quotes[sym] = price;
+                  console.log({ symbol: sym, marketPrice: price, source: "Coinbase API" });
+                  return;
+                }
+              }
+            } catch (err) {
+              console.warn(`[MarketDataService] Coinbase direct fetch failed for ${sym}:`, err);
+            }
+          }
           try {
             const normSymbol = this.normalizeYahooSymbol(symbol);
             const { data, error } = await supabase.functions.invoke("asset-quote", {
@@ -153,6 +191,23 @@ export class MarketDataService {
     if (!sym) return null;
     
     const prov = provider.toLowerCase();
+
+    if (sym === "USDT" || sym === "USDC") {
+      return { price: 1.0, currency: "USD", name: sym === "USDT" ? "Tether USD" : "USD Coin" };
+    }
+
+    if (["BTC", "ETH", "SOL", "BNB", "ADA", "XRP", "DOGE"].includes(sym)) {
+      try {
+        const bRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+        if (bRes.ok) {
+          const bData = await bRes.json();
+          const p = Number(bData?.price);
+          if (Number.isFinite(p) && p > 0) {
+            return { price: p, currency: "USD", name: sym };
+          }
+        }
+      } catch {}
+    }
 
     // If auto or yahoo, try direct Yahoo Finance CORS proxy first to bypass broken/outdated edge functions
     if (prov === "yahoo" || prov === "auto") {

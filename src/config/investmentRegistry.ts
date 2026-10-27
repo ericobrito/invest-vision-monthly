@@ -1,4 +1,5 @@
 import type { InvestmentMode, Position } from "@/data/investments";
+import { FALLBACK_USD_BRL } from "@/config/marketDefaults";
 
 export interface InvestmentCanonicalRule {
   id: string;
@@ -21,10 +22,10 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
-      const usdRate = fxRates["USD"] || 5.47;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 68628.53;
+      const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : (12427.49 * usdRate);
       const baseUSD = targetBRL / usdRate;
-      const scale = baseUSD / 12279.97;
+      const scale = baseUSD / 12427.49;
       return [
         {
           symbol: "TSLA",
@@ -143,8 +144,8 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
-      const usdRate = fxRates["USD"] || 5.47;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 19625.36;
+      const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 20039.37;
       const valUSD = targetBRL / usdRate;
       return [
         {
@@ -186,8 +187,8 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
-      const usdRate = fxRates["USD"] || 5.47;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 53096.51;
+      const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 55088.50;
       const targetUSD = targetBRL / usdRate;
       const usdtValUSD = targetUSD * 0.35;
       const btcValUSD = targetUSD * 0.65;
@@ -232,7 +233,7 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
-      const usdRate = fxRates["USD"] || 5.47;
+      const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
       const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 15511.52;
       const valUSD = targetBRL / usdRate;
       return [
@@ -262,8 +263,8 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
     getCanonicalPositions: (fxRates, storedValueBRL) => {
-      const usdRate = fxRates["USD"] || 5.47;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 5106.35;
+      const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
+      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 5101.85;
       const valUSD = targetBRL / usdRate;
       return [
         {
