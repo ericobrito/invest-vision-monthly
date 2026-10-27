@@ -96,10 +96,11 @@ export function useSnapshots() {
         console.warn("[useSnapshots] Using fallback monthlyData due to DB error or empty/incomplete tables:", { sErr, iErr });
         const currentCalendarMonth = getCurrentCalendarMonth();
         try {
-          const [liveUsdBrl, edgeData, cryptoQuotes] = await Promise.all([
+          const avenueSymbols = ["TSLA", "META", "GOOGL", "BRK-B", "IONQ", "RGTI", "AMD"];
+          const [liveUsdBrl, edgeData, marketQuotes] = await Promise.all([
             MarketDataService.getUsdBrl(),
             supabase.functions.invoke("variable-assets", { body: { action: "list" } }).catch(() => null),
-            MarketDataService.getMultipleQuotes(["BTC", "ETH"]).catch(() => ({})),
+            MarketDataService.getMultipleQuotes([...avenueSymbols, "BTC", "ETH"]).catch(() => ({})),
           ]);
 
           const dynamicFx: FxRates = liveUsdBrl > 0 ? { ...(fxRates || {}), USD: liveUsdBrl } : (fxRates || {});
@@ -154,7 +155,7 @@ export function useSnapshots() {
                   // For Coinbase: if the API key only returned Spot BTC (0.02 BTC = ~R$ 8.5k) and missed Staking/Vault ETH (~0.9197 ETH),
                   // supplement with the remaining live ETH position so the total matches the full verified Coinbase balance
                   if (matchedProvider === "coinbase" && connBrlSum < 15000) {
-                    const ethUsd = cryptoQuotes["ETH"] || 2470;
+                    const ethUsd = marketQuotes["ETH"] || 2470;
                     const usdRate = liveUsdBrl > 0 ? liveUsdBrl : (dynamicFx?.USD || FALLBACK_USD_BRL);
                     const ethBrlPrice = ethUsd * usdRate;
                     const ethStakingQty = 0.919702;
@@ -189,29 +190,71 @@ export function useSnapshots() {
                 }
               }
 
-              // 2. Avenue: real USD custody balance ($12,519.00) converted at live commercial USDBRL
+              // 2. Avenue: calculado via API a partir da cotação do dia e da quantidade que o usuário possui
               if (n.includes("avenue")) {
-                const usdBalance = 12519.00;
-                val = usdBalance;
-                valBRL = Number((usdBalance * rate).toFixed(2));
-                const avenuePositions: Position[] = [
-                  { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 380.12, appliedAmount: 4502.18, currentValue: 5353.19, currentValueBRL: Number((5353.19 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "META", name: "Meta Platforms Inc", quantity: 2.969900, averagePrice: 210.52, currentPrice: 744.10, appliedAmount: 625.22, currentValue: 2209.90, currentValueBRL: Number((2209.90 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "USDT", name: "Dólar / Saldo em Conta", quantity: 2175.29, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 2175.29, currentValue: 2175.29, currentValueBRL: Number((2175.29 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 507.17, appliedAmount: 595.27, currentValue: 1317.42, currentValueBRL: Number((1317.42 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.958000, averagePrice: 94.84, currentPrice: 337.83, appliedAmount: 280.54, currentValue: 999.30, currentValueBRL: Number((999.30 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 42.54, appliedAmount: 340.00, currentValue: 216.20, currentValueBRL: Number((216.20 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 16.01, appliedAmount: 390.96, currentValue: 128.04, currentValueBRL: Number((128.04 * rate).toFixed(2)), currency: "USD", fxRate: rate },
-                  { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.194700, averagePrice: 196.89, currentPrice: 614.61, appliedAmount: 38.33, currentValue: 119.66, currentValueBRL: Number((119.66 * rate).toFixed(2)), currency: "USD", fxRate: rate },
+                const avenueHoldings = [
+                  { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, fallbackPrice: 402.33, appliedAmount: 4502.18 },
+                  { symbol: "META", name: "Meta Platforms Inc", quantity: 2.969900, averagePrice: 210.52, fallbackPrice: 625.43, appliedAmount: 625.22 },
+                  { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, fallbackPrice: 544.00, appliedAmount: 595.27 },
+                  { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.958000, averagePrice: 94.84, fallbackPrice: 320.07, appliedAmount: 280.54 },
+                  { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, fallbackPrice: 32.48, appliedAmount: 340.00 },
+                  { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, fallbackPrice: 12.01, appliedAmount: 390.96 },
+                  { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.194700, averagePrice: 196.89, fallbackPrice: 553.31, appliedAmount: 38.33 },
                 ];
+                const avenueCashUSD = 2266.71; // Saldo líquido em dólar na conta Avenue
+
+                let totalStocksUSD = 0;
+                let totalAppliedUSD = avenueCashUSD;
+
+                const liveAvenuePositions: Position[] = avenueHoldings.map((h) => {
+                  const quoteKey = h.symbol.replace(".", "-");
+                  const currentPrice = marketQuotes[quoteKey] || marketQuotes[h.symbol] || h.fallbackPrice;
+                  const curVal = Number((h.quantity * currentPrice).toFixed(2));
+                  totalStocksUSD += curVal;
+                  totalAppliedUSD += h.appliedAmount;
+                  return {
+                    symbol: h.symbol,
+                    name: h.name,
+                    quantity: h.quantity,
+                    averagePrice: h.averagePrice,
+                    currentPrice,
+                    appliedAmount: h.appliedAmount,
+                    currentValue: curVal,
+                    currentValueBRL: Number((curVal * rate).toFixed(2)),
+                    appliedAmountBRL: Number((h.appliedAmount * rate).toFixed(2)),
+                    currency: "USD",
+                    fxRate: rate,
+                  };
+                });
+
+                // Saldo em conta corrente Avenue
+                liveAvenuePositions.push({
+                  symbol: "USDT",
+                  name: "Dólar / Saldo em Conta",
+                  quantity: avenueCashUSD,
+                  averagePrice: 1.0,
+                  currentPrice: 1.0,
+                  appliedAmount: avenueCashUSD,
+                  currentValue: avenueCashUSD,
+                  currentValueBRL: Number((avenueCashUSD * rate).toFixed(2)),
+                  appliedAmountBRL: Number((avenueCashUSD * rate).toFixed(2)),
+                  currency: "USD",
+                  fxRate: rate,
+                });
+
+                const totalAvenueUSD = Number((totalStocksUSD + avenueCashUSD).toFixed(2));
+                const totalAvenueBRL = Number((totalAvenueUSD * rate).toFixed(2));
+                const totalAppliedBRL = Number((totalAppliedUSD * rate).toFixed(2));
+
                 return {
                   ...inv,
+                  mode: "DETAILED",
                   currency: "USD",
-                  value: val,
-                  valueBRL: valBRL,
-                  applied: app,
-                  appliedBRL: appBRL,
-                  positions: avenuePositions,
+                  value: totalAvenueUSD,
+                  valueBRL: totalAvenueBRL,
+                  applied: Number(totalAppliedUSD.toFixed(2)),
+                  appliedBRL: totalAppliedBRL,
+                  positions: liveAvenuePositions,
                 };
               }
 
