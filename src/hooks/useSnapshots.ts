@@ -313,10 +313,26 @@ export function useSnapshots() {
             const changeVal = prevSnap ? Number((totalBRL - prevSnap.total).toFixed(2)) : (snap.change?.value ?? 0);
             const changePct = prevSnap && prevSnap.total > 0 ? Number(((changeVal / prevSnap.total) * 100).toFixed(2)) : (snap.change?.percentage ?? 0);
 
+            const fixedBRL = updatedInvs
+              .filter((i) => i.incomeType === "fixed" || (!i.incomeType && (i.name.includes("Prev") || i.name.includes("Reserva") || i.name.includes("Renda Fixa") || i.name.includes("Allu") || i.name.includes("Consórcio") || i.name.includes("Sofisa"))))
+              .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+            const fixedPct = totalBRL > 0 ? Number(((fixedBRL / totalBRL) * 100).toFixed(2)) : snap.fixedIncome;
+            const variablePct = fixedPct != null ? Number((100 - fixedPct).toFixed(2)) : snap.variableIncome;
+
+            const brazilBRL = updatedInvs
+              .filter((i) => i.region === "brazil" || (!i.region && !i.name.includes("Avenue") && !i.name.includes("Binance") && !i.name.includes("Bybit") && !i.name.includes("Coinbase") && !i.name.includes("Bitcoin")))
+              .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+            const brazilPct = totalBRL > 0 ? Number(((brazilBRL / totalBRL) * 100).toFixed(2)) : snap.brazil;
+            const exteriorPct = brazilPct != null ? Number((100 - brazilPct).toFixed(2)) : snap.exterior;
+
             return {
               ...snap,
               total: totalBRL,
               change: { value: changeVal, percentage: changePct },
+              fixedIncome: fixedPct,
+              variableIncome: variablePct,
+              brazil: brazilPct,
+              exterior: exteriorPct,
               investments: updatedInvs.map((inv) => ({
                 ...inv,
                 percentage: totalBRL > 0 ? Number(((inv.valueBRL / totalBRL) * 100).toFixed(2)) : inv.percentage,

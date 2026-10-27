@@ -13,7 +13,7 @@ const AllocationChart = ({ snapshot }: AllocationChartProps) => {
     .sort((a, b) => b.percentage - a.percentage)
     .map(inv => ({
       name: inv.name,
-      value: inv.value,
+      value: inv.valueBRL ?? inv.value,
       percentage: inv.percentage,
       colorIndex: originalOrder.indexOf(inv.name),
     }));

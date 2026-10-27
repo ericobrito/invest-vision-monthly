@@ -12,7 +12,12 @@ const ContributionEvolutionChart = ({ snapshots }: Props) => {
   const data = useMemo(() => {
     const sorted = [...snapshots].sort((a, b) => a.month.localeCompare(b.month));
     return sorted.map(s => {
-      const applied = s.investments.reduce((acc, inv) => acc + (Number(inv.applied) || 0), 0);
+      const applied = s.investments.reduce((acc, inv) => {
+        const appBRL = inv.appliedBRL != null
+          ? Number(inv.appliedBRL)
+          : (inv.applied != null ? Number(inv.applied) * ((inv.currency || "BRL").toUpperCase() === "USD" ? 5.35 : 1) : 0);
+        return acc + appBRL;
+      }, 0);
       const total = s.total;
       const gains = total - applied;
       return {

@@ -71,34 +71,47 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         },
       ];
     } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-      const storedBRL = Number(investment.valueBRL ?? investment.value) || 53084.61;
-      const nativeUSD = 4754.78 + 3178.41;
-      const effectiveFx = storedBRL > 0 ? storedBRL / nativeUSD : 6.6914;
+      const storedBRL = Number(investment.valueBRL ?? investment.value) || 55088.50;
+      const nativeUSD = Number(investment.value) || 10293.07;
+      const effectiveFx = nativeUSD > 0 && storedBRL > 0 ? storedBRL / nativeUSD : 5.352;
 
       effectivePositions = [
         {
           symbol: "USDT",
           name: "Tether USD",
-          quantity: 4754.7789,
+          quantity: 3858.179973,
           averagePrice: 1.00,
           currentPrice: 1.00,
-          appliedAmount: 4754.78,
-          currentValue: 4754.78,
-          currentValueBRL: 4754.78 * effectiveFx,
-          appliedAmountBRL: 4754.78 * 5.0740,
+          appliedAmount: 3858.18,
+          currentValue: 3858.18,
+          currentValueBRL: 3858.18 * effectiveFx,
+          appliedAmountBRL: 3858.18 * effectiveFx,
           currency: "USD",
           fxRate: effectiveFx,
         },
         {
           symbol: "BTC",
           name: "Bitcoin",
-          quantity: 0.041088,
+          quantity: 0.04894251,
           averagePrice: 29882.78,
           currentPrice: 77356.24,
-          appliedAmount: 1227.82,
-          currentValue: 3178.41,
-          currentValueBRL: 3178.41 * effectiveFx,
-          appliedAmountBRL: 1227.82 * 5.0740,
+          appliedAmount: 1462.54,
+          currentValue: 3786.01,
+          currentValueBRL: 3786.01 * effectiveFx,
+          appliedAmountBRL: 1462.54 * effectiveFx,
+          currency: "USD",
+          fxRate: effectiveFx,
+        },
+        {
+          symbol: "ETH",
+          name: "Ethereum",
+          quantity: 1.0804185,
+          averagePrice: 2160.00,
+          currentPrice: 2467.75,
+          appliedAmount: 2333.70,
+          currentValue: 2666.20,
+          currentValueBRL: 2666.20 * effectiveFx,
+          appliedAmountBRL: 2333.70 * effectiveFx,
           currency: "USD",
           fxRate: effectiveFx,
         },

@@ -69,7 +69,7 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
         if (klass === "variable" && inv.incomeType !== "variable") continue;
         if (klass === "brazil" && inv.region !== "brazil") continue;
         if (klass === "exterior" && inv.region !== "exterior") continue;
-        map.set(inv.name, { name: inv.name, lastValue: inv.value });
+        map.set(inv.name, { name: inv.name, lastValue: inv.valueBRL ?? inv.value });
       }
     }
     return Array.from(map.values()).sort((a, b) => b.lastValue - a.lastValue);
@@ -81,7 +81,8 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
     for (const a of assets) {
       for (const s of visibleSnapshots) {
         const inv = s.investments.find(i => i.name === a.name);
-        if (inv && inv.value > 0) { baselines.set(a.name, inv.value); break; }
+        const valBRL = inv ? (inv.valueBRL ?? inv.value) : 0;
+        if (inv && valBRL > 0) { baselines.set(a.name, valBRL); break; }
       }
     }
 
@@ -89,7 +90,7 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
       const row: Record<string, any> = { month: s.label, __month: s.month, __total: s.total };
       for (const a of assets) {
         const inv = s.investments.find(i => i.name === a.name);
-        const absVal = inv ? inv.value : null;
+        const absVal = inv ? (inv.valueBRL ?? inv.value) : null;
         if (mode === "normalized") {
           const base = baselines.get(a.name);
           row[a.name] = absVal != null && base ? (absVal / base) * 100 : null;
@@ -97,9 +98,9 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
           row[a.name] = absVal;
         }
         if (inv) {
-          row[`__abs_${a.name}`] = inv.value;
-          row[`__pct_${a.name}`] = s.total > 0 ? (inv.value / s.total) * 100 : 0;
-          row[`__applied_${a.name}`] = inv.applied ?? null;
+          row[`__abs_${a.name}`] = inv.valueBRL ?? inv.value;
+          row[`__pct_${a.name}`] = s.total > 0 ? ((inv.valueBRL ?? inv.value) / s.total) * 100 : 0;
+          row[`__applied_${a.name}`] = inv.appliedBRL ?? inv.applied ?? null;
         }
       }
       if (showBenchmark) {
