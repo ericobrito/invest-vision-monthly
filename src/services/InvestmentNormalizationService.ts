@@ -78,7 +78,13 @@ export class InvestmentNormalizationService {
       if (mode === "DETAILED" && !isConnected) {
         const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
         if (!hasValidPositions && rule) {
-          const targetBRL = inv.value_brl != null ? Number(inv.value_brl) : inv.valueBRL != null ? Number(inv.valueBRL) : Number(inv.value);
+          const isUSD = (inv.currency || (mode === "DETAILED" && rule?.forcedCurrency) || "").toUpperCase() === "USD";
+          const rate = isUSD ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
+          const targetBRL = inv.value_brl != null
+            ? Number(inv.value_brl)
+            : inv.valueBRL != null
+              ? Number(inv.valueBRL)
+              : (isUSD ? Number(inv.value) * rate : Number(inv.value));
           positions = rule.getCanonicalPositions(fxRates, targetBRL);
         }
       } else if (mode === "CONNECTED") {

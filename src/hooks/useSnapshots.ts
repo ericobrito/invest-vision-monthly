@@ -663,8 +663,10 @@ export interface SnapshotFormData {
   investments: {
     name: string;
     value: number;
+    valueBRL?: number;
     percentage: number;
     applied?: number;
+    appliedBRL?: number;
     totalReturn?: number;
     annualReturn?: number;
     yearStarted?: string;
@@ -696,7 +698,9 @@ export function computeDerivedFields(
   const rates = fxRates || { USD: FALLBACK_USD_BRL };
   const invsBRL = investments.map(inv => {
     const rate = inv.currency === "USD" ? (rates["USD"] || 1) : 1;
-    const valueBRL = inv.value * rate;
+    const valueBRL = inv.valueBRL != null
+      ? inv.valueBRL
+      : (inv.currency === "USD" ? inv.value * rate : inv.value);
     return {
       ...inv,
       valueBRL,
@@ -873,6 +877,25 @@ export function useSaveSnapshot() {
         }
       }
 
+      if (prevInvestments.length === 0) {
+        const priorFallback = fallbackMonthlyData
+          .filter(s => s.month < data.month)
+          .sort((a, b) => b.month.localeCompare(a.month))[0];
+        if (priorFallback) {
+          prevInvestments = priorFallback.investments.map((i, idx) => ({
+            id: `fallback-${idx}`,
+            name: i.name,
+            mode: i.mode,
+            currency: i.currency,
+            connection_id: i.connectionId,
+            applied: i.applied,
+            applied_amount: i.applied,
+            value: i.value,
+            positions: i.positions,
+          }));
+        }
+      }
+
       // Helper to merge current investment with previous month's configuration
       const mergeWithPrevious = (inv: any) => {
         const prevInv = prevInvestments.find(p => p.name === inv.name);
@@ -902,6 +925,17 @@ export function useSaveSnapshot() {
               lastPriceAt: p.last_price_at ?? undefined,
               purchaseDate: p.purchase_date ?? undefined,
             }));
+          } else if (prevInv.positions && prevInv.positions.length > 0) {
+            positions = prevInv.positions;
+          }
+        }
+
+        if ((!positions || positions.length === 0) && (inv.mode === 'DETAILED' || prevInv?.mode === 'DETAILED')) {
+          const rule = findCanonicalRule(inv.name);
+          if (rule) {
+            const usdRate = FALLBACK_USD_BRL;
+            const targetBRL = inv.valueBRL ?? (inv.currency === 'USD' ? inv.value * usdRate : inv.value);
+            positions = rule.getCanonicalPositions({}, targetBRL);
           }
         }
 
@@ -1009,6 +1043,7 @@ export function useSaveSnapshot() {
                     fx_rate_at: pos.fxRateAt ?? null,
                     provider: pos.provider ?? null,
                     last_price_at: pos.lastPriceAt ?? null,
+                    purchase_date: pos.purchaseDate ?? null,
                   });
                 }
               }

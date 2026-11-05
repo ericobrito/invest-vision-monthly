@@ -172,8 +172,8 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
         name: inv.name,
         value: String(inv.valueBRL ?? inv.value),
         applied: inv.appliedBRL != null ? String(inv.appliedBRL) : (inv.applied != null ? String(inv.applied) : ""),
-        totalReturn: "",
-        annualReturn: "",
+        totalReturn: inv.totalReturn != null ? String(inv.totalReturn) : "",
+        annualReturn: inv.annualReturn != null ? String(inv.annualReturn) : "",
         yearStarted: inv.yearStarted ?? "",
         incomeType: inv.incomeType || 'fixed',
         region: inv.region || 'brazil',
@@ -206,27 +206,40 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
     const invData = investments
       .filter((inv) => inv.name && inv.value)
       .map((inv) => {
-        const val = Number(inv.value) || 0;
-        const app = Number(inv.applied) || 0;
-        const rate = inv.currency === "USD" ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
-        const valueBRL = val * rate;
-        const appliedBRL = app * rate;
-        
-        const totalReturn = appliedBRL > 0 ? Number((((valueBRL - appliedBRL) / appliedBRL) * 100).toFixed(2)) : undefined;
+        const inputVal = Number(inv.value) || 0;
+        const inputApp = inv.applied ? Number(inv.applied) : undefined;
+        const isUSD = (inv.currency || "").toUpperCase() === "USD";
+        const rate = isUSD ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
+
+        // Since inputs in SnapshotDialog represent values in BRL ("Valor (R$)"):
+        const valueBRL = inputVal;
+        const appliedBRL = inputApp;
+
+        // Native currency values for storage and external references
+        const nativeValue = isUSD && rate > 0 ? Number((valueBRL / rate).toFixed(2)) : valueBRL;
+        const nativeApplied = isUSD && appliedBRL != null && rate > 0 ? Number((appliedBRL / rate).toFixed(2)) : appliedBRL;
+
+        const totalReturn = appliedBRL && appliedBRL > 0
+          ? Number((((valueBRL - appliedBRL) / appliedBRL) * 100).toFixed(2))
+          : undefined;
+
         let annualReturn: number | undefined;
-        if (totalReturn != null && inv.yearStarted) {
+        if (totalReturn != null && inv.yearStarted && appliedBRL && appliedBRL > 0) {
           const startDate = new Date(inv.yearStarted);
           const now = new Date();
           const years = (now.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-          if (years > 0 && appliedBRL > 0) {
+          if (years > 0) {
             annualReturn = Number(((Math.pow(valueBRL / appliedBRL, 1 / years) - 1) * 100).toFixed(2));
           }
         }
+
         return {
           name: inv.name,
-          value: valueBRL,
+          value: nativeValue,
+          valueBRL: valueBRL,
           percentage: 0,
-          applied: appliedBRL,
+          applied: nativeApplied,
+          appliedBRL: appliedBRL,
           totalReturn,
           annualReturn,
           yearStarted: inv.yearStarted || undefined,
@@ -242,12 +255,13 @@ const SnapshotDialog = ({ open, onOpenChange, onSave, snapshot, allSnapshots = [
           investedAmount: inv.investedAmount,
           lastPriceAt: inv.lastPriceAt,
           flags: inv.flags,
-          currency: "BRL",
+          currency: inv.currency || "BRL",
           positions: inv.positions,
         };
       });
-    const total = invData.reduce((s, i) => s + i.value, 0);
-    invData.forEach(i => { i.percentage = total > 0 ? Number(((i.value / total) * 100).toFixed(2)) : 0; });
+
+    const total = invData.reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+    invData.forEach(i => { i.percentage = total > 0 ? Number((((i.valueBRL ?? i.value) / total) * 100).toFixed(2)) : 0; });
 
     return { derived: computeDerivedFields(invData, allSnapshots, month, fxRates), invData };
   }, [investments, allSnapshots, month, fxRates]);
