@@ -718,18 +718,36 @@ export function useSnapshots() {
 
       const sortedSnapshots = Array.from(allMonthsMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
-      return sortedSnapshots.map((snap) => {
-        const total = snap.investments.reduce((sum, inv) => sum + (inv.valueBRL ?? inv.value), 0);
+      const result: MonthlySnapshot[] = [];
+      for (let idx = 0; idx < sortedSnapshots.length; idx++) {
+        const snap = sortedSnapshots[idx];
+        const prevSnap = idx > 0 ? result[idx - 1] : undefined;
+
+        const total = Number(
+          snap.investments.reduce((sum, inv) => sum + (inv.valueBRL ?? inv.value), 0).toFixed(2)
+        );
+
         const investmentsWithPct = snap.investments.map((inv) => ({
           ...inv,
           percentage: total > 0 ? Number((((inv.valueBRL ?? inv.value) / total) * 100).toFixed(2)) : inv.percentage,
         }));
-        return {
+
+        let change = snap.change;
+        if (prevSnap && prevSnap.total > 0) {
+          const changeVal = Number((total - prevSnap.total).toFixed(2));
+          const changePct = Number(((changeVal / prevSnap.total) * 100).toFixed(2));
+          change = { value: changeVal, percentage: changePct };
+        }
+
+        result.push({
           ...snap,
           total,
+          change,
           investments: investmentsWithPct,
-        };
-      });
+        });
+      }
+
+      return result;
     },
   });
 
@@ -863,15 +881,13 @@ export async function recalculateAllSnapshotVariations() {
     const invs = invsBySnapshot.get(snap.id) || [];
     
     // Convert to BRL and sum
-    const totalBRL = invs.reduce((sum, inv) => {
-      const rate = getFxRate(inv.currency, fxRates);
-      return sum + (Number(inv.value) || 0) * rate;
-    }, 0);
+    const getInvBrl = (i: any) => (i.value_brl != null ? Number(i.value_brl) : (Number(i.value) || 0) * getFxRate(i.currency, fxRates));
+    const totalBRL = invs.reduce((sum, inv) => sum + getInvBrl(inv), 0);
 
-    const fixedBrl = invs.filter(i => i.income_type === 'fixed').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
-    const variableBrl = invs.filter(i => i.income_type === 'variable').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
-    const brazilBrl = invs.filter(i => i.region === 'brazil').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
-    const exteriorBrl = invs.filter(i => i.region === 'exterior').reduce((s, i) => s + (Number(i.value) || 0) * getFxRate(i.currency, fxRates), 0);
+    const fixedBrl = invs.filter(i => i.income_type === 'fixed').reduce((s, i) => s + getInvBrl(i), 0);
+    const variableBrl = invs.filter(i => i.income_type === 'variable').reduce((s, i) => s + getInvBrl(i), 0);
+    const brazilBrl = invs.filter(i => i.region === 'brazil').reduce((s, i) => s + getInvBrl(i), 0);
+    const exteriorBrl = invs.filter(i => i.region === 'exterior').reduce((s, i) => s + getInvBrl(i), 0);
 
     const fixedIncome = totalBRL > 0 ? Number(((fixedBrl / totalBRL) * 100).toFixed(2)) : null;
     const variableIncome = totalBRL > 0 ? Number(((variableBrl / totalBRL) * 100).toFixed(2)) : null;
