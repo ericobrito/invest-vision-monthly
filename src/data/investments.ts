@@ -115,7 +115,7 @@ function rateFor(currency: string | undefined, rates?: Record<string, number>): 
   if (!currency || currency === "BRL") return 1;
   const r = rates?.[currency.toUpperCase()];
   if (Number.isFinite(r) && (r as number) > 0) return r as number;
-  return currency.toUpperCase() === "USD" ? 5.45 : 1;
+  return currency.toUpperCase() === "USD" ? 5.494 : 1;
 }
 
 /**
@@ -164,34 +164,41 @@ export function resolveInvestmentTotals(
   if (mode === 'CONNECTED' && connectionAssets && connectionAssets.length > 0) {
     let valueBRL = 0;
     let appliedBRL = 0;
-    let valueNative = 0;
-    let appliedNative = 0;
     for (const a of connectionAssets) {
       const cv = Number(a.currentValue) || 0;
       const ap = Number(a.appliedAmount) || 0;
-      const rate = rateFor(a.currency || inv.currency, fxRates);
-      valueNative += cv;
-      appliedNative += ap;
-      valueBRL += cv * rate;
-      appliedBRL += ap * rate;
+      const isAssetForeign = a.currency && a.currency.toUpperCase() !== "BRL";
+      const rate = isAssetForeign ? rateFor(a.currency, fxRates) : 1;
+      valueBRL += isAssetForeign ? cv * rate : cv;
+      appliedBRL += isAssetForeign ? ap * rate : ap;
     }
-    const finalApplied = appliedNative > 0 ? appliedNative : inv.applied;
-    const finalAppliedBRL = appliedBRL > 0 ? appliedBRL : (inv.applied != null ? Number(inv.applied) * rateFor(inv.currency, fxRates) : undefined);
+    const isInvForeign = inv.currency && inv.currency.toUpperCase() !== "BRL";
+    const invRate = isInvForeign ? rateFor(inv.currency, fxRates) : 1;
+    const valueNative = isInvForeign && invRate > 0 ? Number((valueBRL / invRate).toFixed(2)) : Number(valueBRL.toFixed(2));
+    const appliedNative = isInvForeign && invRate > 0 && appliedBRL > 0
+      ? Number((appliedBRL / invRate).toFixed(2))
+      : (appliedBRL > 0 ? Number(appliedBRL.toFixed(2)) : inv.applied);
     return {
       value: valueNative,
-      applied: finalApplied,
-      valueBRL,
-      appliedBRL: finalAppliedBRL,
+      applied: appliedNative,
+      valueBRL: Number(valueBRL.toFixed(2)),
+      appliedBRL: appliedBRL > 0 ? Number(appliedBRL.toFixed(2)) : undefined,
     };
   }
 
   // CONSOLIDATED
-  const valBRL = (inv as any).valueBRL != null ? Number((inv as any).valueBRL) : (Number(inv.value) || 0);
-  const appBRL = (inv as any).appliedBRL != null ? Number((inv as any).appliedBRL) : (inv.applied != null ? Number(inv.applied) : undefined);
+  const hasNative = inv.value != null && Number(inv.value) > 0;
   const isForeign = inv.currency && inv.currency.toUpperCase() !== "BRL";
   const rate = isForeign ? rateFor(inv.currency, fxRates) : 1;
-  const valNative = (isForeign && rate > 0) ? Number((valBRL / rate).toFixed(2)) : valBRL;
-  const appNative = (isForeign && appBRL != null && rate > 0) ? Number((appBRL / rate).toFixed(2)) : appBRL;
+  const valBRL = (inv as any).valueBRL != null
+    ? Number((inv as any).valueBRL)
+    : (isForeign && hasNative ? Number((Number(inv.value) * rate).toFixed(2)) : (Number(inv.value) || 0));
+  const appBRL = (inv as any).appliedBRL != null
+    ? Number((inv as any).appliedBRL)
+    : (isForeign && inv.applied != null ? Number((Number(inv.applied) * rate).toFixed(2)) : (inv.applied != null ? Number(inv.applied) : undefined));
+
+  const valNative = hasNative ? Number(inv.value) : (isForeign && rate > 0 ? Number((valBRL / rate).toFixed(2)) : valBRL);
+  const appNative = inv.applied != null ? Number(inv.applied) : (isForeign && appBRL != null && rate > 0 ? Number((appBRL / rate).toFixed(2)) : appBRL);
 
   return {
     value: valNative,

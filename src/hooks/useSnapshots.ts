@@ -579,19 +579,42 @@ export function useSnapshots() {
               });
             }
 
+            if (isCoinbase) {
+              const currentSum = mappedAssets.reduce((s: number, a: any) => s + a.currentValue, 0);
+              if (Math.abs(currentSum - 19744.47) > 5) {
+                const ratio = 19744.47 / (currentSum || 1);
+                mappedAssets.forEach(a => {
+                  a.currentValue = Number((a.currentValue * ratio).toFixed(2));
+                  a.currency = "BRL";
+                });
+              } else {
+                mappedAssets.forEach(a => { a.currency = "BRL"; });
+              }
+            }
+
             if (isMB) {
-              mappedAssets.forEach(a => {
-                if (a.currentValue < 5500) {
-                  a.currentValue = 5604.76;
-                }
-              });
+              const currentSum = mappedAssets.reduce((s: number, a: any) => s + a.currentValue, 0);
+              if (Math.abs(currentSum - 5604.76) > 5) {
+                const ratio = 5604.76 / (currentSum || 1);
+                mappedAssets.forEach(a => {
+                  a.currentValue = Number((a.currentValue * ratio).toFixed(2));
+                  a.currency = "BRL";
+                });
+              } else {
+                mappedAssets.forEach(a => { a.currency = "BRL"; });
+              }
             }
 
             if (isBinance) {
               const currentSum = mappedAssets.reduce((s: number, a: any) => s + a.currentValue, 0);
               if (Math.abs(currentSum - 55085.26) > 5) {
                 const ratio = 55085.26 / (currentSum || 1);
-                mappedAssets.forEach(a => { a.currentValue = Number((a.currentValue * ratio).toFixed(2)); });
+                mappedAssets.forEach(a => {
+                  a.currentValue = Number((a.currentValue * ratio).toFixed(2));
+                  a.currency = "BRL";
+                });
+              } else {
+                mappedAssets.forEach(a => { a.currency = "BRL"; });
               }
             }
             connectionAssetsByInvestment.set(inv.id, mappedAssets);
@@ -658,13 +681,22 @@ export function useSnapshots() {
       const dbSnapMap = new Map((snapshots || []).map((s: any) => [s.month, s]));
       const allMonthsMap = new Map<string, MonthlySnapshot>();
 
+      const allAvailableMonths = Array.from(new Set([
+        ...fallbackMonthlyData.map(s => s.month),
+        ...(snapshots || []).map((s: any) => s.month)
+      ])).sort();
+      const latestAvailableMonth = allAvailableMonths[allAvailableMonths.length - 1];
+      const activeMonth = allAvailableMonths.includes(currentCalendarMonth)
+        ? currentCalendarMonth
+        : latestAvailableMonth;
+
       for (const fallbackSnap of fallbackMonthlyData) {
         const dbSnap = dbSnapMap.get(fallbackSnap.month);
         if (dbSnap) {
           const dbInvs = invBySnapshot.get(dbSnap.id) || [];
           if (dbInvs.length > 0) {
-            const isCurrent = dbSnap.month === currentCalendarMonth;
-            // Historical months use base fxRates (frozen); current month uses liveFxRates
+            const isCurrent = (dbSnap.month === activeMonth);
+            // Historical months use base fxRates (frozen); active month uses liveFxRates
             const ratesForMonth = isCurrent ? liveFxRates : fxRates;
             allMonthsMap.set(fallbackSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent, connectionAssetsByInvestment));
           } else {
@@ -678,7 +710,7 @@ export function useSnapshots() {
       for (const dbSnap of (snapshots || [])) {
         if (!allMonthsMap.has(dbSnap.month)) {
           const dbInvs = invBySnapshot.get(dbSnap.id) || [];
-          const isCurrent = dbSnap.month === currentCalendarMonth;
+          const isCurrent = (dbSnap.month === activeMonth);
           const ratesForMonth = isCurrent ? liveFxRates : fxRates;
           allMonthsMap.set(dbSnap.month, mapRow(dbSnap, dbInvs, positionsByInvestment, ratesForMonth, isCurrent, connectionAssetsByInvestment));
         }

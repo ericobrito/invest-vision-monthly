@@ -76,8 +76,12 @@ export class InvestmentNormalizationService {
       }
 
       if (mode === "DETAILED" && !isConnected) {
+        const isAvenue = (inv.name || "").toLowerCase().includes("avenue") || (inv.name || "").toLowerCase().includes("dólar");
         const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
-        if (!hasValidPositions && rule) {
+        if (isCurrentMonth && isAvenue && rule) {
+          // In current active month: Avenue dynamically calculates positions and quotes with cash balance
+          positions = rule.getCanonicalPositions(fxRates);
+        } else if (!hasValidPositions && rule) {
           const isUSD = (inv.currency || (mode === "DETAILED" && rule?.forcedCurrency) || "").toUpperCase() === "USD";
           const rate = isUSD ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
           const targetBRL = inv.value_brl != null
@@ -140,21 +144,27 @@ export class InvestmentNormalizationService {
         finalAppliedBRL = totals.appliedBRL;
       } else if (isCurrentMonth) {
         // ✅ Current month, CONSOLIDATED: recalculate with live FX rates
-        const safeValueBRL = (rawValueBRL != null && rawValueBRL <= rawNum * 2) ? rawValueBRL : rawNum;
-        const safeAppliedBRL = (rawAppliedBRL != null && rawAppliedBRL <= (Number(inv.applied) || 0) * 2)
-          ? rawAppliedBRL
-          : (inv.applied != null ? Number(inv.applied) : undefined);
-
-        finalValueBRL = safeValueBRL;
-        finalAppliedBRL = safeAppliedBRL;
-
-        if (invCurrency === "USD") {
-          const rate = fxRates["USD"] || FALLBACK_USD_BRL;
-          finalValue = rate > 0 ? Number((finalValueBRL / rate).toFixed(2)) : finalValueBRL;
-          finalApplied = (finalAppliedBRL != null && rate > 0) ? Number((finalAppliedBRL / rate).toFixed(2)) : finalAppliedBRL;
+        const rate = invCurrency === "USD" ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
+        if (rawValueBRL != null) {
+          finalValueBRL = rawValueBRL;
+          finalValue = invCurrency === "USD" && rate > 0 ? (rawNum > 0 && rawNum < rawValueBRL ? rawNum : Number((rawValueBRL / rate).toFixed(2))) : rawValueBRL;
+        } else if (invCurrency === "USD") {
+          finalValue = rawNum;
+          finalValueBRL = Number((rawNum * rate).toFixed(2));
         } else {
-          finalValue = finalValueBRL;
-          finalApplied = finalAppliedBRL;
+          finalValue = rawNum;
+          finalValueBRL = rawNum;
+        }
+
+        if (rawAppliedBRL != null) {
+          finalAppliedBRL = rawAppliedBRL;
+          finalApplied = invCurrency === "USD" && rate > 0 ? (inv.applied != null && Number(inv.applied) < rawAppliedBRL ? Number(inv.applied) : Number((rawAppliedBRL / rate).toFixed(2))) : rawAppliedBRL;
+        } else if (invCurrency === "USD" && inv.applied != null) {
+          finalApplied = Number(inv.applied);
+          finalAppliedBRL = Number((finalApplied * rate).toFixed(2));
+        } else {
+          finalApplied = inv.applied != null ? Number(inv.applied) : undefined;
+          finalAppliedBRL = finalApplied;
         }
       } else {
         // ❄️ Historical month: use values exactly as stored in DB — no live FX recalculation
