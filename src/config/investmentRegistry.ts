@@ -294,14 +294,6 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
           fxRate: usdRate,
         },
       ];
-          appliedAmount: valUSD * 0.95,
-          currentValue: valUSD,
-          currentValueBRL: targetBRL,
-          appliedAmountBRL: targetBRL * 0.95,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-      ];
     },
   },
 ];
