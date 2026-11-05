@@ -71,9 +71,9 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         },
       ];
     } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-      const storedBRL = Number(investment.valueBRL ?? investment.value) || 55088.50;
-      const nativeUSD = Number(investment.value) || 10293.07;
-      const effectiveFx = nativeUSD > 0 && storedBRL > 0 ? storedBRL / nativeUSD : 5.352;
+      const storedBRL = Number(investment.valueBRL ?? investment.value) || 55085.26;
+      const nativeUSD = Number(investment.value) || 10025.89;
+      const effectiveFx = nativeUSD > 0 && storedBRL > 0 ? storedBRL / nativeUSD : 5.494;
 
       effectivePositions = [
         {
@@ -117,16 +117,16 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
         },
       ];
     } else if (nameLower.includes("avenue") || nameLower.includes("dólar")) {
-      const fx = 5.1322;
+      const fx = investment.valueBRL && investment.value ? (Number(investment.valueBRL) / Number(investment.value)) : 5.494;
       effectivePositions = [
-        { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 380.12, appliedAmount: 4502.18, currentValue: 5353.19, currentValueBRL: 27473.65, appliedAmountBRL: 4502.18 * fx, currency: "USD", fxRate: fx },
-        { symbol: "META", name: "Meta Platforms Inc", quantity: 2.969900, averagePrice: 210.52, currentPrice: 744.10, appliedAmount: 625.22, currentValue: 2209.90, currentValueBRL: 11341.66, appliedAmountBRL: 625.22 * fx, currency: "USD", fxRate: fx },
-        { symbol: "USDT", name: "Dólar / Saldo em Conta", quantity: 2175.29, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 2175.29, currentValue: 2175.29, currentValueBRL: 2175.29 * fx, appliedAmountBRL: 2175.29 * fx, currency: "USD", fxRate: fx },
-        { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 507.17, appliedAmount: 595.27, currentValue: 1317.42, currentValueBRL: 6761.29, appliedAmountBRL: 595.27 * fx, currency: "USD", fxRate: fx },
-        { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.958000, averagePrice: 94.84, currentPrice: 337.83, appliedAmount: 280.54, currentValue: 999.30, currentValueBRL: 5128.61, appliedAmountBRL: 280.54 * fx, currency: "USD", fxRate: fx },
-        { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 42.54, appliedAmount: 340.00, currentValue: 216.20, currentValueBRL: 1109.57, appliedAmountBRL: 340.00 * fx, currency: "USD", fxRate: fx },
-        { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 16.01, appliedAmount: 390.96, currentValue: 128.04, currentValueBRL: 657.13, appliedAmountBRL: 390.96 * fx, currency: "USD", fxRate: fx },
-        { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.194700, averagePrice: 196.89, currentPrice: 614.61, appliedAmount: 38.33, currentValue: 119.66, currentValueBRL: 614.14, appliedAmountBRL: 38.33 * fx, currency: "USD", fxRate: fx },
+        { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 343.69, appliedAmount: 4502.18, currentValue: 4840.15, currentValueBRL: 4840.15 * fx, appliedAmountBRL: 4502.18 * fx, currency: "USD", fxRate: fx },
+        { symbol: "META", name: "Meta Platforms Inc", quantity: 2.969900, averagePrice: 210.52, currentPrice: 605.08, appliedAmount: 625.22, currentValue: 1797.03, currentValueBRL: 1797.03 * fx, appliedAmountBRL: 625.22 * fx, currency: "USD", fxRate: fx },
+        { symbol: "USDT", name: "Dólar / Saldo em Conta", quantity: 2194.98, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 2194.98, currentValue: 2194.98, currentValueBRL: 2194.98 * fx, appliedAmountBRL: 2194.98 * fx, currency: "USD", fxRate: fx },
+        { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 572.16, appliedAmount: 595.27, currentValue: 1486.24, currentValueBRL: 1486.24 * fx, appliedAmountBRL: 595.27 * fx, currency: "USD", fxRate: fx },
+        { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.958000, averagePrice: 94.84, currentPrice: 282.57, appliedAmount: 280.54, currentValue: 835.84, currentValueBRL: 835.84 * fx, appliedAmountBRL: 280.54 * fx, currency: "USD", fxRate: fx },
+        { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 26.53, appliedAmount: 340.00, currentValue: 134.82, currentValueBRL: 134.82 * fx, appliedAmountBRL: 340.00 * fx, currency: "USD", fxRate: fx },
+        { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 9.79, appliedAmount: 390.96, currentValue: 78.28, currentValueBRL: 78.28 * fx, appliedAmountBRL: 390.96 * fx, currency: "USD", fxRate: fx },
+        { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.194700, averagePrice: 196.89, currentPrice: 404.40, appliedAmount: 38.33, currentValue: 78.74, currentValueBRL: 78.74 * fx, appliedAmountBRL: 38.33 * fx, currency: "USD", fxRate: fx },
       ];
     }
   }

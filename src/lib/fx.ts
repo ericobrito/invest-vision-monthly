@@ -25,7 +25,7 @@ export interface CurrencyRates {
 }
 
 const CACHE_KEY = "fx_rates_brl_v2";
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min (markets update frequently)
 
 interface CachedRates {
   rates: FxRates;
@@ -52,18 +52,27 @@ function writeCache(rates: FxRates) {
   }
 }
 
-async function fetchSingle(base: string): Promise<number | null> {
-  // Try exchangerate.host first
+async function fetchAwesomeRates(): Promise<FxRates | null> {
   try {
-    const res = await fetch(`https://api.exchangerate.host/latest?base=${base}&symbols=BRL`);
+    const res = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL");
     if (res.ok) {
       const json = await res.json();
-      const r = Number(json?.rates?.BRL);
-      if (Number.isFinite(r) && r > 0) return r;
+      const usdBrl = Number(json?.USDBRL?.bid || json?.USDBRL?.ask);
+      const eurBrl = Number(json?.EURBRL?.bid || json?.EURBRL?.ask);
+      const gbpBrl = Number(json?.GBPBRL?.bid || json?.GBPBRL?.ask);
+      const map: FxRates = { BRL: 1 };
+      if (Number.isFinite(usdBrl) && usdBrl > 0) map.USD = usdBrl;
+      if (Number.isFinite(eurBrl) && eurBrl > 0) map.EUR = eurBrl;
+      if (Number.isFinite(gbpBrl) && gbpBrl > 0) map.GBP = gbpBrl;
+      return map;
     }
   } catch (e) {
-    console.warn(`[fx] exchangerate.host failed for ${base}:`, e);
+    console.warn("[fx] awesomeapi failed:", e);
   }
+  return null;
+}
+
+async function fetchSingle(base: string): Promise<number | null> {
   // Fallback to frankfurter.dev
   try {
     const res = await fetch(`https://api.frankfurter.dev/v1/latest?base=${base}&symbols=BRL`);
@@ -80,14 +89,21 @@ async function fetchSingle(base: string): Promise<number | null> {
 
 /**
  * Fetch latest FX rates with BRL as the target currency.
- * Returns map { USD: 5.42, EUR: 5.9, GBP: 6.8, BRL: 1 } meaning "1 USD = 5.42 BRL".
- * NO hardcoded rates — if all providers fail for a currency, the key is absent
- * and downstream callers must handle the missing rate.
+ * Returns map { USD: 5.49, EUR: 6.16, GBP: 7.39, BRL: 1 } meaning "1 USD = 5.49 BRL".
+ * Prioritizes official Brazilian AwesomeAPI commercial quotes.
  */
 export async function fetchFxRatesToBRL(): Promise<FxRates> {
   const cached = readCache();
   if (cached) return cached.rates;
 
+  // 1. Primary: AwesomeAPI (real-time Brazilian commercial rates)
+  const awesome = await fetchAwesomeRates();
+  if (awesome && awesome.USD) {
+    writeCache(awesome);
+    return awesome;
+  }
+
+  // 2. Fallback: Frankfurter
   const others = SUPPORTED_CURRENCIES.filter((c) => c !== "BRL");
   const rates: FxRates = { BRL: 1 };
 

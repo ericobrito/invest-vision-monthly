@@ -10,7 +10,7 @@
 
 // ─── FX Fallback ──────────────────────────────────────────────────
 /** Last-resort USD→BRL rate when every API is unreachable. */
-export const FALLBACK_USD_BRL = 5.60;
+export const FALLBACK_USD_BRL = 5.494;
 
 // ─── Crypto Average Price Sanitization ────────────────────────────
 /**
