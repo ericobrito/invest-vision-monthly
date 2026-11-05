@@ -551,7 +551,7 @@ export function useSnapshots() {
             for (const [cId, conn] of connById.entries()) {
               const prov = ((conn as any).provider || "").toLowerCase();
               if (prov && (n.includes(prov) || n.includes(prov.replace("_", " ")))) {
-                matchedConnId = cId;
+                matchedConnId = cId as string;
                 break;
               }
             }
