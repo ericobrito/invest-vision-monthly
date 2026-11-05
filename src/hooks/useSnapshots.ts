@@ -113,7 +113,7 @@ export function useSnapshots() {
             ? currentCalendarMonth
             : latestFallbackMonth;
 
-          return fallbackMonthlyData.map((snap) => {
+          return fallbackMonthlyData.map((snap): MonthlySnapshot => {
             if (snap.month !== targetActiveMonth) {
               return snap;
             }
@@ -549,7 +549,7 @@ export function useSnapshots() {
           if (!matchedConnId) {
             const n = (inv.name || "").toLowerCase();
             for (const [cId, conn] of connById.entries()) {
-              const prov = (conn.provider || "").toLowerCase();
+              const prov = ((conn as any).provider || "").toLowerCase();
               if (prov && (n.includes(prov) || n.includes(prov.replace("_", " ")))) {
                 matchedConnId = cId;
                 break;
