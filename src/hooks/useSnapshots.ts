@@ -113,7 +113,7 @@ export function useSnapshots() {
             ? currentCalendarMonth
             : latestFallbackMonth;
 
-          return fallbackMonthlyData.map((snap) => {
+          return fallbackMonthlyData.map((snap): MonthlySnapshot => {
             if (snap.month !== targetActiveMonth) {
               return snap;
             }
@@ -178,7 +178,7 @@ export function useSnapshots() {
 
                   return {
                     ...inv,
-                    mode: "CONNECTED",
+                    mode: "CONNECTED" as const,
                     currency: "USD",
                     value: totalCoinbaseUSD,
                     valueBRL: totalCoinbaseBRL,
@@ -195,7 +195,7 @@ export function useSnapshots() {
                   const appUSD = inv.applied != null ? Number(inv.applied) : 892.56;
                   return {
                     ...inv,
-                    mode: "CONNECTED",
+                    mode: "CONNECTED" as const,
                     currency: "USD",
                     value: mbUSD,
                     valueBRL: mbBRL,
@@ -249,7 +249,7 @@ export function useSnapshots() {
 
                   return {
                     ...inv,
-                    mode: "CONNECTED",
+                    mode: "CONNECTED" as const,
                     currency: "USD",
                     value: binanceUSD,
                     valueBRL: binanceBRL,
@@ -318,7 +318,7 @@ export function useSnapshots() {
 
                 return {
                   ...inv,
-                  mode: "DETAILED",
+                  mode: "DETAILED" as const,
                   currency: "USD",
                   value: totalAvenueUSD,
                   valueBRL: totalAvenueBRL,
@@ -549,9 +549,9 @@ export function useSnapshots() {
           if (!matchedConnId) {
             const n = (inv.name || "").toLowerCase();
             for (const [cId, conn] of connById.entries()) {
-              const prov = (conn.provider || "").toLowerCase();
+              const prov = ((conn as any).provider || "").toLowerCase();
               if (prov && (n.includes(prov) || n.includes(prov.replace("_", " ")))) {
-                matchedConnId = cId;
+                matchedConnId = cId as string;
                 break;
               }
             }
