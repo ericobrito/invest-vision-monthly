@@ -45,7 +45,8 @@ export class InvestmentNormalizationService {
     positionsByInvestment: Map<string, Position[]>,
     fxRates: FxRates,
     isCurrentMonth: boolean = false,
-    connectionAssetsByInvestment?: Map<string, Array<{ currentValue: number; appliedAmount?: number; currency?: string }>>
+    connectionAssetsByInvestment?: Map<string, Array<{ currentValue: number; appliedAmount?: number; currency?: string }>>,
+    liveQuotes?: Record<string, number>
   ): MonthlySnapshot {
     const sortedInvestments = [...rawInvestments].sort(
       (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
@@ -75,21 +76,28 @@ export class InvestmentNormalizationService {
         mode = rule.forcedMode;
       }
 
-      if (mode === "DETAILED" && !isConnected) {
-        const isAvenue = (inv.name || "").toLowerCase().includes("avenue") || (inv.name || "").toLowerCase().includes("dólar");
+      const invLower = (inv.name || "").toLowerCase();
+      const isAvenue = invLower.includes("avenue") || invLower.includes("dólar");
+      const isCoinbase = invLower.includes("coinbase");
+      const isMB = invLower.includes("mercado bitcoin") || invLower.includes("bitcoin - (api");
+      const isBinance = invLower.includes("binance");
+      const isDynamicInstitution = isAvenue || isCoinbase || isMB || isBinance;
+
+      if (isCurrentMonth && isDynamicInstitution && rule) {
+        // Active month: Avenue, Binance, Coinbase, Mercado Bitcoin dynamically calculated from live quotes & USD/BRL
+        positions = rule.getCanonicalPositions(fxRates, undefined, liveQuotes);
+        if (rule.forcedMode) mode = rule.forcedMode;
+      } else if (mode === "DETAILED" && !isConnected) {
         const hasValidPositions = positions && positions.length > 0 && (!rule?.isPositionValid || rule.isPositionValid(positions));
-        if (isCurrentMonth && isAvenue && rule) {
-          // In current active month: Avenue dynamically calculates positions and quotes with cash balance
-          positions = rule.getCanonicalPositions(fxRates);
-        } else if (!hasValidPositions && rule) {
+        if (!hasValidPositions && rule) {
           const isUSD = (inv.currency || (mode === "DETAILED" && rule?.forcedCurrency) || "").toUpperCase() === "USD";
           const rate = isUSD ? (fxRates["USD"] || FALLBACK_USD_BRL) : 1;
-          const targetBRL = inv.value_brl != null
+          const targetBRL = isCurrentMonth ? undefined : (inv.value_brl != null
             ? Number(inv.value_brl)
             : inv.valueBRL != null
               ? Number(inv.valueBRL)
-              : (isUSD ? Number(inv.value) * rate : Number(inv.value));
-          positions = rule.getCanonicalPositions(fxRates, targetBRL);
+              : (isUSD ? Number(inv.value) * rate : Number(inv.value)));
+          positions = rule.getCanonicalPositions(fxRates, targetBRL, isCurrentMonth ? liveQuotes : undefined);
         }
       } else if (mode === "CONNECTED") {
         // Preserve connected positions if already populated
@@ -111,7 +119,23 @@ export class InvestmentNormalizationService {
       let finalApplied = inv.applied != null ? Number(inv.applied) : undefined;
       let finalAppliedBRL = rawAppliedBRL ?? finalApplied;
 
-      if (mode === "CONNECTED" && connAssets && connAssets.length > 0) {
+      if (isCurrentMonth && isDynamicInstitution && positions && positions.length > 0) {
+        const totals = resolveInvestmentTotals(
+          {
+            mode: "DETAILED",
+            value: rawNum,
+            applied: inv.applied != null ? Number(inv.applied) : undefined,
+            positions,
+            currency: invCurrency,
+          },
+          undefined,
+          fxRates
+        );
+        finalValue = totals.value;
+        finalValueBRL = totals.valueBRL;
+        finalApplied = totals.applied;
+        finalAppliedBRL = totals.appliedBRL;
+      } else if (mode === "CONNECTED" && connAssets && connAssets.length > 0) {
         const totals = resolveInvestmentTotals(
           {
             mode: "CONNECTED",

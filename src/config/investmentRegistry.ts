@@ -7,7 +7,11 @@ export interface InvestmentCanonicalRule {
   match: (name: string) => boolean;
   forcedMode?: InvestmentMode;
   forcedCurrency?: string;
-  getCanonicalPositions: (fxRates: Record<string, number>, storedValueBRL?: number) => Position[];
+  getCanonicalPositions: (
+    fxRates: Record<string, number>,
+    storedValueBRL?: number,
+    liveQuotes?: Record<string, number>
+  ) => Position[];
   isPositionValid?: (positions: Position[]) => boolean;
 }
 
@@ -21,117 +25,70 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates, storedValueBRL) => {
+    getCanonicalPositions: (fxRates, storedValueBRL, liveQuotes) => {
       const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : (11446.08 * usdRate);
-      const baseUSD = targetBRL / usdRate;
-      const scale = baseUSD / 11446.08;
-      return [
-        {
-          symbol: "TSLA",
-          name: "Tesla Inc",
-          quantity: 14.0829 * scale,
-          averagePrice: 319.69,
-          currentPrice: 343.69,
-          appliedAmount: 4502.18 * scale,
-          currentValue: 4840.15 * scale,
-          currentValueBRL: (4840.15 * scale) * usdRate,
-          appliedAmountBRL: (4502.18 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "META",
-          name: "Meta Platforms Inc",
-          quantity: 2.9699 * scale,
-          averagePrice: 210.52,
-          currentPrice: 605.08,
-          appliedAmount: 625.22 * scale,
-          currentValue: 1797.03 * scale,
-          currentValueBRL: (1797.03 * scale) * usdRate,
-          appliedAmountBRL: (625.22 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "USDT",
-          name: "Dólar / Saldo em Conta",
-          quantity: 2194.98 * scale,
-          averagePrice: 1.00,
-          currentPrice: 1.00,
-          appliedAmount: 2194.98 * scale,
-          currentValue: 2194.98 * scale,
-          currentValueBRL: (2194.98 * scale) * usdRate,
-          appliedAmountBRL: (2194.98 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "BRK.B",
-          name: "Berkshire Hathaway Inc Class B",
-          quantity: 2.5976 * scale,
-          averagePrice: 229.16,
-          currentPrice: 572.16,
-          appliedAmount: 595.27 * scale,
-          currentValue: 1486.24 * scale,
-          currentValueBRL: (1486.24 * scale) * usdRate,
-          appliedAmountBRL: (595.27 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "GOOGL",
-          name: "Alphabet Inc Class A",
-          quantity: 2.9580 * scale,
-          averagePrice: 94.84,
-          currentPrice: 282.57,
-          appliedAmount: 280.54 * scale,
-          currentValue: 835.84 * scale,
-          currentValueBRL: (835.84 * scale) * usdRate,
-          appliedAmountBRL: (280.54 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "IONQ",
-          name: "IonQ Inc",
-          quantity: 5.08221 * scale,
-          averagePrice: 66.90,
-          currentPrice: 26.53,
-          appliedAmount: 340.00 * scale,
-          currentValue: 134.82 * scale,
-          currentValueBRL: (134.82 * scale) * usdRate,
-          appliedAmountBRL: (340.00 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "RGTI",
-          name: "Rigetti Computing Inc",
-          quantity: 8.0 * scale,
-          averagePrice: 48.87,
-          currentPrice: 9.79,
-          appliedAmount: 390.96 * scale,
-          currentValue: 78.28 * scale,
-          currentValueBRL: (78.28 * scale) * usdRate,
-          appliedAmountBRL: (390.96 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
-        {
-          symbol: "AMD",
-          name: "Advanced Micro Devices Inc",
-          quantity: 0.1947 * scale,
-          averagePrice: 196.89,
-          currentPrice: 404.40,
-          appliedAmount: 38.33 * scale,
-          currentValue: 78.74 * scale,
-          currentValueBRL: (78.74 * scale) * usdRate,
-          appliedAmountBRL: (38.33 * scale) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
-        },
+
+      const tslaPrice = liveQuotes?.["TSLA"] || 378.05;
+      const metaPrice = liveQuotes?.["META"] || 641.37;
+      const brkbPrice = liveQuotes?.["BRK-B"] || liveQuotes?.["BRK.B"] || 575.25;
+      const googlPrice = liveQuotes?.["GOOGL"] || 288.15;
+      const ionqPrice = liveQuotes?.["IONQ"] || 35.34;
+      const rgtiPrice = liveQuotes?.["RGTI"] || 12.98;
+      const amdPrice = liveQuotes?.["AMD"] || 508.58;
+
+      const holdings = [
+        { symbol: "TSLA", name: "Tesla Inc", quantity: 14.0829, averagePrice: 319.69, currentPrice: tslaPrice, appliedAmount: 4502.18 },
+        { symbol: "META", name: "Meta Platforms Inc", quantity: 2.9699, averagePrice: 210.52, currentPrice: metaPrice, appliedAmount: 625.22 },
+        { symbol: "USDT", name: "Dólar / Saldo em Conta", quantity: 2194.98, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 2194.98 },
+        { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.5976, averagePrice: 229.16, currentPrice: brkbPrice, appliedAmount: 595.27 },
+        { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.9580, averagePrice: 94.84, currentPrice: googlPrice, appliedAmount: 280.54 },
+        { symbol: "IONQ", name: "IonQ Inc", quantity: 5.08221, averagePrice: 66.90, currentPrice: ionqPrice, appliedAmount: 340.00 },
+        { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.0, averagePrice: 48.87, currentPrice: rgtiPrice, appliedAmount: 390.96 },
+        { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.1947, averagePrice: 196.89, currentPrice: amdPrice, appliedAmount: 38.33 },
       ];
+
+      // If storedValueBRL is explicitly provided AND no live quotes are passed (historical frozen snapshot)
+      if (storedValueBRL && storedValueBRL > 0 && (!liveQuotes || Object.keys(liveQuotes).length === 0)) {
+        const baseUSD = storedValueBRL / usdRate;
+        const baselineSum = 11446.08;
+        const scale = baseUSD / baselineSum;
+        return holdings.map((h) => {
+          const qty = h.quantity * scale;
+          const valUSD = qty * h.currentPrice;
+          const appUSD = h.appliedAmount * scale;
+          return {
+            symbol: h.symbol,
+            name: h.name,
+            quantity: qty,
+            averagePrice: h.averagePrice,
+            currentPrice: h.currentPrice,
+            appliedAmount: appUSD,
+            currentValue: valUSD,
+            currentValueBRL: valUSD * usdRate,
+            appliedAmountBRL: appUSD * usdRate,
+            currency: "USD",
+            fxRate: usdRate,
+          };
+        });
+      }
+
+      // True dynamic calculation driven by live market prices
+      return holdings.map((h) => {
+        const valUSD = Number((h.quantity * h.currentPrice).toFixed(2));
+        return {
+          symbol: h.symbol,
+          name: h.name,
+          quantity: h.quantity,
+          averagePrice: h.averagePrice,
+          currentPrice: h.currentPrice,
+          appliedAmount: h.appliedAmount,
+          currentValue: valUSD,
+          currentValueBRL: Number((valUSD * usdRate).toFixed(2)),
+          appliedAmountBRL: Number((h.appliedAmount * usdRate).toFixed(2)),
+          currency: "USD",
+          fxRate: usdRate,
+        };
+      });
     },
     isPositionValid: (positions) => {
       return Array.isArray(positions) && positions.length > 0;
@@ -143,38 +100,73 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     match: (name: string) => (name || "").toLowerCase().includes("coinbase"),
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates, storedValueBRL) => {
+    getCanonicalPositions: (fxRates, storedValueBRL, liveQuotes) => {
       const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 19744.47;
-      const valUSD = targetBRL / usdRate;
-      return [
+      const btcPrice = liveQuotes?.["BTC"] || 74800;
+      const ethPrice = liveQuotes?.["ETH"] || 2120;
+
+      const holdings = [
         {
           symbol: "BTC",
-          name: "Bitcoin USD (Spot)",
-          quantity: (valUSD * 0.4243) / 77459.5,
+          name: "Bitcoin (Spot)",
+          quantity: 0.020000,
           averagePrice: 29882.78,
-          currentPrice: 77459.5,
-          appliedAmount: (valUSD * 0.4243 * 0.65),
-          currentValue: valUSD * 0.4243,
-          currentValueBRL: (valUSD * 0.4243) * usdRate,
-          appliedAmountBRL: (valUSD * 0.4243 * 0.65) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
+          currentPrice: btcPrice,
+          appliedAmount: 597.66,
         },
         {
           symbol: "ETH",
-          name: "Ethereum USD (Staking)",
-          quantity: (valUSD * 0.5757) / 2467.75,
-          averagePrice: 2160.0,
-          currentPrice: 2467.75,
-          appliedAmount: (valUSD * 0.5757 * 0.65),
-          currentValue: valUSD * 0.5757,
-          currentValueBRL: (valUSD * 0.5757) * usdRate,
-          appliedAmountBRL: (valUSD * 0.5757 * 0.65) * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
+          name: "Ethereum (Staking)",
+          quantity: 0.919702,
+          averagePrice: 2160.00,
+          currentPrice: ethPrice,
+          appliedAmount: 1615.37,
         },
       ];
+
+      // If storedValueBRL is explicitly provided AND no live quotes are passed (historical frozen snapshot)
+      if (storedValueBRL && storedValueBRL > 0 && (!liveQuotes || Object.keys(liveQuotes).length === 0)) {
+        const totalBRL = storedValueBRL;
+        const totalUSD = totalBRL / usdRate;
+        const baselineUSD = 3593.63;
+        const scale = totalUSD / baselineUSD;
+        return holdings.map((h) => {
+          const qty = h.quantity * scale;
+          const valUSD = qty * h.currentPrice;
+          const appUSD = h.appliedAmount * scale;
+          return {
+            symbol: h.symbol,
+            name: h.name,
+            quantity: qty,
+            averagePrice: h.averagePrice,
+            currentPrice: h.currentPrice,
+            appliedAmount: appUSD,
+            currentValue: valUSD,
+            currentValueBRL: valUSD * usdRate,
+            appliedAmountBRL: appUSD * usdRate,
+            currency: "USD",
+            fxRate: usdRate,
+          };
+        });
+      }
+
+      // True dynamic calculation driven by live market prices
+      return holdings.map((h) => {
+        const valUSD = Number((h.quantity * h.currentPrice).toFixed(2));
+        return {
+          symbol: h.symbol,
+          name: h.name,
+          quantity: h.quantity,
+          averagePrice: h.averagePrice,
+          currentPrice: h.currentPrice,
+          appliedAmount: h.appliedAmount,
+          currentValue: valUSD,
+          currentValueBRL: Number((valUSD * usdRate).toFixed(2)),
+          appliedAmountBRL: Number((h.appliedAmount * usdRate).toFixed(2)),
+          currency: "USD",
+          fxRate: usdRate,
+        };
+      });
     },
   },
   {
@@ -186,54 +178,80 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates, storedValueBRL) => {
+    getCanonicalPositions: (fxRates, storedValueBRL, liveQuotes) => {
       const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 55085.26;
-      const targetUSD = targetBRL / usdRate;
-      const usdtValUSD = targetUSD * 0.385;
-      const btcValUSD = targetUSD * 0.373;
-      const ethValUSD = targetUSD * 0.242;
-      return [
+      const btcPrice = liveQuotes?.["BTC"] || 74800;
+      const ethPrice = liveQuotes?.["ETH"] || 2120;
+
+      const holdings = [
         {
           symbol: "USDT",
           name: "Tether USD",
           quantity: 3858.18,
-          averagePrice: 1.0,
-          currentPrice: 1.0,
+          averagePrice: 1.00,
+          currentPrice: 1.00,
           appliedAmount: 3858.18,
-          currentValue: usdtValUSD,
-          currentValueBRL: usdtValUSD * usdRate,
-          appliedAmountBRL: 3858.18 * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
         },
         {
           symbol: "BTC",
           name: "Bitcoin",
           quantity: 0.04894251,
           averagePrice: 29882.78,
-          currentPrice: 77356.24,
+          currentPrice: btcPrice,
           appliedAmount: 1462.54,
-          currentValue: btcValUSD,
-          currentValueBRL: btcValUSD * usdRate,
-          appliedAmountBRL: 1462.54 * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
         },
         {
           symbol: "ETH",
           name: "Ethereum",
           quantity: 1.0804185,
           averagePrice: 2160.00,
-          currentPrice: 2467.75,
+          currentPrice: ethPrice,
           appliedAmount: 2333.70,
-          currentValue: ethValUSD,
-          currentValueBRL: ethValUSD * usdRate,
-          appliedAmountBRL: 2333.70 * usdRate,
-          currency: "USD",
-          fxRate: usdRate,
         },
       ];
+
+      // If storedValueBRL is explicitly provided AND no live quotes are passed (historical frozen snapshot)
+      if (storedValueBRL && storedValueBRL > 0 && (!liveQuotes || Object.keys(liveQuotes).length === 0)) {
+        const targetUSD = storedValueBRL / usdRate;
+        const baselineUSD = 10025.89;
+        const scale = targetUSD / baselineUSD;
+        return holdings.map((h) => {
+          const qty = h.quantity * scale;
+          const valUSD = qty * h.currentPrice;
+          const appUSD = h.appliedAmount * scale;
+          return {
+            symbol: h.symbol,
+            name: h.name,
+            quantity: qty,
+            averagePrice: h.averagePrice,
+            currentPrice: h.currentPrice,
+            appliedAmount: appUSD,
+            currentValue: valUSD,
+            currentValueBRL: valUSD * usdRate,
+            appliedAmountBRL: appUSD * usdRate,
+            currency: "USD",
+            fxRate: usdRate,
+          };
+        });
+      }
+
+      // True dynamic calculation driven by live market prices
+      return holdings.map((h) => {
+        const valUSD = Number((h.quantity * h.currentPrice).toFixed(2));
+        return {
+          symbol: h.symbol,
+          name: h.name,
+          quantity: h.quantity,
+          averagePrice: h.averagePrice,
+          currentPrice: h.currentPrice,
+          appliedAmount: h.appliedAmount,
+          currentValue: valUSD,
+          currentValueBRL: Number((valUSD * usdRate).toFixed(2)),
+          appliedAmountBRL: Number((h.appliedAmount * usdRate).toFixed(2)),
+          currency: "USD",
+          fxRate: usdRate,
+        };
+      });
     },
   },
   {
@@ -245,7 +263,7 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates, storedValueBRL) => {
+    getCanonicalPositions: (fxRates, storedValueBRL, liveQuotes) => {
       const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
       const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 15511.52;
       const valUSD = targetBRL / usdRate;
@@ -275,21 +293,45 @@ export const CANONICAL_INVESTMENT_RULES: InvestmentCanonicalRule[] = [
     },
     forcedMode: "DETAILED",
     forcedCurrency: "USD",
-    getCanonicalPositions: (fxRates, storedValueBRL) => {
+    getCanonicalPositions: (fxRates, storedValueBRL, liveQuotes) => {
       const usdRate = fxRates["USD"] || FALLBACK_USD_BRL;
-      const targetBRL = storedValueBRL && storedValueBRL > 0 ? storedValueBRL : 5604.76;
-      const valUSD = targetBRL / usdRate;
+      const ethPrice = liveQuotes?.["ETH"] || 2120;
+      const ethQty = 0.40945792;
+      const appliedUSD = 892.56;
+
+      // If storedValueBRL is explicitly provided AND no live quotes are passed (historical frozen snapshot)
+      if (storedValueBRL && storedValueBRL > 0 && (!liveQuotes || Object.keys(liveQuotes).length === 0)) {
+        const valUSD = storedValueBRL / usdRate;
+        return [
+          {
+            symbol: "ETH",
+            name: "Ethereum (Mercado Bitcoin)",
+            quantity: ethQty,
+            averagePrice: 2160.0,
+            currentPrice: ethPrice,
+            appliedAmount: appliedUSD,
+            currentValue: valUSD,
+            currentValueBRL: storedValueBRL,
+            appliedAmountBRL: appliedUSD * usdRate,
+            currency: "USD",
+            fxRate: usdRate,
+          },
+        ];
+      }
+
+      // True dynamic calculation driven by live market prices
+      const valUSD = Number((ethQty * ethPrice).toFixed(2));
       return [
         {
           symbol: "ETH",
           name: "Ethereum (Mercado Bitcoin)",
-          quantity: 0.40945792,
+          quantity: ethQty,
           averagePrice: 2160.0,
-          currentPrice: 2490.0,
-          appliedAmount: 892.56,
+          currentPrice: ethPrice,
+          appliedAmount: appliedUSD,
           currentValue: valUSD,
-          currentValueBRL: targetBRL,
-          appliedAmountBRL: 892.56 * usdRate,
+          currentValueBRL: Number((valUSD * usdRate).toFixed(2)),
+          appliedAmountBRL: Number((appliedUSD * usdRate).toFixed(2)),
           currency: "USD",
           fxRate: usdRate,
         },

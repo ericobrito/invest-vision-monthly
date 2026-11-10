@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatBRL, type Investment } from "@/data/investments";
 import { TrendingUp, TrendingDown, Wallet, Layers, Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { portfolioCalculationService } from "@/services/PortfolioCalculationService";
+import { findCanonicalRule } from "@/config/investmentRegistry";
 
 interface Props {
   open: boolean;
@@ -39,95 +40,11 @@ const InvestmentDetailDialog = ({ open, onOpenChange, investment }: Props) => {
 
   // Fallback positions ONLY if snapshot/investment didn't populate positions array
   if (effectivePositions.length === 0) {
-    if (nameLower.includes("coinbase")) {
-      const effectiveFx = 5.0889;
-
-      effectivePositions = [
-        {
-          symbol: "BTC",
-          name: "Bitcoin USD",
-          quantity: 0.020000,
-          averagePrice: 29882.78,
-          currentPrice: 78243.14,
-          appliedAmount: 597.66,
-          currentValue: 1564.86,
-          currentValueBRL: 1564.86 * effectiveFx,
-          appliedAmountBRL: 597.66 * 5.0889,
-          currency: "USD",
-          fxRate: effectiveFx,
-        },
-        {
-          symbol: "ETH",
-          name: "Ethereum USD",
-          quantity: 0.919702,
-          averagePrice: 2160.00,
-          currentPrice: 2467.75,
-          appliedAmount: 1986.56,
-          currentValue: 2269.60,
-          currentValueBRL: 2269.60 * effectiveFx,
-          appliedAmountBRL: 1986.56 * 5.0889,
-          currency: "USD",
-          fxRate: effectiveFx,
-        },
-      ];
-    } else if (nameLower.includes("binance") || nameLower.includes("bybit")) {
-      const storedBRL = Number(investment.valueBRL ?? investment.value) || 55085.26;
-      const nativeUSD = Number(investment.value) || 10025.89;
-      const effectiveFx = nativeUSD > 0 && storedBRL > 0 ? storedBRL / nativeUSD : 5.494;
-
-      effectivePositions = [
-        {
-          symbol: "USDT",
-          name: "Tether USD",
-          quantity: 3858.179973,
-          averagePrice: 1.00,
-          currentPrice: 1.00,
-          appliedAmount: 3858.18,
-          currentValue: 3858.18,
-          currentValueBRL: 3858.18 * effectiveFx,
-          appliedAmountBRL: 3858.18 * effectiveFx,
-          currency: "USD",
-          fxRate: effectiveFx,
-        },
-        {
-          symbol: "BTC",
-          name: "Bitcoin",
-          quantity: 0.04894251,
-          averagePrice: 29882.78,
-          currentPrice: 77356.24,
-          appliedAmount: 1462.54,
-          currentValue: 3786.01,
-          currentValueBRL: 3786.01 * effectiveFx,
-          appliedAmountBRL: 1462.54 * effectiveFx,
-          currency: "USD",
-          fxRate: effectiveFx,
-        },
-        {
-          symbol: "ETH",
-          name: "Ethereum",
-          quantity: 1.0804185,
-          averagePrice: 2160.00,
-          currentPrice: 2467.75,
-          appliedAmount: 2333.70,
-          currentValue: 2666.20,
-          currentValueBRL: 2666.20 * effectiveFx,
-          appliedAmountBRL: 2333.70 * effectiveFx,
-          currency: "USD",
-          fxRate: effectiveFx,
-        },
-      ];
-    } else if (nameLower.includes("avenue") || nameLower.includes("dólar")) {
-      const fx = investment.valueBRL && investment.value ? (Number(investment.valueBRL) / Number(investment.value)) : 5.494;
-      effectivePositions = [
-        { symbol: "TSLA", name: "Tesla Inc", quantity: 14.082900, averagePrice: 319.69, currentPrice: 343.69, appliedAmount: 4502.18, currentValue: 4840.15, currentValueBRL: 4840.15 * fx, appliedAmountBRL: 4502.18 * fx, currency: "USD", fxRate: fx },
-        { symbol: "META", name: "Meta Platforms Inc", quantity: 2.969900, averagePrice: 210.52, currentPrice: 605.08, appliedAmount: 625.22, currentValue: 1797.03, currentValueBRL: 1797.03 * fx, appliedAmountBRL: 625.22 * fx, currency: "USD", fxRate: fx },
-        { symbol: "USDT", name: "Dólar / Saldo em Conta", quantity: 2194.98, averagePrice: 1.00, currentPrice: 1.00, appliedAmount: 2194.98, currentValue: 2194.98, currentValueBRL: 2194.98 * fx, appliedAmountBRL: 2194.98 * fx, currency: "USD", fxRate: fx },
-        { symbol: "BRK.B", name: "Berkshire Hathaway Inc Class B", quantity: 2.597600, averagePrice: 229.16, currentPrice: 572.16, appliedAmount: 595.27, currentValue: 1486.24, currentValueBRL: 1486.24 * fx, appliedAmountBRL: 595.27 * fx, currency: "USD", fxRate: fx },
-        { symbol: "GOOGL", name: "Alphabet Inc Class A", quantity: 2.958000, averagePrice: 94.84, currentPrice: 282.57, appliedAmount: 280.54, currentValue: 835.84, currentValueBRL: 835.84 * fx, appliedAmountBRL: 280.54 * fx, currency: "USD", fxRate: fx },
-        { symbol: "IONQ", name: "IonQ Inc", quantity: 5.082210, averagePrice: 66.90, currentPrice: 26.53, appliedAmount: 340.00, currentValue: 134.82, currentValueBRL: 134.82 * fx, appliedAmountBRL: 340.00 * fx, currency: "USD", fxRate: fx },
-        { symbol: "RGTI", name: "Rigetti Computing Inc", quantity: 8.000000, averagePrice: 48.87, currentPrice: 9.79, appliedAmount: 390.96, currentValue: 78.28, currentValueBRL: 78.28 * fx, appliedAmountBRL: 390.96 * fx, currency: "USD", fxRate: fx },
-        { symbol: "AMD", name: "Advanced Micro Devices Inc", quantity: 0.194700, averagePrice: 196.89, currentPrice: 404.40, appliedAmount: 38.33, currentValue: 78.74, currentValueBRL: 78.74 * fx, appliedAmountBRL: 38.33 * fx, currency: "USD", fxRate: fx },
-      ];
+    const rule = findCanonicalRule(investment.name);
+    if (rule) {
+      const storedBRL = Number(investment.valueBRL ?? investment.value);
+      const fx = investment.valueBRL && investment.value ? (Number(investment.valueBRL) / Number(investment.value)) : 5.5085;
+      effectivePositions = rule.getCanonicalPositions({ USD: fx }, storedBRL > 0 ? storedBRL : undefined);
     }
   }
 
