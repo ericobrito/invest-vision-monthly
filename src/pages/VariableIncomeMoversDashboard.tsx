@@ -74,6 +74,25 @@ function formatPct(val: number) {
   return `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
 }
 
+function parseStartDateStr(raw?: string, defaultYear = "2024"): { date: Date; str: string; year: string } {
+  const def = `${defaultYear}-01-01`;
+  if (!raw || typeof raw !== "string") {
+    return { date: new Date(def), str: def, year: defaultYear };
+  }
+  const clean = raw.trim();
+  const yearMatch = clean.match(/^(\d{4})/);
+  const year = yearMatch ? yearMatch[1] : defaultYear;
+
+  const fullMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (fullMatch) {
+    const d = new Date(`${fullMatch[1]}-${fullMatch[2]}-${fullMatch[3]}`);
+    if (!isNaN(d.getTime())) {
+      return { date: d, str: `${fullMatch[1]}-${fullMatch[2]}-${fullMatch[3]}`, year: fullMatch[1] };
+    }
+  }
+  return { date: new Date(`${year}-01-01`), str: `${year}-01-01`, year };
+}
+
 const DEFAULT_USD_BRL_FX = 5.0740;
 
 interface PerformanceAsset {
@@ -272,7 +291,9 @@ const VariableIncomeMoversDashboard = () => {
             if (valBRL < 10 && qty <= 0) return;
 
             const src = inv.name || "Foto Mensal";
-            const posDate = (p as any).purchaseDate || (p as any).purchase_date || (inv.yearStarted ? `${inv.yearStarted}-01-01` : undefined) || defaultAssetStartDates[norm] || "2024-01-01";
+            const rawYearStarted = inv.yearStarted || (inv as any).year_started;
+            const yearStr = rawYearStarted ? String(rawYearStarted).slice(0, 4) : undefined;
+            const posDate = (p as any).purchaseDate || (p as any).purchase_date || (yearStr ? `${yearStr}-01-01` : undefined) || defaultAssetStartDates[norm] || "2024-01-01";
             const existing = map.get(norm);
 
             if (existing) {
@@ -285,7 +306,7 @@ const VariableIncomeMoversDashboard = () => {
               }
               if (currP) existing.currentPriceUSD = currP;
               if (avgP) existing.averagePriceUSD = avgP;
-              if (!existing.startDate) existing.startDate = posDate;
+              if (!existing.startDate || existing.startDate.includes("-01-01-01")) existing.startDate = posDate;
             } else {
               map.set(norm, {
                 ticker: norm,
@@ -334,7 +355,7 @@ const VariableIncomeMoversDashboard = () => {
         if (!existing.averagePriceUSD) existing.averagePriceUSD = known.averagePrice;
         if (!existing.currentValueUSD) existing.currentValueUSD = known.currentValueUSD;
         if (existing.profitPct === 0 && known.profitPct !== 0) existing.profitPct = known.profitPct;
-        if (!existing.startDate) existing.startDate = "2021-01-01";
+        if (!existing.startDate || existing.startDate.includes("-01-01-01")) existing.startDate = "2021-01-01";
       }
     });
 
@@ -443,9 +464,17 @@ const VariableIncomeMoversDashboard = () => {
       radarResponse.data.forEach((s) => radarMap.set(s.ticker.toUpperCase().replace(".", "-"), s));
     }
 
-    const endDate = effectiveSnapshot?.month
-      ? new Date(`${effectiveSnapshot.month}-15`)
-      : new Date();
+    let endDate = new Date();
+    if (effectiveSnapshot?.month) {
+      const mStr = String(effectiveSnapshot.month).trim();
+      const mMatch = mStr.match(/^(\d{4})-(\d{2})/);
+      if (mMatch) {
+        endDate = new Date(`${mMatch[1]}-${mMatch[2]}-15`);
+      } else {
+        const parsed = new Date(mStr.length <= 7 ? `${mStr}-15` : mStr);
+        if (!isNaN(parsed.getTime())) endDate = parsed;
+      }
+    }
 
     return consolidatedAssets.map((asset) => {
       const normTicker = asset.ticker.toUpperCase().replace(".", "-");
@@ -465,8 +494,11 @@ const VariableIncomeMoversDashboard = () => {
       }
 
       // Calculate holding period and CAGR (Compound Annual Growth Rate)
-      const startDateStr = asset.startDate || defaultAssetStartDates[normTicker] || defaultAssetStartDates[asset.ticker] || "2024-01-01";
-      const startDate = new Date(startDateStr.length === 4 ? `${startDateStr}-01-01` : startDateStr);
+      const isCrypto = normTicker.includes("BTC") || normTicker.includes("ETH") || normTicker.includes("USDT") || normTicker.includes("SOL");
+      const defaultStart = defaultAssetStartDates[normTicker] || defaultAssetStartDates[asset.ticker] || (isCrypto ? "2024-01-01" : "2021-01-01");
+      const rawStart = asset.startDate || defaultStart;
+      const { date: startDate, str: startDateStr } = parseStartDateStr(rawStart, defaultStart.slice(0, 4));
+
       const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
       const holdingYears = Math.max(0.1, diffMs / (365.25 * 24 * 60 * 60 * 1000));
 
@@ -477,8 +509,19 @@ const VariableIncomeMoversDashboard = () => {
         } else {
           cagrPct = ((asset.currentValueBRL - asset.appliedAmountBRL) / asset.appliedAmountBRL) * 100;
         }
+      } else if (asset.profitPct != null && !isNaN(asset.profitPct) && holdingYears > 0) {
+        if (holdingYears >= 1) {
+          const ratio = Math.max(0.0001, 1 + asset.profitPct);
+          cagrPct = (Math.pow(ratio, 1 / holdingYears) - 1) * 100;
+        } else {
+          cagrPct = asset.profitPct * 100;
+        }
       } else if (asset.appliedAmountBRL > 0 && asset.currentValueBRL === 0) {
         cagrPct = -100;
+      }
+
+      if (cagrPct != null && isNaN(cagrPct)) {
+        cagrPct = undefined;
       }
 
       return {
