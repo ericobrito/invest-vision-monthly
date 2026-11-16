@@ -91,7 +91,25 @@ interface PerformanceAsset {
   fxRate?: number;
   athUSD?: number;
   potentialReturnPct?: number;
+  startDate?: string;
+  holdingYears?: number;
+  cagrPct?: number;
 }
+
+const defaultAssetStartDates: Record<string, string> = {
+  "TSLA": "2021-01-01",
+  "META": "2021-01-01",
+  "BRK-B": "2021-01-01",
+  "BRK.B": "2021-01-01",
+  "GOOGL": "2021-01-01",
+  "AMD": "2021-01-01",
+  "IONQ": "2021-01-01",
+  "RGTI": "2021-01-01",
+  "BTC": "2024-01-01",
+  "ETH": "2024-01-01",
+  "USDT": "2024-01-01",
+  "SOL": "2024-01-01",
+};
 
 const avenueKnownPositions: Record<string, {
   name: string;
@@ -133,7 +151,7 @@ const VariableIncomeMoversDashboard = () => {
   const { positions: variablePositions = [], loading: variableLoading } = useVariableAssets();
 
   const [selectedMonth, setSelectedMonth] = useState<string>("latest");
-  const [sortBy, setSortBy] = useState<"profitPct" | "profitBRL" | "currentValue" | "potential">("profitPct");
+  const [sortBy, setSortBy] = useState<"profitPct" | "cagr" | "profitBRL" | "currentValue" | "potential">("profitPct");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBroker, setFilterBroker] = useState<string>("all");
   const [displayMode, setDisplayMode] = useState<"table" | "cards">("table");
@@ -212,6 +230,7 @@ const VariableIncomeMoversDashboard = () => {
         if (currP) existing.currentPriceUSD = currP;
         if (avgP) existing.averagePriceUSD = avgP;
       } else {
+        const posDate = (pos as any).purchaseDate || (pos as any).purchase_date || defaultAssetStartDates[norm] || "2024-01-01";
         map.set(norm, {
           ticker: norm,
           name: (pos as any).name || knownCrypto?.name || norm,
@@ -225,6 +244,7 @@ const VariableIncomeMoversDashboard = () => {
           currentPriceUSD: currP,
           averagePriceUSD: avgP,
           fxRate: fx,
+          startDate: posDate,
           sources: new Set([src]),
         });
       }
@@ -252,6 +272,7 @@ const VariableIncomeMoversDashboard = () => {
             if (valBRL < 10 && qty <= 0) return;
 
             const src = inv.name || "Foto Mensal";
+            const posDate = (p as any).purchaseDate || (p as any).purchase_date || (inv.yearStarted ? `${inv.yearStarted}-01-01` : undefined) || defaultAssetStartDates[norm] || "2024-01-01";
             const existing = map.get(norm);
 
             if (existing) {
@@ -264,6 +285,7 @@ const VariableIncomeMoversDashboard = () => {
               }
               if (currP) existing.currentPriceUSD = currP;
               if (avgP) existing.averagePriceUSD = avgP;
+              if (!existing.startDate) existing.startDate = posDate;
             } else {
               map.set(norm, {
                 ticker: norm,
@@ -278,6 +300,7 @@ const VariableIncomeMoversDashboard = () => {
                 currentPriceUSD: currP,
                 averagePriceUSD: avgP,
                 fxRate: fx,
+                startDate: posDate,
                 sources: new Set([src]),
               });
             }
@@ -302,6 +325,7 @@ const VariableIncomeMoversDashboard = () => {
           currentPriceUSD: known.currentPrice,
           averagePriceUSD: known.averagePrice,
           fxRate: DEFAULT_USD_BRL_FX,
+          startDate: "2021-01-01",
           sources: new Set(["Avenue-Dolar"]),
         });
       } else {
@@ -310,6 +334,7 @@ const VariableIncomeMoversDashboard = () => {
         if (!existing.averagePriceUSD) existing.averagePriceUSD = known.averagePrice;
         if (!existing.currentValueUSD) existing.currentValueUSD = known.currentValueUSD;
         if (existing.profitPct === 0 && known.profitPct !== 0) existing.profitPct = known.profitPct;
+        if (!existing.startDate) existing.startDate = "2021-01-01";
       }
     });
 
@@ -323,6 +348,7 @@ const VariableIncomeMoversDashboard = () => {
       currentValueBRL: number;
       appliedAmountBRL: number;
       profitPct: number;
+      startDate: string;
     }> = {
       "ETH": {
         name: "Ethereum",
@@ -334,6 +360,7 @@ const VariableIncomeMoversDashboard = () => {
         currentValueBRL: 11505.29,
         appliedAmountBRL: 10079.80,
         profitPct: 0.1414,
+        startDate: "2024-01-01",
       },
       "BTC": {
         name: "Bitcoin",
@@ -345,6 +372,7 @@ const VariableIncomeMoversDashboard = () => {
         currentValueBRL: 24252.25,
         appliedAmountBRL: 9261.27,
         profitPct: 1.6187,
+        startDate: "2024-01-01",
       },
       "USDT": {
         name: "Tether USD",
@@ -356,6 +384,7 @@ const VariableIncomeMoversDashboard = () => {
         currentValueBRL: 24125.75,
         appliedAmountBRL: 24125.75,
         profitPct: 0.0029,
+        startDate: "2024-01-01",
       },
     };
 
@@ -373,6 +402,7 @@ const VariableIncomeMoversDashboard = () => {
         currentPriceUSD: c.currentPriceUSD,
         averagePriceUSD: c.averagePriceUSD,
         fxRate: DEFAULT_USD_BRL_FX,
+        startDate: c.startDate,
         sources: new Set(c.sources),
       });
     });
@@ -396,6 +426,7 @@ const VariableIncomeMoversDashboard = () => {
           currentPriceUSD: item.currentPriceUSD,
           averagePriceUSD: item.averagePriceUSD,
           fxRate: item.fxRate || DEFAULT_USD_BRL_FX,
+          startDate: item.startDate || defaultAssetStartDates[item.ticker] || "2024-01-01",
         });
       }
     });
@@ -411,6 +442,10 @@ const VariableIncomeMoversDashboard = () => {
     if (radarResponse?.data) {
       radarResponse.data.forEach((s) => radarMap.set(s.ticker.toUpperCase().replace(".", "-"), s));
     }
+
+    const endDate = effectiveSnapshot?.month
+      ? new Date(`${effectiveSnapshot.month}-15`)
+      : new Date();
 
     return consolidatedAssets.map((asset) => {
       const normTicker = asset.ticker.toUpperCase().replace(".", "-");
@@ -429,14 +464,34 @@ const VariableIncomeMoversDashboard = () => {
         potentialReturnPct = raw > 10 ? raw / 100 : raw;
       }
 
+      // Calculate holding period and CAGR (Compound Annual Growth Rate)
+      const startDateStr = asset.startDate || defaultAssetStartDates[normTicker] || defaultAssetStartDates[asset.ticker] || "2024-01-01";
+      const startDate = new Date(startDateStr.length === 4 ? `${startDateStr}-01-01` : startDateStr);
+      const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
+      const holdingYears = Math.max(0.1, diffMs / (365.25 * 24 * 60 * 60 * 1000));
+
+      let cagrPct: number | undefined = undefined;
+      if (asset.appliedAmountBRL > 0 && asset.currentValueBRL > 0 && holdingYears > 0) {
+        if (holdingYears >= 1) {
+          cagrPct = (Math.pow(asset.currentValueBRL / asset.appliedAmountBRL, 1 / holdingYears) - 1) * 100;
+        } else {
+          cagrPct = ((asset.currentValueBRL - asset.appliedAmountBRL) / asset.appliedAmountBRL) * 100;
+        }
+      } else if (asset.appliedAmountBRL > 0 && asset.currentValueBRL === 0) {
+        cagrPct = -100;
+      }
+
       return {
         ...asset,
         currentPriceUSD,
         athUSD: athUSD > 0 ? athUSD : undefined,
         potentialReturnPct,
+        startDate: startDateStr,
+        holdingYears,
+        cagrPct,
       };
     });
-  }, [consolidatedAssets, radarResponse]);
+  }, [consolidatedAssets, radarResponse, effectiveSnapshot]);
 
   const brokerOptions = useMemo(() => {
     const set = new Set<string>();
@@ -456,6 +511,7 @@ const VariableIncomeMoversDashboard = () => {
 
     result.sort((a, b) => {
       if (sortBy === "profitPct") return b.profitPct - a.profitPct;
+      if (sortBy === "cagr") return (b.cagrPct ?? -999) - (a.cagrPct ?? -999);
       if (sortBy === "profitBRL") return b.profitBRL - a.profitBRL;
       if (sortBy === "currentValue") return b.currentValueBRL - a.currentValueBRL;
       if (sortBy === "potential") return (b.potentialReturnPct || 0) - (a.potentialReturnPct || 0);
@@ -472,6 +528,7 @@ const VariableIncomeMoversDashboard = () => {
     const weightedProfitPct = totalApplied > 0 ? totalProfitBRL / totalApplied : 0;
 
     const topGainer = [...enrichedAssets].sort((a, b) => b.profitPct - a.profitPct)[0];
+    const topCagr = [...enrichedAssets].filter((a) => a.cagrPct !== undefined).sort((a, b) => (b.cagrPct || 0) - (a.cagrPct || 0))[0];
     const topProfitR$ = [...enrichedAssets].sort((a, b) => b.profitBRL - a.profitBRL)[0];
     const worstGainer = [...enrichedAssets].sort((a, b) => a.profitPct - b.profitPct)[0];
 
@@ -481,6 +538,7 @@ const VariableIncomeMoversDashboard = () => {
       totalProfitBRL,
       weightedProfitPct,
       topGainer,
+      topCagr,
       topProfitR$,
       worstGainer,
       count: enrichedAssets.length,
@@ -576,7 +634,7 @@ const VariableIncomeMoversDashboard = () => {
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{summaryMetrics.topGainer.name}</p>
                   <div className="text-[11px] text-emerald-400/90 mt-1 font-mono truncate">
-                    Lucro: {formatBRL(summaryMetrics.topGainer.profitBRL)} · {summaryMetrics.topGainer.source}
+                    Lucro: {formatBRL(summaryMetrics.topGainer.profitBRL)} {summaryMetrics.topGainer.cagrPct !== undefined ? `· CAGR: ${summaryMetrics.topGainer.cagrPct >= 0 ? "+" : ""}${summaryMetrics.topGainer.cagrPct.toFixed(1)}% a.a.` : ""}
                   </div>
                 </div>
               ) : (
@@ -607,7 +665,7 @@ const VariableIncomeMoversDashboard = () => {
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{summaryMetrics.topProfitR$.name}</p>
                   <div className="text-[11px] text-teal-400/90 mt-1 font-mono truncate">
-                    Rentabilidade: {formatPct(summaryMetrics.topProfitR$.profitPct)}
+                    Rentabilidade: {formatPct(summaryMetrics.topProfitR$.profitPct)} {summaryMetrics.topProfitR$.cagrPct !== undefined ? `· CAGR: ${summaryMetrics.topProfitR$.cagrPct >= 0 ? "+" : ""}${summaryMetrics.topProfitR$.cagrPct.toFixed(1)}% a.a.` : ""}
                   </div>
                 </div>
               ) : (
@@ -636,7 +694,7 @@ const VariableIncomeMoversDashboard = () => {
                   </strong>
                 </p>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
-                  Consolidando {summaryMetrics.count} ativos de RV
+                  {summaryMetrics.count} ativos RV {summaryMetrics.topCagr?.cagrPct !== undefined ? `· Maior CAGR: ${summaryMetrics.topCagr.ticker} (+${summaryMetrics.topCagr.cagrPct.toFixed(1)}% a.a.)` : ""}
                 </div>
               </div>
             </CardContent>
@@ -731,6 +789,14 @@ const VariableIncomeMoversDashboard = () => {
               className="text-xs h-8 flex-1 sm:flex-none"
             >
               🔥 Maior Alta (%)
+            </Button>
+            <Button
+              variant={sortBy === "cagr" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSortBy("cagr")}
+              className="text-xs h-8 flex-1 sm:flex-none"
+            >
+              📈 Rentabilidade CAGR
             </Button>
             <Button
               variant={sortBy === "profitBRL" ? "default" : "outline"}
@@ -839,11 +905,18 @@ const VariableIncomeMoversDashboard = () => {
                             {asset.source}
                           </Badge>
                         </div>
-                        <div className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                          isPositive ? "bg-emerald-500/15 text-emerald-400" : "bg-destructive/15 text-destructive"
-                        }`}>
-                          {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                          {formatPct(asset.profitPct)}
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <div className={`inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                            isPositive ? "bg-emerald-500/15 text-emerald-400" : "bg-destructive/15 text-destructive"
+                          }`}>
+                            {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                            {formatPct(asset.profitPct)}
+                          </div>
+                          {asset.cagrPct !== undefined && (
+                            <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-400 shrink-0">
+                              CAGR: {asset.cagrPct >= 0 ? "+" : ""}{asset.cagrPct.toFixed(1)}% a.a.
+                            </Badge>
+                          )}
                         </div>
                       </div>
 
@@ -871,6 +944,11 @@ const VariableIncomeMoversDashboard = () => {
                         <div>
                           P. Atual: <strong className="text-foreground font-mono">{asset.currentPriceUSD ? formatUSD(asset.currentPriceUSD) : "—"}</strong>
                         </div>
+                        {asset.cagrPct !== undefined && (
+                          <div className="text-right">
+                            CAGR: <strong className="text-emerald-400 font-mono">{asset.cagrPct >= 0 ? "+" : ""}{asset.cagrPct.toFixed(2)}% a.a.</strong>
+                          </div>
+                        )}
                         {asset.potentialReturnPct !== undefined && (
                           <div className="text-right">
                             Potencial: <strong className="text-emerald-400 font-mono">{formatPct(asset.potentialReturnPct)}</strong>
@@ -897,20 +975,21 @@ const VariableIncomeMoversDashboard = () => {
                     <TableHead className="font-semibold text-right text-primary">Valor Atual (R$)</TableHead>
                     <TableHead className="font-semibold text-right">Lucro (R$)</TableHead>
                     <TableHead className="font-semibold text-right">Rentabilidade</TableHead>
+                    <TableHead className="font-semibold text-right text-emerald-400">Rentabilidade CAGR</TableHead>
                     <TableHead className="font-semibold text-right">Potencial (ATH)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                         Carregando posições de renda variável...
                       </TableCell>
                     </TableRow>
                   ) : sortedAssets.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                         Nenhum ativo encontrado com os filtros atuais.
                       </TableCell>
                     </TableRow>
@@ -965,6 +1044,22 @@ const VariableIncomeMoversDashboard = () => {
                               {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
                               {formatPct(asset.profitPct)}
                             </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono whitespace-nowrap text-xs">
+                            {asset.cagrPct !== undefined ? (
+                              <div className="flex flex-col items-end">
+                                <span className={`font-bold ${asset.cagrPct >= 0 ? "text-emerald-400" : "text-destructive"}`}>
+                                  {asset.cagrPct >= 0 ? "+" : ""}{asset.cagrPct.toFixed(2)}% a.a.
+                                </span>
+                                {asset.holdingYears && (
+                                  <span className="text-[10px] text-muted-foreground font-normal">
+                                    {asset.holdingYears >= 1 ? `${asset.holdingYears.toFixed(1)}a` : `${Math.round(asset.holdingYears * 12)}m`} {asset.startDate ? `· desde ${asset.startDate.slice(0, 4)}` : ""}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-mono whitespace-nowrap text-xs">
                             {asset.potentialReturnPct !== undefined ? (
