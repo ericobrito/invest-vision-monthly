@@ -49,9 +49,14 @@ export class CryptoAccountingEngine {
           if (Array.isArray(parsed) && parsed.length > 0) {
             const defaultMap = new Map(this.trades.map((t) => [t.id, t]));
             parsed.forEach((t: CryptoTrade) => {
-              defaultMap.set(t.id, t);
+              // Exclude guessed mock trades so only real API trades persist
+              if (!t.id.startsWith("trade_binance_2026_")) {
+                defaultMap.set(t.id, t);
+              }
             });
-            this.trades = Array.from(defaultMap.values()).sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+            this.trades = Array.from(defaultMap.values())
+              .filter((t) => !t.id.startsWith("trade_binance_2026_"))
+              .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
             this.persistTrades();
             return;
           }
@@ -216,78 +221,6 @@ export class CryptoAccountingEngine {
         country: "US",
         source: "CSV",
         notes: "Custody transfer received at Coinbase",
-      },
-      {
-        id: "trade_binance_2026_btc",
-        broker: "Binance",
-        dateTime: "2026-03-10T14:22:15Z",
-        asset: "BTC",
-        quantity: 0.01480518,
-        side: "BUY",
-        price: 67544.02,
-        grossValue: 1000.00,
-        fee: 1.0,
-        feeAsset: "USDT",
-        netValue: 1001.00,
-        quoteCurrency: "USDT",
-        transactionType: "SPOT",
-        country: "KY",
-        source: "API",
-        notes: "Execução Binance Spot BTC/USDT (Início de 2026)",
-      },
-      {
-        id: "trade_binance_2026_eth",
-        broker: "Binance",
-        dateTime: "2026-03-12T18:45:30Z",
-        asset: "ETH",
-        quantity: 0.39590370,
-        side: "BUY",
-        price: 1736.41,
-        grossValue: 687.45,
-        fee: 0.70,
-        feeAsset: "USDT",
-        netValue: 688.15,
-        quoteCurrency: "USDT",
-        transactionType: "SPOT",
-        country: "KY",
-        source: "API",
-        notes: "Execução Binance Spot ETH/USDT (Início de 2026)",
-      },
-      {
-        id: "trade_binance_2026_11_16_btc",
-        broker: "Binance",
-        dateTime: "2026-11-16T14:22:15Z",
-        asset: "BTC",
-        quantity: 0.01480518,
-        side: "BUY",
-        price: 89450.00,
-        grossValue: 1324.32,
-        fee: 1.32,
-        feeAsset: "USDT",
-        netValue: 1325.64,
-        quoteCurrency: "USDT",
-        transactionType: "SPOT",
-        country: "KY",
-        source: "API",
-        notes: "Execução Binance Spot de ontem (16/11/2026)",
-      },
-      {
-        id: "trade_binance_2026_11_16_eth",
-        broker: "Binance",
-        dateTime: "2026-11-16T15:45:30Z",
-        asset: "ETH",
-        quantity: 0.39590370,
-        side: "BUY",
-        price: 3120.00,
-        grossValue: 1235.22,
-        fee: 1.23,
-        feeAsset: "USDT",
-        netValue: 1236.45,
-        quoteCurrency: "USDT",
-        transactionType: "SPOT",
-        country: "KY",
-        source: "API",
-        notes: "Execução Binance Spot de ontem (16/11/2026)",
       },
     ];
 

@@ -36,20 +36,29 @@ export class ExchangeOrdersSyncService {
     try {
       console.log("[ExchangeOrdersSyncService] Triggering online exchange trades sync...");
 
-      const { data, error } = await supabase.functions.invoke("variable-assets", {
-        body: { action: "sync_trades" },
-      });
+      let rawTrades: SyncedExchangeTrade[] = [];
 
-      if (error) {
-        console.warn("[ExchangeOrdersSyncService] Sync trades error from edge function:", error);
-        if (!options?.silent) {
-          toast.error("Não foi possível sincronizar ordens das corretoras automaticamente.");
+      try {
+        const { data, error } = await supabase.functions.invoke("variable-assets", {
+          body: { action: "sync_trades" },
+        });
+        if (!error && Array.isArray(data?.trades)) {
+          rawTrades = data.trades as SyncedExchangeTrade[];
         }
-        return { success: false, count: 0, trades: [] };
+      } catch (err) {
+        console.warn("[ExchangeOrdersSyncService] Edge function sync_trades notice:", err);
       }
 
-      const rawTrades: SyncedExchangeTrade[] = (data?.trades as SyncedExchangeTrade[]) || [];
-      console.log(`[ExchangeOrdersSyncService] Received ${rawTrades.length} trades from exchange APIs`);
+      // If remote edge function returned no trades, execute direct client-side Binance API sync
+      if (rawTrades.length === 0) {
+        console.log("[ExchangeOrdersSyncService] Edge function returned 0 trades. Initiating direct client-side Binance API sync...");
+        const directBinanceTrades = await this.fetchRealBinanceTradesClient();
+        if (directBinanceTrades.length > 0) {
+          rawTrades = directBinanceTrades;
+        }
+      }
+
+      console.log(`[ExchangeOrdersSyncService] Total ${rawTrades.length} real trades received from exchange APIs`);
 
       let newTradesCount = 0;
       const fxRate = FALLBACK_USD_BRL;
@@ -132,6 +141,102 @@ export class ExchangeOrdersSyncService {
       return { success: false, count: 0, trades: [] };
     } finally {
       this.isSyncing = false;
+    }
+  }
+
+  private static async hmacSha256Hex(secret: string, message: string): Promise<string> {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signature = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+    return Array.from(new Uint8Array(signature))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  public static async fetchRealBinanceTradesClient(): Promise<SyncedExchangeTrade[]> {
+    try {
+      const { data: conns } = await supabase
+        .from("va_connections")
+        .select("id, provider, status")
+        .eq("provider", "binance");
+
+      if (!conns || conns.length === 0) return [];
+      const connId = conns[0].id;
+
+      const { data: cred } = await supabase
+        .from("va_credentials")
+        .select("api_key, api_secret")
+        .eq("connection_id", connId)
+        .maybeSingle();
+
+      if (!cred || !cred.api_key || !cred.api_secret) {
+        console.warn("[ExchangeOrdersSyncService] No credentials for Binance found in va_credentials");
+        return [];
+      }
+
+      const symbols = ["BTCBRL", "BTCUSDT", "ETHBRL", "ETHUSDT", "USDTBRL", "SOLUSDT", "SOLBRL", "BNBUSDT", "BNBBRL"];
+      const trades: SyncedExchangeTrade[] = [];
+      const key = cred.api_key;
+      const secret = cred.api_secret;
+
+      for (const symbol of symbols) {
+        try {
+          const ts = Date.now();
+          const query = `symbol=${symbol}&timestamp=${ts}&recvWindow=10000&limit=500`;
+          const sig = await this.hmacSha256Hex(secret, query);
+          const url = `https://api.binance.com/api/v3/myTrades?${query}&signature=${sig}`;
+
+          const res = await fetch(url, {
+            headers: {
+              "X-MBX-APIKEY": key,
+            },
+          });
+
+          if (!res.ok) continue;
+          const list = await res.json();
+          if (Array.isArray(list)) {
+            for (const t of list) {
+              const isBuy = t.isBuyer === true;
+              const qty = parseFloat(t.qty) || 0;
+              const price = parseFloat(t.price) || 0;
+              const quoteQty = parseFloat(t.quoteQty) || (qty * price);
+              const fee = parseFloat(t.commission) || 0;
+              const isBrl = symbol.endsWith("BRL");
+              const baseTicker = symbol.replace(/(USDT|BRL|USD|FDUSD|USDC)$/, "");
+
+              trades.push({
+                id: `bin_real_${t.id || t.orderId}`,
+                broker: "Binance",
+                ticker: baseTicker || symbol,
+                symbol,
+                dateTime: new Date(t.time).toISOString(),
+                orderType: isBuy ? "BUY" : "SELL",
+                quantity: qty,
+                unitPriceUSD: isBrl ? Number((price / FALLBACK_USD_BRL).toFixed(2)) : price,
+                grossValueUSD: isBrl ? Number((quoteQty / FALLBACK_USD_BRL).toFixed(2)) : quoteQty,
+                feeUSD: fee,
+                feeAsset: t.commissionAsset,
+                source: "API_BINANCE_ONLINE",
+                notes: `Ordem Real Binance Spot ${symbol} (#${t.orderId}) @ ${isBrl ? 'R$' : '$'}${price}`,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`[ExchangeOrdersSyncService] Error fetching Binance trades for ${symbol}:`, err);
+        }
+      }
+
+      console.log(`[ExchangeOrdersSyncService] Direct Binance API returned ${trades.length} real trades`);
+      return trades;
+    } catch (e) {
+      console.error("[ExchangeOrdersSyncService] Error during direct Binance trade fetch:", e);
+      return [];
     }
   }
 }

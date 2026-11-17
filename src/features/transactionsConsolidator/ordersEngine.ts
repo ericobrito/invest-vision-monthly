@@ -65,9 +65,10 @@ export class OrdersConsolidatorEngine {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map((o: any) => o.id));
+          const cleanParsed = parsed.filter((o: any) => !o.id.startsWith("ord_bin_btc_2026") && !o.id.startsWith("ord_bin_eth_2026"));
+          const existingIds = new Set(cleanParsed.map((o: any) => o.id));
           const missingDefaults = initialHistoricalOrders.filter((o) => !existingIds.has(o.id));
-          this.orders = missingDefaults.length > 0 ? [...parsed, ...missingDefaults] : parsed;
+          this.orders = missingDefaults.length > 0 ? [...cleanParsed, ...missingDefaults] : cleanParsed;
           this.recalculateAllWeightedAverages();
           this.persistOrders();
           return;
