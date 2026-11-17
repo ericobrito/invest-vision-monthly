@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { ExchangeOrdersSyncService } from "@/services/ExchangeOrdersSyncService";
 import {
   ArrowDownRight,
   BarChart3,
@@ -236,6 +237,30 @@ export function CryptoAccountingDashboard() {
     refreshKey,
   ]);
 
+  const [isSyncingOnline, setIsSyncingOnline] = useState(false);
+
+  useEffect(() => {
+    const onSynced = () => {
+      setRefreshKey((k) => k + 1);
+    };
+    window.addEventListener("exchange_orders_synced", onSynced);
+
+    // Auto-sync exchange trades in the background when opening the dashboard
+    ExchangeOrdersSyncService.syncAllTrades({ silent: true }).catch(() => null);
+
+    return () => window.removeEventListener("exchange_orders_synced", onSynced);
+  }, []);
+
+  const handleSyncOnlineTrades = async () => {
+    setIsSyncingOnline(true);
+    try {
+      await ExchangeOrdersSyncService.syncAllTrades();
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setIsSyncingOnline(false);
+    }
+  };
+
   const handleImportCSV = () => {
     if (!csvText.trim()) return;
     setIsImporting(true);
@@ -301,6 +326,16 @@ export function CryptoAccountingDashboard() {
           </div>
 
           <div className="hidden lg:flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncOnlineTrades}
+              disabled={isSyncingOnline}
+              className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+            >
+              <RefreshCw className={`w-4 h-4 mr-1 text-emerald-400 ${isSyncingOnline ? "animate-spin" : ""}`} />
+              {isSyncingOnline ? "Sincronizando..." : "Sincronizar Binance & APIs"}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -476,8 +511,24 @@ export function CryptoAccountingDashboard() {
                   <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-[11px] text-muted-foreground flex items-start gap-2">
                     <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <div>
-                      <strong className="text-foreground">Sincronização de Ordens:</strong> A API da Binance importa saldos de carteira. Para a apuração tributária (GCAP/IRPF), importe o extrato CSV da corretora ou insira as ordens no formulário abaixo.
+                      <strong className="text-foreground">Sincronização de Ordens:</strong> Clique no botão abaixo para buscar automaticamente as compras e ordens executadas nas APIs das corretoras conectadas.
                     </div>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    onClick={handleSyncOnlineTrades}
+                    disabled={isSyncingOnline}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isSyncingOnline ? "animate-spin" : ""}`} />
+                    {isSyncingOnline ? "Buscando Ordens na Binance/APIs..." : "Sincronizar Binance & APIs Online"}
+                  </Button>
+
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-border"></div>
+                    <span className="flex-shrink mx-2 text-[10px] text-muted-foreground uppercase">ou importar extrato</span>
+                    <div className="flex-grow border-t border-border"></div>
                   </div>
 
                   <div className="space-y-1">

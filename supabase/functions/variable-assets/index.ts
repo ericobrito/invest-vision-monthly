@@ -25,6 +25,22 @@ interface NormalizedBalance {
   walletType?: string;
 }
 
+interface NormalizedTrade {
+  id: string;
+  broker: string;
+  ticker: string;
+  symbol: string;
+  dateTime: string;
+  orderType: "BUY" | "SELL";
+  quantity: number;
+  unitPriceUSD: number;
+  grossValueUSD: number;
+  feeUSD: number;
+  feeAsset?: string;
+  source: string;
+  notes?: string;
+}
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
@@ -145,6 +161,64 @@ async function fetchBinance(key: string, secret: string): Promise<NormalizedBala
       quantity: parseFloat(b.free) + parseFloat(b.locked),
     }))
     .filter((b: NormalizedBalance) => b.quantity > 0);
+}
+
+async function fetchBinanceTrades(
+  key: string,
+  secret: string,
+  symbols: string[] = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "BTCBRL", "ETHBRL", "USDTBRL"],
+): Promise<NormalizedTrade[]> {
+  const trades: NormalizedTrade[] = [];
+  const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase())));
+
+  for (const symbol of uniqueSymbols) {
+    try {
+      const ts = Date.now();
+      const query = `symbol=${symbol}&timestamp=${ts}&recvWindow=10000&limit=500`;
+      const sig = toHex(await hmac("SHA-256", secret, query));
+      const res = await binanceFetch(
+        `/api/v3/myTrades?${query}&signature=${sig}`,
+        { headers: { "X-MBX-APIKEY": key } },
+        BINANCE_HOSTS.filter((h) => !h.includes("binance.vision")),
+      );
+
+      if (!res.ok) {
+        continue;
+      }
+
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        for (const t of list) {
+          const isBuy = t.isBuyer === true;
+          const qty = parseFloat(t.qty) || 0;
+          const price = parseFloat(t.price) || 0;
+          const quoteQty = parseFloat(t.quoteQty) || (qty * price);
+          const commission = parseFloat(t.commission) || 0;
+          const baseTicker = symbol.replace(/(USDT|BRL|USD|FDUSD|USDC)$/, "");
+
+          trades.push({
+            id: `bin_trade_${t.id || t.orderId}`,
+            broker: "Binance",
+            ticker: baseTicker || symbol,
+            symbol,
+            dateTime: new Date(t.time).toISOString(),
+            orderType: isBuy ? "BUY" : "SELL",
+            quantity: qty,
+            unitPriceUSD: price,
+            grossValueUSD: quoteQty,
+            feeUSD: commission,
+            feeAsset: t.commissionAsset,
+            source: "API_BINANCE",
+            notes: `Execução automática Binance Spot ${symbol} (Ordem #${t.orderId})`,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`[binance] Error fetching trades for ${symbol}:`, e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return trades.sort((a, b) => b.dateTime.localeCompare(a.dateTime));
 }
 
 
@@ -892,6 +966,54 @@ async function fetchCoinbase(
   return result;
 }
 
+async function fetchCoinbaseFills(
+  key: string,
+  secret: string,
+): Promise<NormalizedTrade[]> {
+  try {
+    const host = "api.coinbase.com";
+    const path = "/api/v3/brokerage/orders/historical/fills";
+    const query = new URLSearchParams({ limit: "100" });
+    const data = (await coinbaseGet(key, secret, host, path, query)) as {
+      fills?: Array<{
+        entry_id?: string;
+        trade_id?: string;
+        order_id?: string;
+        product_id?: string;
+        price?: string;
+        size?: string;
+        commission?: string;
+        trade_time?: string;
+        side?: string;
+      }>;
+    };
+    const fills = data?.fills ?? [];
+    return fills.map((f) => {
+      const isBuy = (f.side || "").toUpperCase() === "BUY";
+      const qty = parseFloat(f.size || "0") || 0;
+      const price = parseFloat(f.price || "0") || 0;
+      const base = (f.product_id || "").split("-")[0] || f.product_id || "CRYPTO";
+      return {
+        id: `cb_fill_${f.entry_id || f.trade_id || f.order_id}`,
+        broker: "Coinbase",
+        ticker: base.toUpperCase(),
+        symbol: f.product_id || base,
+        dateTime: f.trade_time || new Date().toISOString(),
+        orderType: isBuy ? ("BUY" as const) : ("SELL" as const),
+        quantity: qty,
+        unitPriceUSD: price,
+        grossValueUSD: qty * price,
+        feeUSD: parseFloat(f.commission || "0") || 0,
+        source: "API_COINBASE",
+        notes: `Execução automática Coinbase Advanced ${f.product_id}`,
+      };
+    });
+  } catch (e) {
+    console.warn("[coinbase] Error fetching fills:", e instanceof Error ? e.message : String(e));
+    return [];
+  }
+}
+
 async function fetchKraken(key: string, secret: string): Promise<NormalizedBalance[]> {
   const path = "/0/private/Balance";
   const nonce = Date.now().toString();
@@ -1327,6 +1449,7 @@ type Action =
   | { action: "list" }
   | { action: "connect"; provider: Provider; label?: string; api_key: string; api_secret: string; passphrase?: string }
   | { action: "sync"; connection_id: string; expected_total?: number }
+  | { action: "sync_trades"; connection_id?: string; symbols?: string[] }
   | { action: "sync_all" }
   | { action: "disconnect"; connection_id: string }
   | { action: "add_manual"; ticker: string; quantity: number; broker?: string }
@@ -1366,13 +1489,33 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
 
     const adapter = getAdapter(effectiveProvider as any);
     let balances: NormalizedBalance[];
+    let trades: NormalizedTrade[] = [];
     try {
       if (effectiveProvider === "coinbase") {
         balances = await (adapter as typeof fetchCoinbase)(
           cred.api_key, cred.api_secret, cred.passphrase ?? "",
         );
+        try {
+          trades = await fetchCoinbaseFills(cred.api_key, cred.api_secret);
+          console.log(`[sync] Coinbase fetched ${trades.length} executed fills`);
+        } catch (fillErr) {
+          console.warn("[sync] Coinbase fills fetch error:", fillErr);
+        }
       } else if (effectiveProvider === "pluggy") {
         balances = await fetchPluggy(cred.api_key, cred.passphrase, cred.api_secret);
+      } else if (effectiveProvider === "binance") {
+        balances = await fetchBinance(cred.api_key, cred.api_secret);
+        const symbolsToFetch = balances
+          .map((b) => b.ticker)
+          .filter((t) => !["USDT", "BRL", "USD", "USDC"].includes(t))
+          .flatMap((t) => [`${t}USDT`, `${t}BRL`]);
+        symbolsToFetch.push("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "BTCBRL", "ETHBRL", "USDTBRL");
+        try {
+          trades = await fetchBinanceTrades(cred.api_key, cred.api_secret, symbolsToFetch);
+          console.log(`[sync] Binance fetched ${trades.length} executed trades`);
+        } catch (tradeErr) {
+          console.warn("[sync] Binance trades fetch error:", tradeErr);
+        }
       } else {
         balances = await (adapter as typeof fetchBinance)(cred.api_key, cred.api_secret);
       }
@@ -1585,7 +1728,7 @@ async function syncConnection(connectionId: string, expectedTotal?: number) {
     };
     await audit.finish("completed", summary);
 
-    return { count: balances.length, runId: audit.runId, ...summary };
+    return { count: balances.length, trades, runId: audit.runId, ...summary };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await audit.log("ERROR", { message: msg });
@@ -1642,6 +1785,29 @@ async function handle(body: Action) {
     }
     case "sync": {
       return await syncConnection(body.connection_id, body.expected_total);
+    }
+    case "sync_trades": {
+      const targetConns = body.connection_id
+        ? [{ id: body.connection_id }]
+        : (await admin.from("va_connections").select("id").eq("status", "active")).data ?? [];
+      const allTrades: NormalizedTrade[] = [];
+
+      for (const c of targetConns) {
+        try {
+          const res = await syncConnection(c.id);
+          if (res && (res as any).trades && Array.isArray((res as any).trades)) {
+            allTrades.push(...(res as any).trades);
+          }
+        } catch (e) {
+          console.warn(`[sync_trades] Error on connection ${c.id}:`, e);
+        }
+      }
+
+      return {
+        success: true,
+        count: allTrades.length,
+        trades: allTrades.sort((a, b) => b.dateTime.localeCompare(a.dateTime)),
+      };
     }
     case "sync_all": {
       const { data: conns } = await admin.from("va_connections").select("id");

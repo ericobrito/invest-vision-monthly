@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Connection, Position, Provider } from "./types";
 import { propagateConnectionValues } from "@/hooks/useSnapshots";
 import { createClient } from "@supabase/supabase-js";
+import { ExchangeOrdersSyncService } from "@/services/ExchangeOrdersSyncService";
 
 interface ListResponse {
   success: boolean;
@@ -343,7 +344,10 @@ export function useVariableAssets() {
         } else if (isInvestmentBloom) {
           await runClientSideInvestmentBloomSync(connection_id);
         } else {
-          await call({ action: "sync", connection_id });
+          const syncResult = await call<any>({ action: "sync", connection_id });
+          if (syncResult?.trades && Array.isArray(syncResult.trades) && syncResult.trades.length > 0) {
+            await ExchangeOrdersSyncService.syncAllTrades({ silent: true });
+          }
         }
 
         await propagateConnectionValues(connection_id);
@@ -419,6 +423,7 @@ export function useVariableAssets() {
           }
           await propagateConnectionValues(conn.id);
         }
+        await ExchangeOrdersSyncService.syncAllTrades({ silent: true });
       }
       await refresh();
       qc.invalidateQueries({ queryKey: ["snapshots"] });

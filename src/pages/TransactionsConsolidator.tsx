@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ExchangeOrdersSyncService } from "@/services/ExchangeOrdersSyncService";
 import {
   ArrowDownRight,
   ArrowLeft,
@@ -136,16 +137,30 @@ export const TransactionsConsolidator = () => {
     };
   }, [orders, assetSummaries]);
 
+  useEffect(() => {
+    const onSynced = () => {
+      setOrders(ordersConsolidatorEngine.getOrders());
+    };
+    window.addEventListener("exchange_orders_synced", onSynced);
+
+    // Auto-sync exchange trades in the background when opening the consolidator
+    ExchangeOrdersSyncService.syncAllTrades({ silent: true }).catch(() => null);
+
+    return () => window.removeEventListener("exchange_orders_synced", onSynced);
+  }, []);
+
   const handleSyncAPIs = async () => {
     setIsSyncing(true);
-    toast.info("Consultando APIs das exchanges conectadas (Binance, Coinbase, Avenue, Mercado Bitcoin)...");
-
-    setTimeout(() => {
+    try {
+      await ExchangeOrdersSyncService.syncAllTrades();
       ordersConsolidatorEngine.recalculateAllWeightedAverages();
       setOrders(ordersConsolidatorEngine.getOrders());
+    } catch (e) {
+      console.error("[TransactionsConsolidator] Sync error:", e);
+      toast.error("Erro ao sincronizar com as APIs das corretoras.");
+    } finally {
       setIsSyncing(false);
-      toast.success("APIs sincronizadas com sucesso! Todas as ordens e preços médios recalculados.");
-    }, 1200);
+    }
   };
 
   const handleExportCSV = () => {
