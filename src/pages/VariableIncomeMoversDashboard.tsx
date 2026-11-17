@@ -410,23 +410,27 @@ const VariableIncomeMoversDashboard = () => {
       },
     };
 
+    // Only fallback to cryptoCanonical if dynamic positions didn't provide this asset
     Object.entries(cryptoCanonical).forEach(([ticker, c]) => {
-      map.set(ticker, {
-        ticker,
-        name: c.name,
-        source: c.sources.join(", "),
-        quantity: c.quantity,
-        currentValueUSD: c.currentValueUSD,
-        currentValueBRL: c.currentValueBRL,
-        appliedAmountBRL: c.appliedAmountBRL,
-        profitBRL: c.currentValueBRL - c.appliedAmountBRL,
-        profitPct: c.profitPct,
-        currentPriceUSD: c.currentPriceUSD,
-        averagePriceUSD: c.averagePriceUSD,
-        fxRate: DEFAULT_USD_BRL_FX,
-        startDate: c.startDate,
-        sources: new Set(c.sources),
-      });
+      const existing = map.get(ticker);
+      if (!existing || existing.quantity <= 0) {
+        map.set(ticker, {
+          ticker,
+          name: c.name,
+          source: c.sources.join(", "),
+          quantity: c.quantity,
+          currentValueUSD: c.currentValueUSD,
+          currentValueBRL: c.currentValueBRL,
+          appliedAmountBRL: c.appliedAmountBRL,
+          profitBRL: c.currentValueBRL - c.appliedAmountBRL,
+          profitPct: c.profitPct,
+          currentPriceUSD: c.currentPriceUSD,
+          averagePriceUSD: c.averagePriceUSD,
+          fxRate: DEFAULT_USD_BRL_FX,
+          startDate: c.startDate,
+          sources: new Set(c.sources),
+        });
+      }
     });
 
     const list: PerformanceAsset[] = [];

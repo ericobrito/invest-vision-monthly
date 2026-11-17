@@ -199,22 +199,33 @@ export function useSnapshots() {
                   };
                 }
 
-                // For Binance: dynamic calculation with live prices (USDT 3858.18, BTC 0.04894251, ETH 1.0804185, BRL 0.40)
+                // For Binance: dynamic calculation with live connected exchange balances
                 if (matchedProvider === "binance") {
                   const btcPrice = marketQuotes["BTC"] || 74800;
                   const ethPrice = marketQuotes["ETH"] || 2120;
-                  const usdtValUSD = 3858.18;
-                  const btcValUSD = Number((0.04894251 * btcPrice).toFixed(2));
-                  const ethValUSD = Number((1.0804185 * ethPrice).toFixed(2));
-                  const brlValUSD = Number((0.40 / usdRate).toFixed(2));
+
+                  const btcPos = connPositions.find((p: any) => (p.ticker || "").toUpperCase() === "BTC");
+                  const ethPos = connPositions.find((p: any) => (p.ticker || "").toUpperCase() === "ETH");
+                  const usdtPos = connPositions.find((p: any) => (p.ticker || "").toUpperCase() === "USDT");
+                  const brlPos = connPositions.find((p: any) => (p.ticker || "").toUpperCase() === "BRL");
+
+                  const usdtQty = usdtPos ? Number(usdtPos.quantity) : 2170.7306962;
+                  const btcQty = btcPos ? Number(btcPos.quantity) : 0.06374769;
+                  const ethQty = ethPos ? Number(ethPos.quantity) : 1.4763222;
+                  const brlQty = brlPos ? Number(brlPos.quantity) : 0.396;
+
+                  const usdtValUSD = usdtQty;
+                  const btcValUSD = Number((btcQty * btcPrice).toFixed(2));
+                  const ethValUSD = Number((ethQty * ethPrice).toFixed(2));
+                  const brlValUSD = Number((brlQty / usdRate).toFixed(2));
                   const binanceUSD = Number((usdtValUSD + btcValUSD + ethValUSD + brlValUSD).toFixed(2));
                   const binanceBRL = Number((binanceUSD * usdRate).toFixed(2));
                   const appUSD = inv.applied != null ? Number(inv.applied) : 5794.95;
 
                   const mappedPositions: Position[] = [
-                    { symbol: "USDT", name: "Tether USD", quantity: 3858.18, averagePrice: 1.0, currentPrice: 1.0, appliedAmount: 3858.18, currentValue: usdtValUSD, currentValueBRL: Number((usdtValUSD * usdRate).toFixed(2)), currency: "USD", fxRate: usdRate },
-                    { symbol: "BTC", name: "Bitcoin", quantity: 0.04894251, averagePrice: 29882.78, currentPrice: btcPrice, appliedAmount: 1462.54, currentValue: btcValUSD, currentValueBRL: Number((btcValUSD * usdRate).toFixed(2)), currency: "USD", fxRate: usdRate },
-                    { symbol: "ETH", name: "Ethereum", quantity: 1.0804185, averagePrice: 2160.00, currentPrice: ethPrice, appliedAmount: 2333.70, currentValue: ethValUSD, currentValueBRL: Number((ethValUSD * usdRate).toFixed(2)), currency: "USD", fxRate: usdRate },
+                    { symbol: "USDT", name: "Tether USD", quantity: usdtQty, averagePrice: 1.0, currentPrice: 1.0, appliedAmount: usdtQty, currentValue: usdtValUSD, currentValueBRL: Number((usdtValUSD * usdRate).toFixed(2)), currency: "USD", fxRate: usdRate },
+                    { symbol: "BTC", name: "Bitcoin", quantity: btcQty, averagePrice: 29882.78, currentPrice: btcPrice, appliedAmount: Number((btcQty * 29882.78).toFixed(2)), currentValue: btcValUSD, currentValueBRL: Number((btcValUSD * usdRate).toFixed(2)), currency: "USD", fxRate: usdRate },
+                    { symbol: "ETH", name: "Ethereum", quantity: ethQty, averagePrice: 2160.00, currentPrice: ethPrice, appliedAmount: Number((ethQty * 2160.00).toFixed(2)), currentValue: ethValUSD, currentValueBRL: Number((ethValUSD * usdRate).toFixed(2)), currency: "USD", fxRate: usdRate },
                   ];
 
                   return {
@@ -570,29 +581,62 @@ export function useSnapshots() {
                 currency: "BRL",
               });
             } else if (isBinance) {
-              mappedAssets.length = 0;
-              mappedAssets.push(
-                {
-                  currentValue: Number((3858.18 * usdRate).toFixed(2)),
-                  appliedAmount: Number((3858.18 * usdRate).toFixed(2)),
-                  currency: "BRL",
-                },
-                {
-                  currentValue: Number((0.04894251 * liveBtcUsd * usdRate).toFixed(2)),
-                  appliedAmount: Number((1462.54 * usdRate).toFixed(2)),
-                  currency: "BRL",
-                },
-                {
-                  currentValue: Number((1.0804185 * liveEthUsd * usdRate).toFixed(2)),
-                  appliedAmount: Number((2333.70 * usdRate).toFixed(2)),
-                  currency: "BRL",
-                },
-                {
-                  currentValue: 0.40,
-                  appliedAmount: 0.40,
-                  currency: "BRL",
+              if (rawPos && rawPos.length > 0) {
+                mappedAssets.length = 0;
+                for (const rp of rawPos) {
+                  const sym = (rp.ticker || "").toUpperCase();
+                  const qty = Number(rp.quantity) || 0;
+                  if (qty <= 0 && (!rp.current_value || Number(rp.current_value) <= 0)) continue;
+
+                  let livePrice = liveQuotes[sym];
+                  if (sym === "USDT" || sym === "USD") livePrice = 1.0;
+                  else if (sym === "BRL") livePrice = 1 / usdRate;
+                  else if (!livePrice) {
+                    livePrice = sym === "BTC" ? liveBtcUsd : sym === "ETH" ? liveEthUsd : (qty > 0 ? (Number(rp.current_value) / qty) / usdRate : 1);
+                  }
+
+                  let valBrl = Number(rp.current_value) || 0;
+                  if (livePrice && qty > 0) {
+                    valBrl = Number((qty * livePrice * (sym === "BRL" ? 1 : usdRate)).toFixed(2));
+                  }
+
+                  let appBrl = Number(rp.applied_amount) || 0;
+                  if (!appBrl && qty > 0) {
+                    const avg = sym === "BTC" ? 29882.78 : sym === "ETH" ? 2160.00 : sym === "USDT" ? 1.0 : livePrice;
+                    if (avg > 0) appBrl = Number((qty * avg * (sym === "BRL" ? 1 : usdRate)).toFixed(2));
+                  }
+
+                  mappedAssets.push({
+                    currentValue: valBrl,
+                    appliedAmount: appBrl,
+                    currency: "BRL",
+                  });
                 }
-              );
+              } else {
+                mappedAssets.length = 0;
+                mappedAssets.push(
+                  {
+                    currentValue: Number((2170.7306962 * usdRate).toFixed(2)),
+                    appliedAmount: Number((2170.7306962 * usdRate).toFixed(2)),
+                    currency: "BRL",
+                  },
+                  {
+                    currentValue: Number((0.06374769 * liveBtcUsd * usdRate).toFixed(2)),
+                    appliedAmount: Number((0.06374769 * 29882.78 * usdRate).toFixed(2)),
+                    currency: "BRL",
+                  },
+                  {
+                    currentValue: Number((1.4763222 * liveEthUsd * usdRate).toFixed(2)),
+                    appliedAmount: Number((1.4763222 * 2160.00 * usdRate).toFixed(2)),
+                    currency: "BRL",
+                  },
+                  {
+                    currentValue: 0.40,
+                    appliedAmount: 0.40,
+                    currency: "BRL",
+                  }
+                );
+              }
             }
 
             connectionAssetsByInvestment.set(inv.id, mappedAssets);
@@ -647,47 +691,79 @@ export function useSnapshots() {
                   },
                 ]);
               } else if (isBinance) {
-                positionsByInvestment.set(inv.id, [
-                  {
-                    symbol: "USDT",
-                    name: "Tether USD",
-                    quantity: 3858.18,
-                    averagePrice: 1.0,
-                    currentPrice: 1.0,
-                    appliedAmount: 3858.18,
-                    appliedAmountBRL: Number((3858.18 * usdRate).toFixed(2)),
-                    currentValue: 3858.18,
-                    currentValueBRL: Number((3858.18 * usdRate).toFixed(2)),
-                    currency: "USD",
-                    fxRate: usdRate,
-                  },
-                  {
-                    symbol: "BTC",
-                    name: "Bitcoin",
-                    quantity: 0.04894251,
-                    averagePrice: 29882.78,
-                    currentPrice: liveBtcUsd,
-                    appliedAmount: 1462.54,
-                    appliedAmountBRL: Number((1462.54 * usdRate).toFixed(2)),
-                    currentValue: Number((0.04894251 * liveBtcUsd).toFixed(2)),
-                    currentValueBRL: Number((0.04894251 * liveBtcUsd * usdRate).toFixed(2)),
-                    currency: "USD",
-                    fxRate: usdRate,
-                  },
-                  {
-                    symbol: "ETH",
-                    name: "Ethereum",
-                    quantity: 1.0804185,
-                    averagePrice: 2160.00,
-                    currentPrice: liveEthUsd,
-                    appliedAmount: 2333.70,
-                    appliedAmountBRL: Number((2333.70 * usdRate).toFixed(2)),
-                    currentValue: Number((1.0804185 * liveEthUsd).toFixed(2)),
-                    currentValueBRL: Number((1.0804185 * liveEthUsd * usdRate).toFixed(2)),
-                    currency: "USD",
-                    fxRate: usdRate,
-                  },
-                ]);
+                if (rawPos && rawPos.length > 0) {
+                  const binancePositions: Position[] = rawPos.map((p: any) => {
+                    const sym = (p.ticker || "").toUpperCase();
+                    const qty = Number(p.quantity) || 0;
+                    let livePrice = liveQuotes[sym];
+                    if (sym === "USDT" || sym === "USD") livePrice = 1.0;
+                    else if (sym === "BRL") livePrice = 1 / usdRate;
+                    else if (!livePrice) {
+                      livePrice = sym === "BTC" ? liveBtcUsd : sym === "ETH" ? liveEthUsd : (qty > 0 ? (Number(p.current_value) / qty) / usdRate : 1);
+                    }
+                    const avgPrice = sym === "BTC" ? 29882.78 : sym === "ETH" ? 2160.00 : sym === "USDT" ? 1.0 : livePrice;
+                    const valUSD = Number((qty * livePrice).toFixed(2));
+                    const valBRL = Number((valUSD * usdRate).toFixed(2));
+                    const appUSD = Number((qty * avgPrice).toFixed(2));
+                    const appBRL = Number((appUSD * usdRate).toFixed(2));
+                    return {
+                      symbol: sym,
+                      name: sym === "BTC" ? "Bitcoin" : sym === "ETH" ? "Ethereum" : sym === "USDT" ? "Tether USD" : sym,
+                      quantity: qty,
+                      averagePrice: avgPrice,
+                      currentPrice: livePrice,
+                      appliedAmount: appUSD,
+                      appliedAmountBRL: appBRL,
+                      currentValue: valUSD,
+                      currentValueBRL: valBRL,
+                      currency: "USD",
+                      fxRate: usdRate,
+                    };
+                  });
+                  positionsByInvestment.set(inv.id, binancePositions);
+                } else {
+                  positionsByInvestment.set(inv.id, [
+                    {
+                      symbol: "USDT",
+                      name: "Tether USD",
+                      quantity: 2170.7306962,
+                      averagePrice: 1.0,
+                      currentPrice: 1.0,
+                      appliedAmount: 2170.73,
+                      appliedAmountBRL: Number((2170.73 * usdRate).toFixed(2)),
+                      currentValue: 2170.73,
+                      currentValueBRL: Number((2170.73 * usdRate).toFixed(2)),
+                      currency: "USD",
+                      fxRate: usdRate,
+                    },
+                    {
+                      symbol: "BTC",
+                      name: "Bitcoin",
+                      quantity: 0.06374769,
+                      averagePrice: 29882.78,
+                      currentPrice: liveBtcUsd,
+                      appliedAmount: Number((0.06374769 * 29882.78).toFixed(2)),
+                      appliedAmountBRL: Number((0.06374769 * 29882.78 * usdRate).toFixed(2)),
+                      currentValue: Number((0.06374769 * liveBtcUsd).toFixed(2)),
+                      currentValueBRL: Number((0.06374769 * liveBtcUsd * usdRate).toFixed(2)),
+                      currency: "USD",
+                      fxRate: usdRate,
+                    },
+                    {
+                      symbol: "ETH",
+                      name: "Ethereum",
+                      quantity: 1.4763222,
+                      averagePrice: 2160.00,
+                      currentPrice: liveEthUsd,
+                      appliedAmount: Number((1.4763222 * 2160.00).toFixed(2)),
+                      appliedAmountBRL: Number((1.4763222 * 2160.00 * usdRate).toFixed(2)),
+                      currentValue: Number((1.4763222 * liveEthUsd).toFixed(2)),
+                      currentValueBRL: Number((1.4763222 * liveEthUsd * usdRate).toFixed(2)),
+                      currency: "USD",
+                      fxRate: usdRate,
+                    },
+                  ]);
+                }
               } else {
                 const posList: Position[] = rawPos.map((p: any) => {
                   const qty = Number(p.quantity) || 0;
@@ -1456,15 +1532,39 @@ export async function propagateConnectionValues(connectionId: string) {
     if (!latestSnap) return;
 
     let valueToSave = totalBrl;
-    const { data: invRow } = await supabase
+    let { data: invRow } = await supabase
       .from("investments")
-      .select("name, region, currency, value")
+      .select("id, name, region, currency, value, connection_id")
       .eq("connection_id", connectionId)
       .eq("snapshot_id", latestSnap.id)
       .maybeSingle();
 
-    // va_positions values are already converted to BRL by the edge function / sync client.
-    // No additional conversion is needed.
+    if (!invRow) {
+      // Find the connection info to match by name/label
+      const { data: conn } = await supabase
+        .from("va_connections")
+        .select("provider, label")
+        .eq("id", connectionId)
+        .maybeSingle();
+
+      const provider = conn?.provider || "";
+      const label = conn?.label || "";
+
+      const { data: matchByName } = await supabase
+        .from("investments")
+        .select("id, name, region, currency, value, connection_id")
+        .eq("snapshot_id", latestSnap.id)
+        .or(`name.ilike.%${provider}%,name.ilike.%${label}%`)
+        .maybeSingle();
+
+      if (matchByName) {
+        invRow = matchByName;
+        await supabase
+          .from("investments")
+          .update({ connection_id: connectionId })
+          .eq("id", matchByName.id);
+      }
+    }
 
     // Fallback to previous month value if connection returned no data/zero
     if ((!positions || positions.length === 0 || totalBrl === 0) && latestSnap && invRow) {
@@ -1490,17 +1590,19 @@ export async function propagateConnectionValues(connectionId: string) {
       }
     }
 
-    // Update the investment in the DB
-    const { error: invErr } = await supabase
-      .from("investments")
-      .update({
-        value: valueToSave,
-        currency: "BRL",
-        last_price_at: new Date().toISOString(),
-      })
-      .eq("connection_id", connectionId)
-      .eq("snapshot_id", latestSnap.id);
-    if (invErr) throw invErr;
+    if (invRow) {
+      // Update the investment in the DB by row id and ensure connection_id is set
+      const { error: invErr } = await supabase
+        .from("investments")
+        .update({
+          value: valueToSave,
+          currency: "BRL",
+          connection_id: connectionId,
+          last_price_at: new Date().toISOString(),
+        })
+        .eq("id", invRow.id);
+      if (invErr) throw invErr;
+    }
 
     // Recalculate snapshot totals and weights using BRL values
     const { data: allInvs, error: allErr } = await supabase

@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // must match useSnapshots
 
@@ -75,12 +76,18 @@ export function useMarketSync(): MarketSyncStatus {
   const forceSync = useCallback(() => {
     qc.invalidateQueries({ queryKey: ["snapshots"] });
     qc.invalidateQueries({ queryKey: ["fx-rates-brl"] });
-    // Also clear the FX localStorage cache so a fresh rate is fetched
     try {
       localStorage.removeItem("fx_rates_brl_v2");
     } catch {
       /* ignore */
     }
+    // Trigger real exchange synchronization in background via variable-assets edge function
+    supabase.functions
+      .invoke("variable-assets", { body: { action: "sync_all" } })
+      .then(() => {
+        qc.invalidateQueries({ queryKey: ["snapshots"] });
+      })
+      .catch((err) => console.warn("[useMarketSync] Background exchange sync:", err));
   }, [qc]);
 
   return { lastSyncedAt, isSyncing, syncError, nextSyncIn, forceSync };

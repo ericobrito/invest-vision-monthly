@@ -40,13 +40,19 @@ export class CryptoAccountingEngine {
   }
 
   private loadTrades() {
+    this.loadDefaultHistoricalTrades();
     if (typeof window !== "undefined" && window.localStorage) {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            this.trades = parsed;
+            const defaultMap = new Map(this.trades.map((t) => [t.id, t]));
+            parsed.forEach((t: CryptoTrade) => {
+              defaultMap.set(t.id, t);
+            });
+            this.trades = Array.from(defaultMap.values()).sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+            this.persistTrades();
             return;
           }
         }
@@ -54,7 +60,6 @@ export class CryptoAccountingEngine {
         console.warn("[CryptoAccountingEngine] Failed to load trades from storage:", e);
       }
     }
-    this.loadDefaultHistoricalTrades();
   }
 
   private persistTrades() {
@@ -211,6 +216,42 @@ export class CryptoAccountingEngine {
         country: "US",
         source: "CSV",
         notes: "Custody transfer received at Coinbase",
+      },
+      {
+        id: "trade_binance_2026_btc",
+        broker: "Binance",
+        dateTime: "2026-03-10T14:22:15Z",
+        asset: "BTC",
+        quantity: 0.01480518,
+        side: "BUY",
+        price: 67544.02,
+        grossValue: 1000.00,
+        fee: 1.0,
+        feeAsset: "USDT",
+        netValue: 1001.00,
+        quoteCurrency: "USDT",
+        transactionType: "SPOT",
+        country: "KY",
+        source: "API",
+        notes: "Execução automática Binance Spot BTC/USDT",
+      },
+      {
+        id: "trade_binance_2026_eth",
+        broker: "Binance",
+        dateTime: "2026-03-12T18:45:30Z",
+        asset: "ETH",
+        quantity: 0.39590370,
+        side: "BUY",
+        price: 1736.41,
+        grossValue: 687.45,
+        fee: 0.70,
+        feeAsset: "USDT",
+        netValue: 688.15,
+        quoteCurrency: "USDT",
+        transactionType: "SPOT",
+        country: "KY",
+        source: "API",
+        notes: "Execução automática Binance Spot ETH/USDT",
       },
     ];
 

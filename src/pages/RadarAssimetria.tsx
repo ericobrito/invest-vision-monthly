@@ -329,16 +329,20 @@ const RadarAssimetria = () => {
       },
     };
 
+    // Only fallback to cryptoCanonical if dynamic positions didn't provide this asset
     Object.entries(cryptoCanonical).forEach(([ticker, c]) => {
-      map.set(ticker, {
-        ticker,
-        quantity: c.quantity,
-        currentValueBRL: c.currentValueBRL,
-        appliedAmountBRL: c.appliedAmountBRL,
-        currentPrice: c.currentPriceUSD,
-        averagePrice: c.averagePriceUSD,
-        sourceSet: new Set(c.sources),
-      });
+      const existing = map.get(ticker);
+      if (!existing || existing.quantity <= 0) {
+        map.set(ticker, {
+          ticker,
+          quantity: c.quantity,
+          currentValueBRL: c.currentValueBRL,
+          appliedAmountBRL: c.appliedAmountBRL,
+          currentPrice: c.currentPriceUSD,
+          averagePrice: c.averagePriceUSD,
+          sourceSet: new Set(c.sources),
+        });
+      }
     });
 
     const list: Array<{

@@ -133,7 +133,7 @@ export function GCAPGuideCard() {
 }
 
 export function CryptoAccountingDashboard() {
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-09");
+  const [selectedMonth, setSelectedMonth] = useState<string>("2026-11");
   const [activeTab, setActiveTab] = useState<string>("ledger");
   const [csvText, setCsvText] = useState("");
   const [csvBroker, setCsvBroker] = useState("Binance");
@@ -418,11 +418,18 @@ export function CryptoAccountingDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="2026-12">Dezembro / 2026</SelectItem>
+                    <SelectItem value="2026-11">Novembro / 2026</SelectItem>
+                    <SelectItem value="2026-10">Outubro / 2026</SelectItem>
                     <SelectItem value="2026-09">Setembro / 2026</SelectItem>
                     <SelectItem value="2026-08">Agosto / 2026</SelectItem>
                     <SelectItem value="2026-07">Julho / 2026</SelectItem>
                     <SelectItem value="2026-06">Junho / 2026</SelectItem>
                     <SelectItem value="2026-05">Maio / 2026</SelectItem>
+                    <SelectItem value="2026-04">Abril / 2026</SelectItem>
+                    <SelectItem value="2026-03">Março / 2026</SelectItem>
+                    <SelectItem value="2026-02">Fevereiro / 2026</SelectItem>
+                    <SelectItem value="2026-01">Janeiro / 2026</SelectItem>
                   </SelectContent>
                 </Select>
                 <Badge

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useSnapshots, useSaveSnapshot, useDeleteSnapshot } from "@/hooks/useSnapshots";
 import { useUpdateInvestment } from "@/hooks/useUpdateInvestment";
 import type { SnapshotFormData } from "@/hooks/useSnapshots";
@@ -52,6 +54,23 @@ const Index = () => {
   const [detailInvestment, setDetailInvestment] = useState<Investment | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [exportImportOpen, setExportImportOpen] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Automatically trigger broker sync on mount if not synced recently
+    const lastSyncStr = sessionStorage.getItem("last_exchange_auto_sync");
+    const now = Date.now();
+    if (!lastSyncStr || now - Number(lastSyncStr) > 3 * 60 * 1000) {
+      sessionStorage.setItem("last_exchange_auto_sync", String(now));
+      supabase.functions
+        .invoke("variable-assets", { body: { action: "sync_all" } })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["snapshots"] });
+        })
+        .catch((err) => console.warn("[Index] Auto exchange sync:", err));
+    }
+  }, [queryClient]);
 
   const effectiveIndex = currentIndex ?? (monthlyData.length > 0 ? monthlyData.length - 1 : 0);
   const snapshot = monthlyData[effectiveIndex];
