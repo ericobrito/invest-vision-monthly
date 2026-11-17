@@ -597,8 +597,19 @@ export function CryptoAccountingDashboard() {
                         />
                       </div>
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Ativo</Label>
-                        <Input value={manualAsset} onChange={(e) => setManualAsset(e.target.value)} placeholder="BTC, ETH, SOL" className="h-7 text-xs font-mono" />
+                        <Label className="text-[10px] text-muted-foreground">Ativo Declarado</Label>
+                        <Select value={manualAsset} onValueChange={setManualAsset}>
+                          <SelectTrigger className="h-7 text-xs font-semibold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BTC">BTC (Bitcoin)</SelectItem>
+                            <SelectItem value="ETH">ETH (Ethereum)</SelectItem>
+                            <SelectItem value="USDT">USDT (Tether USD)</SelectItem>
+                            <SelectItem value="SOL">SOL (Solana)</SelectItem>
+                            <SelectItem value="BNB">BNB (Binance Coin)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Operação</Label>

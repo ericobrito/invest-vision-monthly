@@ -5,27 +5,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExchangeOrdersSyncService } from "@/services/ExchangeOrdersSyncService";
+import { useSnapshots } from "@/hooks/useSnapshots";
 import {
+  AlertCircle,
   ArrowDownRight,
   ArrowLeft,
   ArrowUpRight,
+  Building2,
   Calculator,
   CheckCircle2,
+  Coins,
   DollarSign,
   Download,
   FileSpreadsheet,
   Flame,
   Globe,
+  Info,
   Layers,
   Link as LinkIcon,
+  Lock,
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   SlidersHorizontal,
   Target,
   Trash2,
@@ -38,6 +45,20 @@ import { toast } from "sonner";
 
 import { ordersConsolidatorEngine } from "@/features/transactionsConsolidator/ordersEngine";
 import type { AssetCategory, ConsolidatedOrder, OrderFilterState, OrderType } from "@/features/transactionsConsolidator/types";
+
+export interface DeclaredAsset {
+  id: string;
+  investmentName: string;
+  broker: string;
+  ticker: string;
+  assetName: string;
+  category: AssetCategory;
+  currency: "USD" | "BRL";
+  currentQuantity: number;
+  averagePrice?: number;
+  currentPrice?: number;
+  fxRate?: number;
+}
 
 function formatBRL(val: number) {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -52,10 +73,16 @@ function formatPct(val: number) {
 }
 
 export const TransactionsConsolidator = () => {
+  const { data: monthlyData = [] } = useSnapshots();
+  const currentSnapshot = monthlyData.length > 0 ? monthlyData[monthlyData.length - 1] : undefined;
+
   const [orders, setOrders] = useState<ConsolidatedOrder[]>(() => ordersConsolidatorEngine.getOrders());
   const [activeTab, setActiveTab] = useState<"orders" | "assets" | "apis">("orders");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Selected declared asset from user's portfolio list
+  const [selectedAssetId, setSelectedAssetId] = useState<string>("");
 
   // Filters State
   const [filter, setFilter] = useState<OrderFilterState>({
@@ -66,23 +93,179 @@ export const TransactionsConsolidator = () => {
     sortBy: "date_desc",
   });
 
+  // Extract all assets declared in user's portfolio (useSnapshots)
+  const declaredAssets = useMemo<DeclaredAsset[]>(() => {
+    const list: DeclaredAsset[] = [];
+    const investments = currentSnapshot?.investments || [];
+
+    const inferCat = (invName: string, ticker: string, curr: string): AssetCategory => {
+      const lowInv = invName.toLowerCase();
+      const lowT = ticker.toLowerCase();
+      if (
+        lowInv.includes("binance") ||
+        lowInv.includes("bybit") ||
+        lowInv.includes("coinbase") ||
+        lowInv.includes("mercado bitcoin") ||
+        lowInv.includes("cripto") ||
+        lowInv.includes("bitcoin") ||
+        ["btc", "eth", "usdt", "sol", "bnb", "ada", "xrp"].includes(lowT)
+      ) {
+        return "crypto";
+      }
+      if (lowInv.includes("avenue") || curr === "USD") {
+        return "stocks_us";
+      }
+      return "stocks_br";
+    };
+
+    const inferBroker = (invName: string): string => {
+      const low = invName.toLowerCase();
+      if (low.includes("binance")) return "Binance";
+      if (low.includes("avenue")) return "Avenue";
+      if (low.includes("coinbase")) return "Coinbase";
+      if (low.includes("bybit")) return "Bybit";
+      if (low.includes("mercado bitcoin")) return "Mercado Bitcoin";
+      if (low.includes("nubank")) return "NuBank";
+      if (low.includes("xp")) return "XP Investimentos";
+      if (low.includes("sofisa")) return "Sofisa Direto";
+      if (low.includes("allu")) return "Allu Invest";
+      if (low.includes("ajx")) return "Ajx Capital";
+      return invName.split("-")[0].trim();
+    };
+
+    investments.forEach((inv) => {
+      const broker = inferBroker(inv.name);
+      const isUSD = (inv.currency || "").toUpperCase() === "USD";
+
+      if (inv.positions && Array.isArray(inv.positions) && inv.positions.length > 0) {
+        inv.positions.forEach((pos) => {
+          const sym = (pos.symbol || pos.ticker || "").toUpperCase().trim();
+          if (!sym) return;
+
+          const cat = inferCat(inv.name, sym, pos.currency || inv.currency || "USD");
+          list.push({
+            id: `${inv.name}::${sym}`,
+            investmentName: inv.name,
+            broker,
+            ticker: sym,
+            assetName: pos.name || sym,
+            category: cat,
+            currency: (pos.currency || inv.currency || (isUSD ? "USD" : "BRL")) as "USD" | "BRL",
+            currentQuantity: pos.quantity || 0,
+            averagePrice: pos.averagePrice,
+            currentPrice: pos.currentPrice,
+            fxRate: pos.fxRate || (isUSD ? 5.8069 : 1),
+          });
+        });
+      } else {
+        const low = inv.name.toLowerCase();
+        if (
+          inv.incomeType === "variable" ||
+          low.includes("ações") ||
+          low.includes("acoes") ||
+          low.includes("fii") ||
+          low.includes("cripto") ||
+          low.includes("bitcoin")
+        ) {
+          const cat = inferCat(inv.name, inv.name, inv.currency || "BRL");
+          const ticker = low.includes("ações") || low.includes("acoes")
+            ? "ACOES-BR"
+            : low.includes("fii")
+            ? "FII-BR"
+            : inv.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+
+          list.push({
+            id: `${inv.name}::${ticker}`,
+            investmentName: inv.name,
+            broker,
+            ticker,
+            assetName: inv.name,
+            category: cat,
+            currency: isUSD ? "USD" : "BRL",
+            currentQuantity: 1,
+            currentPrice: inv.value,
+            averagePrice: inv.applied || inv.value,
+            fxRate: isUSD ? 5.8069 : 1,
+          });
+        }
+      }
+    });
+
+    if (list.length === 0) {
+      return [
+        { id: "Avenue - Dólar::TSLA", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "TSLA", assetName: "Tesla Inc", category: "stocks_us", currency: "USD", currentQuantity: 14.0829, currentPrice: 379.74, averagePrice: 319.69, fxRate: 5.7838 },
+        { id: "Avenue - Dólar::META", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "META", assetName: "Meta Platforms Inc", category: "stocks_us", currency: "USD", currentQuantity: 2.9699, currentPrice: 626.41, averagePrice: 210.52, fxRate: 5.7838 },
+        { id: "Avenue - Dólar::BRK.B", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "BRK.B", assetName: "Berkshire Hathaway Inc Class B", category: "stocks_us", currency: "USD", currentQuantity: 2.5976, currentPrice: 592.85, averagePrice: 229.16, fxRate: 5.7838 },
+        { id: "Avenue - Dólar::GOOGL", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "GOOGL", assetName: "Alphabet Inc Class A", category: "stocks_us", currency: "USD", currentQuantity: 2.958, currentPrice: 283.72, averagePrice: 94.84, fxRate: 5.7838 },
+        { id: "Avenue - Dólar::IONQ", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "IONQ", assetName: "IonQ Inc", category: "stocks_us", currency: "USD", currentQuantity: 5.0822, currentPrice: 42.54, averagePrice: 66.90, fxRate: 5.7838 },
+        { id: "Avenue - Dólar::RGTI", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "RGTI", assetName: "Rigetti Computing Inc", category: "stocks_us", currency: "USD", currentQuantity: 8.0, currentPrice: 16.01, averagePrice: 48.87, fxRate: 5.7838 },
+        { id: "Avenue - Dólar::AMD", investmentName: "Avenue - Dólar", broker: "Avenue", ticker: "AMD", assetName: "Advanced Micro Devices Inc", category: "stocks_us", currency: "USD", currentQuantity: 0.1947, currentPrice: 504.28, averagePrice: 196.89, fxRate: 5.7838 },
+        { id: "Binance::BTC", investmentName: "Binance", broker: "Binance", ticker: "BTC", assetName: "Bitcoin", category: "crypto", currency: "USD", currentQuantity: 0.063748, currentPrice: 64882.87, averagePrice: 29882.78, fxRate: 5.8069 },
+        { id: "Binance::ETH", investmentName: "Binance", broker: "Binance", ticker: "ETH", assetName: "Ethereum", category: "crypto", currency: "USD", currentQuantity: 1.476322, currentPrice: 1820.67, averagePrice: 2160.00, fxRate: 5.8069 },
+        { id: "Binance::USDT", investmentName: "Binance", broker: "Binance", ticker: "USDT", assetName: "Tether USD", category: "crypto", currency: "USD", currentQuantity: 2170.73, currentPrice: 1.0, averagePrice: 1.0, fxRate: 5.8069 },
+        { id: "Coinbase::ETH", investmentName: "Coinbase", broker: "Coinbase", ticker: "ETH", assetName: "Ethereum", category: "crypto", currency: "USD", currentQuantity: 0.9197, currentPrice: 1820.67, averagePrice: 2160.00, fxRate: 5.8069 },
+        { id: "Mercado Bitcoin::BTC", investmentName: "Bitcoin - (API Mercado Bitcoin)", broker: "Mercado Bitcoin", ticker: "BTC", assetName: "Bitcoin", category: "crypto", currency: "USD", currentQuantity: 0.014, currentPrice: 64882.87, averagePrice: 29882.78, fxRate: 5.8069 },
+      ];
+    }
+
+    return list;
+  }, [currentSnapshot]);
+
+  const groupedDeclaredAssets = useMemo(() => {
+    const map = new Map<string, { investmentName: string; broker: string; category: AssetCategory; assets: DeclaredAsset[] }>();
+
+    declaredAssets.forEach((a) => {
+      const existing = map.get(a.investmentName);
+      if (existing) {
+        existing.assets.push(a);
+      } else {
+        map.set(a.investmentName, {
+          investmentName: a.investmentName,
+          broker: a.broker,
+          category: a.category,
+          assets: [a],
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [declaredAssets]);
+
+  const selectedAsset = useMemo(() => {
+    return declaredAssets.find((a) => a.id === selectedAssetId);
+  }, [declaredAssets, selectedAssetId]);
+
   // New Transaction Form State
   const [newOrderForm, setNewOrderForm] = useState({
-    ticker: "BTC",
-    assetName: "Bitcoin",
     orderType: "BUY" as OrderType,
-    category: "crypto" as AssetCategory,
-    broker: "Binance",
     dateTime: new Date().toISOString().slice(0, 16),
-    quantity: "0.01",
-    unitPriceUSD: "78000.00",
-    unitPriceBRL: "395772.00",
-    currency: "USD",
-    fxRate: "5.0740",
-    feeUSD: "0.50",
-    feeBRL: "2.54",
+    quantity: "",
+    unitPriceUSD: "",
+    unitPriceBRL: "",
+    fxRate: "5.8069",
+    feeUSD: "0.00",
+    feeBRL: "0.00",
     notes: "",
   });
+
+  const handleSelectDeclaredAsset = (assetId: string) => {
+    setSelectedAssetId(assetId);
+    const asset = declaredAssets.find((a) => a.id === assetId);
+    if (!asset) return;
+
+    const fx = asset.fxRate || 5.8069;
+    const isUSD = asset.currency === "USD";
+    const refPriceUSD = asset.currentPrice || asset.averagePrice || (isUSD ? 100 : 100 / fx);
+    const refPriceBRL = isUSD ? refPriceUSD * fx : (asset.currentPrice || asset.averagePrice || 100);
+
+    setNewOrderForm((prev) => ({
+      ...prev,
+      fxRate: fx.toFixed(4),
+      unitPriceUSD: refPriceUSD.toFixed(2),
+      unitPriceBRL: refPriceBRL.toFixed(2),
+      quantity: prev.quantity && parseFloat(prev.quantity) > 0 ? prev.quantity : "1",
+    }));
+  };
 
   const assetSummaries = useMemo(() => {
     return ordersConsolidatorEngine.getAssetSummaries();
@@ -193,9 +376,19 @@ export const TransactionsConsolidator = () => {
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedAsset) {
+      toast.error("Selecione um ativo cadastrado na sua carteira de investimentos.");
+      return;
+    }
+
     const qty = parseFloat(newOrderForm.quantity) || 0;
-    const fx = parseFloat(newOrderForm.fxRate) || 5.0740;
-    const isUSD = newOrderForm.currency === "USD";
+    if (qty <= 0) {
+      toast.error("Informe uma quantidade válida maior que zero.");
+      return;
+    }
+
+    const fx = parseFloat(newOrderForm.fxRate) || selectedAsset.fxRate || 5.8069;
+    const isUSD = selectedAsset.currency === "USD";
     const uUSD = isUSD ? parseFloat(newOrderForm.unitPriceUSD) || 0 : (parseFloat(newOrderForm.unitPriceBRL) || 0) / fx;
     const uBRL = isUSD ? uUSD * fx : parseFloat(newOrderForm.unitPriceBRL) || 0;
     const feeU = isUSD ? parseFloat(newOrderForm.feeUSD) || 0 : (parseFloat(newOrderForm.feeBRL) || 0) / fx;
@@ -209,10 +402,10 @@ export const TransactionsConsolidator = () => {
     ordersConsolidatorEngine.addOrder({
       dateTime: new Date(newOrderForm.dateTime).toISOString(),
       orderType: newOrderForm.orderType,
-      ticker: newOrderForm.ticker.toUpperCase().trim(),
-      assetName: newOrderForm.assetName.trim() || newOrderForm.ticker.toUpperCase().trim(),
-      category: newOrderForm.category,
-      broker: newOrderForm.broker.trim(),
+      ticker: selectedAsset.ticker,
+      assetName: selectedAsset.assetName,
+      category: selectedAsset.category,
+      broker: selectedAsset.broker,
       quantity: qty,
       unitPriceUSD: uUSD,
       unitPriceBRL: uBRL,
@@ -225,19 +418,23 @@ export const TransactionsConsolidator = () => {
       netValueBRL: netB,
       weightedAvgPriceAfterBRL: uBRL,
       source: "MANUAL",
-      notes: newOrderForm.notes.trim() || undefined,
+      notes: newOrderForm.notes.trim()
+        ? `[Vinculado a ${selectedAsset.investmentName}] ${newOrderForm.notes.trim()}`
+        : `[Vinculado a ${selectedAsset.investmentName}] Ordem executada`,
     });
 
     setOrders(ordersConsolidatorEngine.getOrders());
     setIsAddModalOpen(false);
-    toast.success(`Ordem de ${newOrderForm.orderType === "BUY" ? "Compra" : "Venda"} de ${newOrderForm.ticker} registrada!`);
+    setSelectedAssetId("");
+    toast.success(`Ordem de ${newOrderForm.orderType === "BUY" ? "Compra" : "Venda"} de ${selectedAsset.ticker} vinculada à carteira registrada!`);
   };
 
   const brokersList = useMemo(() => {
     const set = new Set<string>();
     orders.forEach((o) => set.add(o.broker));
+    declaredAssets.forEach((a) => set.add(a.broker));
     return Array.from(set);
-  }, [orders]);
+  }, [orders, declaredAssets]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -303,170 +500,277 @@ export const TransactionsConsolidator = () => {
                   <Plus className="w-3.5 h-3.5" /> Nova Ordem
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-xl">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-primary" /> Registrar Nova Transação
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" /> Registrar Nova Transação Vinculada
                   </DialogTitle>
                   <DialogDescription>
-                    Adicione uma compra ou venda de ações ou criptoativos. O preço médio do ativo será recalculado automaticamente.
+                    As ordens devem estar estritamente vinculadas aos ativos declarados na sua carteira de investimentos.
                   </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleCreateOrder} className="space-y-3.5 pt-2">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Tipo de Operação</Label>
-                      <Select
-                        value={newOrderForm.orderType}
-                        onValueChange={(val: OrderType) => setNewOrderForm({ ...newOrderForm, orderType: val })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BUY">🟢 Compra (BUY)</SelectItem>
-                          <SelectItem value="SELL">🔴 Venda (SELL)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                <form onSubmit={handleCreateOrder} className="space-y-4 pt-2">
+                  {/* SELEÇÃO DO ATIVO DECLARADO (OBRIGATÓRIO) */}
+                  <div className="space-y-1.5 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                        1. Selecionar Ativo Declarado na Carteira
+                      </Label>
+                      <Badge variant="outline" className="text-[10px] text-primary border-primary/30 bg-primary/10">
+                        Obrigatório · Anti-Declaratório
+                      </Badge>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Categoria</Label>
-                      <Select
-                        value={newOrderForm.category}
-                        onValueChange={(val: AssetCategory) => setNewOrderForm({ ...newOrderForm, category: val })}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="stocks_us">Ações Globais (US)</SelectItem>
-                          <SelectItem value="crypto">Criptoativos</SelectItem>
-                          <SelectItem value="stocks_br">Ações Nacionais (B3)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <Select
+                      value={selectedAssetId}
+                      onValueChange={handleSelectDeclaredAsset}
+                    >
+                      <SelectTrigger className="h-9 text-xs font-semibold bg-background border-primary/40 focus:ring-primary">
+                        <SelectValue placeholder="Selecione o ativo da sua lista de investimentos..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[320px]">
+                        {groupedDeclaredAssets.map((group) => (
+                          <SelectGroup key={group.investmentName}>
+                            <SelectLabel className="text-[11px] font-bold text-primary px-2 py-1.5 flex items-center gap-1.5 bg-muted/60">
+                              {group.category === "crypto" ? (
+                                <Coins className="w-3.5 h-3.5 text-amber-400" />
+                              ) : (
+                                <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+                              )}
+                              {group.investmentName} ({group.broker})
+                            </SelectLabel>
+                            {group.assets.map((a) => (
+                              <SelectItem key={a.id} value={a.id} className="text-xs py-2 cursor-pointer">
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold font-mono text-foreground">{a.ticker}</span>
+                                    <span className="text-muted-foreground text-[11px] truncate max-w-[180px]">
+                                      {a.assetName}
+                                    </span>
+                                  </div>
+                                  {a.currentQuantity > 0 && (
+                                    <Badge variant="secondary" className="text-[10px] ml-auto shrink-0 font-mono">
+                                      {a.currentQuantity.toLocaleString("pt-BR", { maximumFractionDigits: 4 })} un em carteira
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Ticker (ex: BTC, META, TSLA)</Label>
-                      <Input
-                        value={newOrderForm.ticker}
-                        onChange={(e) => setNewOrderForm({ ...newOrderForm, ticker: e.target.value.toUpperCase() })}
-                        placeholder="BTC"
-                        className="h-8 text-xs font-mono"
-                        required
-                      />
+                  {/* CARD DE STATUS DO ATIVO VINCULADO */}
+                  {selectedAsset ? (
+                    <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4" /> Vínculo Confirmado com a Carteira
+                        </span>
+                        <Badge variant="outline" className="text-[10px] bg-background/80 font-mono text-emerald-400 border-emerald-500/40">
+                          {selectedAsset.category === "stocks_us" ? "Ações Globais (US)" : selectedAsset.category === "crypto" ? "Criptoativo" : "Ações B3"}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px] border-t border-emerald-500/20">
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Ticker Oficial</span>
+                          <span className="font-bold font-mono text-foreground flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5 text-muted-foreground" /> {selectedAsset.ticker}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Investimento Origem</span>
+                          <span className="font-medium text-foreground truncate block" title={selectedAsset.investmentName}>
+                            {selectedAsset.investmentName}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Corretora</span>
+                          <span className="font-medium text-foreground flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5 text-muted-foreground" /> {selectedAsset.broker}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px]">Posição Declarada</span>
+                          <span className="font-mono text-foreground font-semibold">
+                            {selectedAsset.currentQuantity > 0
+                              ? `${selectedAsset.currentQuantity.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}`
+                              : "Declarado"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs space-y-1 text-amber-300">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-amber-400" /> Vínculo Obrigatório com a Carteira
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Selecione um ativo cadastrado na sua carteira acima para liberar os campos de execução e preço da ordem. Não é permitido criar ativos fictícios ou declaratórios avulsos.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* DADOS DA OPERAÇÃO EXECUTADA */}
+                  <div className={`space-y-3 transition-opacity ${!selectedAsset ? "opacity-40 pointer-events-none" : "opacity-100"}`}>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Tipo de Operação</Label>
+                        <Select
+                          value={newOrderForm.orderType}
+                          onValueChange={(val: OrderType) => setNewOrderForm({ ...newOrderForm, orderType: val })}
+                          disabled={!selectedAsset}
+                        >
+                          <SelectTrigger className="h-8 text-xs font-semibold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BUY">🟢 Compra (BUY)</SelectItem>
+                            <SelectItem value="SELL">🔴 Venda (SELL)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Data e Hora da Execução</Label>
+                        <Input
+                          type="datetime-local"
+                          value={newOrderForm.dateTime}
+                          onChange={(e) => setNewOrderForm({ ...newOrderForm, dateTime: e.target.value })}
+                          className="h-8 text-xs font-mono"
+                          disabled={!selectedAsset}
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Nome do Ativo</Label>
-                      <Input
-                        value={newOrderForm.assetName}
-                        onChange={(e) => setNewOrderForm({ ...newOrderForm, assetName: e.target.value })}
-                        placeholder="Bitcoin"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Quantidade</Label>
+                        <Input
+                          type="number"
+                          step="any"
+                          value={newOrderForm.quantity}
+                          onChange={(e) => setNewOrderForm({ ...newOrderForm, quantity: e.target.value })}
+                          placeholder="0.00"
+                          className="h-8 text-xs font-mono font-bold"
+                          disabled={!selectedAsset}
+                          required
+                        />
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Corretora / Exchange</Label>
-                      <Input
-                        value={newOrderForm.broker}
-                        onChange={(e) => setNewOrderForm({ ...newOrderForm, broker: e.target.value })}
-                        placeholder="Binance, Avenue, Coinbase..."
-                        className="h-8 text-xs"
-                        required
-                      />
-                    </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">
+                          {selectedAsset?.currency === "USD" ? "Preço Unitário (USD)" : "Preço Unitário (BRL)"}
+                        </Label>
+                        <Input
+                          type="number"
+                          step="any"
+                          value={selectedAsset?.currency === "USD" ? newOrderForm.unitPriceUSD : newOrderForm.unitPriceBRL}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const fx = parseFloat(newOrderForm.fxRate) || 5.8069;
+                            if (selectedAsset?.currency === "USD") {
+                              setNewOrderForm({
+                                ...newOrderForm,
+                                unitPriceUSD: e.target.value,
+                                unitPriceBRL: (val * fx).toFixed(2),
+                              });
+                            } else {
+                              setNewOrderForm({
+                                ...newOrderForm,
+                                unitPriceBRL: e.target.value,
+                                unitPriceUSD: (val / fx).toFixed(2),
+                              });
+                            }
+                          }}
+                          placeholder="0.00"
+                          className="h-8 text-xs font-mono font-bold"
+                          disabled={!selectedAsset}
+                          required
+                        />
+                      </div>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Data e Hora</Label>
-                      <Input
-                        type="datetime-local"
-                        value={newOrderForm.dateTime}
-                        onChange={(e) => setNewOrderForm({ ...newOrderForm, dateTime: e.target.value })}
-                        className="h-8 text-xs"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Quantidade</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        value={newOrderForm.quantity}
-                        onChange={(e) => setNewOrderForm({ ...newOrderForm, quantity: e.target.value })}
-                        placeholder="0.00"
-                        className="h-8 text-xs font-mono"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Preço Unitário (USD)</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        value={newOrderForm.unitPriceUSD}
-                        onChange={(e) => {
-                          const uUSD = parseFloat(e.target.value) || 0;
-                          const fx = parseFloat(newOrderForm.fxRate) || 5.074;
-                          setNewOrderForm({
-                            ...newOrderForm,
-                            unitPriceUSD: e.target.value,
-                            unitPriceBRL: (uUSD * fx).toFixed(2),
-                          });
-                        }}
-                        placeholder="0.00"
-                        className="h-8 text-xs font-mono"
-                        required
-                      />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Câmbio USD/BRL</Label>
+                        <Input
+                          type="number"
+                          step="any"
+                          value={newOrderForm.fxRate}
+                          onChange={(e) => {
+                            const fx = parseFloat(e.target.value) || 5.8069;
+                            const uUSD = parseFloat(newOrderForm.unitPriceUSD) || 0;
+                            setNewOrderForm({
+                              ...newOrderForm,
+                              fxRate: e.target.value,
+                              unitPriceBRL: (uUSD * fx).toFixed(2),
+                            });
+                          }}
+                          className="h-8 text-xs font-mono"
+                          disabled={!selectedAsset}
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Câmbio USD/BRL</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        value={newOrderForm.fxRate}
-                        onChange={(e) => {
-                          const fx = parseFloat(e.target.value) || 5.074;
-                          const uUSD = parseFloat(newOrderForm.unitPriceUSD) || 0;
-                          setNewOrderForm({
-                            ...newOrderForm,
-                            fxRate: e.target.value,
-                            unitPriceBRL: (uUSD * fx).toFixed(2),
-                          });
-                        }}
-                        className="h-8 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Taxa de Corretagem ({selectedAsset?.currency || "USD"})</Label>
+                        <Input
+                          type="number"
+                          step="any"
+                          value={selectedAsset?.currency === "USD" ? newOrderForm.feeUSD : newOrderForm.feeBRL}
+                          onChange={(e) => {
+                            const fee = parseFloat(e.target.value) || 0;
+                            const fx = parseFloat(newOrderForm.fxRate) || 5.8069;
+                            if (selectedAsset?.currency === "USD") {
+                              setNewOrderForm({
+                                ...newOrderForm,
+                                feeUSD: e.target.value,
+                                feeBRL: (fee * fx).toFixed(2),
+                              });
+                            } else {
+                              setNewOrderForm({
+                                ...newOrderForm,
+                                feeBRL: e.target.value,
+                                feeUSD: (fee / fx).toFixed(2),
+                              });
+                            }
+                          }}
+                          placeholder="0.00"
+                          className="h-8 text-xs font-mono"
+                          disabled={!selectedAsset}
+                        />
+                      </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Notas / Observações</Label>
-                    <Input
-                      value={newOrderForm.notes}
-                      onChange={(e) => setNewOrderForm({ ...newOrderForm, notes: e.target.value })}
-                      placeholder="Ex: aporte programado, rebalanceamento..."
-                      className="h-8 text-xs"
-                    />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Notas / Justificativa</Label>
+                        <Input
+                          value={newOrderForm.notes}
+                          onChange={(e) => setNewOrderForm({ ...newOrderForm, notes: e.target.value })}
+                          placeholder="Ex: aporte programado, rebalanceamento..."
+                          className="h-8 text-xs"
+                          disabled={!selectedAsset}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <DialogFooter className="pt-2">
                     <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddModalOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90">
-                      Salvar Transação
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!selectedAsset}
+                      className="bg-primary hover:bg-primary/90 font-semibold gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Salvar Transação Vinculada
                     </Button>
                   </DialogFooter>
                 </form>
