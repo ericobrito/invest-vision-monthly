@@ -3,6 +3,63 @@ export type Region = 'brazil' | 'exterior';
 export type ValueMode = 'MANUAL' | 'HYBRID' | 'AUTO';
 export type InvestmentMode = 'CONSOLIDATED' | 'DETAILED' | 'CONNECTED';
 
+export function inferIncomeType(name?: string, explicitType?: string, currency?: string): IncomeType {
+  const n = (name || "").toLowerCase();
+  const c = (currency || "").toUpperCase();
+
+  // 1. Guaranteed Variable Income criteria (crypto, stocks, foreign currency)
+  if (
+    c === "USD" ||
+    n.includes("ações") || n.includes("acoes") || n.includes("fii") ||
+    n.includes("bitcoin") || n.includes("btc") || n.includes("cripto") ||
+    n.includes("crypto") || n.includes("bybit") || n.includes("binance") ||
+    n.includes("coinbase") || n.includes("dólar") || n.includes("dolar") ||
+    n.includes("avenue") || n.includes("robo") || n.includes("stocks") ||
+    n.includes("etf") || n.includes("mercado bitcoin")
+  ) {
+    return "variable";
+  }
+
+  // 2. Guaranteed Fixed Income criteria
+  if (
+    n.includes("prev") || n.includes("reserva") || n.includes("renda fixa") ||
+    n.includes("allu") || n.includes("consórcio") || n.includes("consorcio") ||
+    n.includes("sofisa") || n.includes("ajx") || n.includes("ipca") ||
+    n.includes("cdi") || n.includes("selic") || n.includes("tesouro") ||
+    n.includes("lci") || n.includes("lca") || n.includes("cdb") ||
+    n.includes("nubank")
+  ) {
+    return "fixed";
+  }
+
+  if (explicitType === "fixed" || explicitType === "variable") {
+    return explicitType;
+  }
+  return "fixed";
+}
+
+export function inferRegion(name?: string, explicitRegion?: string, currency?: string): Region {
+  const n = (name || "").toLowerCase();
+  const c = (currency || "").toUpperCase();
+
+  // 1. Guaranteed Exterior criteria (US stocks, crypto exchanges, foreign accounts)
+  if (
+    c === "USD" ||
+    n.includes("dólar") || n.includes("dolar") || n.includes("avenue") ||
+    n.includes("bitcoin") || n.includes("btc") || n.includes("cripto") ||
+    n.includes("crypto") || n.includes("bybit") || n.includes("binance") ||
+    n.includes("coinbase") || n.includes("exterior") || n.includes("offshore") ||
+    n.includes("stocks") || n.includes("mercado bitcoin")
+  ) {
+    return "exterior";
+  }
+
+  if (explicitRegion === "brazil" || explicitRegion === "exterior") {
+    return explicitRegion;
+  }
+  return "brazil";
+}
+
 export interface LinkedAsset {
   provider: string;
   symbol: string;
@@ -841,8 +898,12 @@ export const monthlyData: MonthlySnapshot[] = (() => {
 
     const normInvs = snap.investments.map((inv) => {
       const totals = resolveInvestmentTotals(inv);
+      const incomeType = inferIncomeType(inv.name, inv.incomeType, inv.currency);
+      const region = inferRegion(inv.name, inv.region, inv.currency);
       return {
         ...inv,
+        incomeType,
+        region,
         value: totals.value,
         applied: totals.applied,
         valueBRL: totals.valueBRL,
@@ -865,14 +926,14 @@ export const monthlyData: MonthlySnapshot[] = (() => {
     }
 
     const fixedBRL = invsWithPct
-      .filter((i) => i.incomeType === "fixed" || (!i.incomeType && (i.name.includes("Prev") || i.name.includes("Reserva") || i.name.includes("Renda Fixa") || i.name.includes("Allu") || i.name.includes("Consórcio") || i.name.includes("Sofisa"))))
+      .filter((i) => i.incomeType === "fixed")
       .reduce((s, i) => s + i.valueBRL, 0);
 
     const fixedIncome = totalBRL > 0 ? Number(((fixedBRL / totalBRL) * 100).toFixed(2)) : snap.fixedIncome;
     const variableIncome = fixedIncome != null ? Number((100 - fixedIncome).toFixed(2)) : snap.variableIncome;
 
     const brazilBRL = invsWithPct
-      .filter((i) => i.region === "brazil" || (!i.region && !i.name.includes("Avenue") && !i.name.includes("Binance") && !i.name.includes("Bybit") && !i.name.includes("Coinbase") && !i.name.includes("Bitcoin")))
+      .filter((i) => i.region === "brazil")
       .reduce((s, i) => s + i.valueBRL, 0);
 
     const brazil = totalBRL > 0 ? Number(((brazilBRL / totalBRL) * 100).toFixed(2)) : snap.brazil;

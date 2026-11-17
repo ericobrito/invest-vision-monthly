@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
-import { formatBRL, type MonthlySnapshot } from "@/data/investments";
+import { formatBRL, type MonthlySnapshot, inferIncomeType, inferRegion } from "@/data/investments";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -65,10 +65,12 @@ const AssetEvolutionChart = ({ snapshots }: Props) => {
     const map = new Map<string, { name: string; lastValue: number }>();
     for (const s of visibleSnapshots) {
       for (const inv of s.investments) {
-        if (klass === "fixed" && inv.incomeType !== "fixed") continue;
-        if (klass === "variable" && inv.incomeType !== "variable") continue;
-        if (klass === "brazil" && inv.region !== "brazil") continue;
-        if (klass === "exterior" && inv.region !== "exterior") continue;
+        const iType = inv.incomeType || inferIncomeType(inv.name, undefined, inv.currency);
+        const reg = inv.region || inferRegion(inv.name, undefined, inv.currency);
+        if (klass === "fixed" && iType !== "fixed") continue;
+        if (klass === "variable" && iType !== "variable") continue;
+        if (klass === "brazil" && reg !== "brazil") continue;
+        if (klass === "exterior" && reg !== "exterior") continue;
         map.set(inv.name, { name: inv.name, lastValue: inv.valueBRL ?? inv.value });
       }
     }

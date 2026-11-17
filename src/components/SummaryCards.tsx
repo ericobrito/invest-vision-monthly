@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import { TrendingUp, TrendingDown, Wallet, PieChart, Globe, ArrowUpRight, ArrowDownRight, Home } from "lucide-react";
-import { formatBRL, formatPercent, type MonthlySnapshot } from "@/data/investments";
+import { formatBRL, formatPercent, type MonthlySnapshot, inferIncomeType, inferRegion } from "@/data/investments";
 
 interface SummaryCardsProps {
   snapshot: MonthlySnapshot;
@@ -8,10 +9,44 @@ interface SummaryCardsProps {
 const SummaryCards = ({ snapshot }: SummaryCardsProps) => {
   const isPositive = snapshot.change ? snapshot.change.value >= 0 : true;
 
-  const fixedIncomePct = snapshot.fixedIncome ?? 0;
-  const variableIncomePct = snapshot.variableIncome ?? 0;
-  const brazilPct = snapshot.brazil ?? 0;
-  const exteriorPct = snapshot.exterior ?? 0;
+  const { fixedIncomePct, variableIncomePct, brazilPct, exteriorPct } = useMemo(() => {
+    const invs = snapshot.investments;
+    if (invs && invs.length > 0) {
+      const total = invs.reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+      if (total > 0) {
+        const fixedBRL = invs
+          .filter((i) => (i.incomeType || inferIncomeType(i.name, undefined, i.currency)) === "fixed")
+          .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+        const brazilBRL = invs
+          .filter((i) => (i.region || inferRegion(i.name, undefined, i.currency)) === "brazil")
+          .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+
+        const fixedPct = Number(((fixedBRL / total) * 100).toFixed(1));
+        const varPct = Number((100 - fixedPct).toFixed(1));
+        const brPct = Number(((brazilBRL / total) * 100).toFixed(1));
+        const extPct = Number((100 - brPct).toFixed(1));
+
+        return {
+          fixedIncomePct: fixedPct,
+          variableIncomePct: varPct,
+          brazilPct: brPct,
+          exteriorPct: extPct,
+        };
+      }
+    }
+
+    const fallbackFixed = snapshot.fixedIncome ?? 0;
+    const fallbackVar = snapshot.variableIncome ?? (snapshot.fixedIncome != null ? 100 - snapshot.fixedIncome : 0);
+    const fallbackBr = snapshot.brazil ?? 0;
+    const fallbackExt = snapshot.exterior ?? (snapshot.brazil != null ? 100 - snapshot.brazil : 0);
+
+    return {
+      fixedIncomePct: fallbackFixed,
+      variableIncomePct: fallbackVar,
+      brazilPct: fallbackBr,
+      exteriorPct: fallbackExt,
+    };
+  }, [snapshot]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full min-w-0">

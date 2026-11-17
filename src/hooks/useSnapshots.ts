@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MonthlySnapshot, Investment, IncomeType, Region, Position, InvestmentMode } from "@/data/investments";
-import { resolveInvestmentTotals, getCleanMonthLabel, monthlyData as fallbackMonthlyData } from "@/data/investments";
+import { resolveInvestmentTotals, getCleanMonthLabel, monthlyData as fallbackMonthlyData, inferIncomeType, inferRegion } from "@/data/investments";
 import { fetchFxRatesToBRL, getFxRate, type FxRates } from "@/lib/fx";
 import { MarketDataService } from "@/services/MarketDataService";
 import { InvestmentNormalizationService } from "@/services/InvestmentNormalizationService";
@@ -12,33 +12,6 @@ import {
   sanitizeCryptoAveragePrice,
   inferAllSymbolsFromInvestments,
 } from "@/config/marketDefaults";
-
-function inferIncomeType(name: string, explicitType?: string): IncomeType {
-  if (explicitType === 'fixed' || explicitType === 'variable') return explicitType;
-  const n = (name || "").toLowerCase();
-  if (
-    n.includes("ações") || n.includes("fii") || n.includes("bitcoin") ||
-    n.includes("cripto") || n.includes("bybit") || n.includes("binance") ||
-    n.includes("coinbase") || n.includes("dólar") || n.includes("avenue") ||
-    n.includes("robo")
-  ) {
-    return 'variable';
-  }
-  return 'fixed';
-}
-
-function inferRegion(name: string, explicitRegion?: string): Region {
-  if (explicitRegion === 'brazil' || explicitRegion === 'exterior') return explicitRegion;
-  const n = (name || "").toLowerCase();
-  if (
-    n.includes("dólar") || n.includes("avenue") || n.includes("bitcoin") ||
-    n.includes("cripto") || n.includes("bybit") || n.includes("binance") ||
-    n.includes("coinbase") || n.includes("exterior")
-  ) {
-    return 'exterior';
-  }
-  return 'brazil';
-}
 
 /** Current calendar month in YYYY-MM format — the ONLY month where live prices apply. */
 function getCurrentCalendarMonth(): string {
@@ -348,13 +321,13 @@ export function useSnapshots() {
             const changePct = prevSnap && prevSnap.total > 0 ? Number(((changeVal / prevSnap.total) * 100).toFixed(2)) : (snap.change?.percentage ?? 0);
 
             const fixedBRL = updatedInvs
-              .filter((i) => i.incomeType === "fixed" || (!i.incomeType && (i.name.includes("Prev") || i.name.includes("Reserva") || i.name.includes("Renda Fixa") || i.name.includes("Allu") || i.name.includes("Consórcio") || i.name.includes("Sofisa"))))
+              .filter((i) => (i.incomeType || inferIncomeType(i.name, undefined, i.currency)) === "fixed")
               .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
             const fixedPct = totalBRL > 0 ? Number(((fixedBRL / totalBRL) * 100).toFixed(2)) : snap.fixedIncome;
             const variablePct = fixedPct != null ? Number((100 - fixedPct).toFixed(2)) : snap.variableIncome;
 
             const brazilBRL = updatedInvs
-              .filter((i) => i.region === "brazil" || (!i.region && !i.name.includes("Avenue") && !i.name.includes("Binance") && !i.name.includes("Bybit") && !i.name.includes("Coinbase") && !i.name.includes("Bitcoin")))
+              .filter((i) => (i.region || inferRegion(i.name, undefined, i.currency)) === "brazil")
               .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
             const brazilPct = totalBRL > 0 ? Number(((brazilBRL / totalBRL) * 100).toFixed(2)) : snap.brazil;
             const exteriorPct = brazilPct != null ? Number((100 - brazilPct).toFixed(2)) : snap.exterior;
@@ -789,6 +762,8 @@ export function useSnapshots() {
 
         const investmentsWithPct = snap.investments.map((inv) => ({
           ...inv,
+          incomeType: inv.incomeType || inferIncomeType(inv.name, undefined, inv.currency),
+          region: inv.region || inferRegion(inv.name, undefined, inv.currency),
           percentage: total > 0 ? Number((((inv.valueBRL ?? inv.value) / total) * 100).toFixed(2)) : inv.percentage,
         }));
 
@@ -799,10 +774,26 @@ export function useSnapshots() {
           change = { value: changeVal, percentage: changePct };
         }
 
+        const fixedBRL = investmentsWithPct
+          .filter((i) => i.incomeType === "fixed")
+          .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+        const fixedIncome = total > 0 ? Number(((fixedBRL / total) * 100).toFixed(2)) : snap.fixedIncome;
+        const variableIncome = fixedIncome != null ? Number((100 - fixedIncome).toFixed(2)) : snap.variableIncome;
+
+        const brazilBRL = investmentsWithPct
+          .filter((i) => i.region === "brazil")
+          .reduce((s, i) => s + (i.valueBRL ?? i.value), 0);
+        const brazil = total > 0 ? Number(((brazilBRL / total) * 100).toFixed(2)) : snap.brazil;
+        const exterior = brazil != null ? Number((100 - brazil).toFixed(2)) : snap.exterior;
+
         result.push({
           ...snap,
           total,
           change,
+          fixedIncome,
+          variableIncome,
+          brazil,
+          exterior,
           investments: investmentsWithPct,
         });
       }
@@ -877,10 +868,10 @@ export function computeDerivedFields(
   const total = invsBRL.reduce((sum, inv) => sum + inv.valueBRL, 0);
 
   // Percentages by type
-  const fixedTotal = invsBRL.filter(i => i.incomeType === 'fixed').reduce((s, i) => s + i.valueBRL, 0);
-  const variableTotal = invsBRL.filter(i => i.incomeType === 'variable').reduce((s, i) => s + i.valueBRL, 0);
-  const brazilTotal = invsBRL.filter(i => i.region === 'brazil').reduce((s, i) => s + i.valueBRL, 0);
-  const exteriorTotal = invsBRL.filter(i => i.region === 'exterior').reduce((s, i) => s + i.valueBRL, 0);
+  const fixedTotal = invsBRL.filter(i => (i.incomeType || inferIncomeType(i.name, undefined, i.currency)) === 'fixed').reduce((s, i) => s + i.valueBRL, 0);
+  const variableTotal = invsBRL.filter(i => (i.incomeType || inferIncomeType(i.name, undefined, i.currency)) === 'variable').reduce((s, i) => s + i.valueBRL, 0);
+  const brazilTotal = invsBRL.filter(i => (i.region || inferRegion(i.name, undefined, i.currency)) === 'brazil').reduce((s, i) => s + i.valueBRL, 0);
+  const exteriorTotal = invsBRL.filter(i => (i.region || inferRegion(i.name, undefined, i.currency)) === 'exterior').reduce((s, i) => s + i.valueBRL, 0);
 
   const fixedIncome = total > 0 ? Number(((fixedTotal / total) * 100).toFixed(2)) : undefined;
   const variableIncome = total > 0 ? Number(((variableTotal / total) * 100).toFixed(2)) : undefined;
@@ -944,10 +935,10 @@ export async function recalculateAllSnapshotVariations() {
     const getInvBrl = (i: any) => (i.value_brl != null ? Number(i.value_brl) : (Number(i.value) || 0) * getFxRate(i.currency, fxRates));
     const totalBRL = invs.reduce((sum, inv) => sum + getInvBrl(inv), 0);
 
-    const fixedBrl = invs.filter(i => i.income_type === 'fixed').reduce((s, i) => s + getInvBrl(i), 0);
-    const variableBrl = invs.filter(i => i.income_type === 'variable').reduce((s, i) => s + getInvBrl(i), 0);
-    const brazilBrl = invs.filter(i => i.region === 'brazil').reduce((s, i) => s + getInvBrl(i), 0);
-    const exteriorBrl = invs.filter(i => i.region === 'exterior').reduce((s, i) => s + getInvBrl(i), 0);
+    const fixedBrl = invs.filter(i => inferIncomeType(i.name, i.income_type, i.currency) === 'fixed').reduce((s, i) => s + getInvBrl(i), 0);
+    const variableBrl = invs.filter(i => inferIncomeType(i.name, i.income_type, i.currency) === 'variable').reduce((s, i) => s + getInvBrl(i), 0);
+    const brazilBrl = invs.filter(i => inferRegion(i.name, i.region, i.currency) === 'brazil').reduce((s, i) => s + getInvBrl(i), 0);
+    const exteriorBrl = invs.filter(i => inferRegion(i.name, i.region, i.currency) === 'exterior').reduce((s, i) => s + getInvBrl(i), 0);
 
     const fixedIncome = totalBRL > 0 ? Number(((fixedBrl / totalBRL) * 100).toFixed(2)) : null;
     const variableIncome = totalBRL > 0 ? Number(((variableBrl / totalBRL) * 100).toFixed(2)) : null;
@@ -1554,8 +1545,8 @@ export async function propagateConnectionValues(connectionId: string) {
         totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
         annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
         yearStarted: inv.year_started ?? undefined,
-        incomeType: (inv.income_type as any) || "fixed",
-        region: (inv.region as any) || "brazil",
+        incomeType: inferIncomeType(inv.name, inv.income_type, inv.currency),
+        region: inferRegion(inv.name, inv.region, inv.currency),
         currency: inv.currency || "BRL",
       };
     });
@@ -1703,8 +1694,8 @@ export async function propagateDetailedValues(latestSnapId: string, detailedInvs
       totalReturn: inv.total_return != null ? Number(inv.total_return) : undefined,
       annualReturn: inv.annual_return != null ? Number(inv.annual_return) : undefined,
       yearStarted: inv.year_started ?? undefined,
-      incomeType: (inv.income_type as any) || "fixed",
-      region: (inv.region as any) || "brazil",
+      incomeType: inferIncomeType(inv.name, inv.income_type, inv.currency),
+      region: inferRegion(inv.name, inv.region, inv.currency),
       currency: inv.currency || "BRL",
     }));
 

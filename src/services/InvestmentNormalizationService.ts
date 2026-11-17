@@ -1,35 +1,8 @@
 import type { MonthlySnapshot, Investment, Position, IncomeType, Region, InvestmentMode } from "@/data/investments";
-import { resolveInvestmentTotals } from "@/data/investments";
+import { resolveInvestmentTotals, inferIncomeType, inferRegion } from "@/data/investments";
 import { findCanonicalRule } from "@/config/investmentRegistry";
 import type { FxRates } from "@/lib/fx";
 import { FALLBACK_USD_BRL } from "@/config/marketDefaults";
-
-function inferIncomeType(name: string, explicitType?: string): IncomeType {
-  if (explicitType === "fixed" || explicitType === "variable") return explicitType;
-  const n = (name || "").toLowerCase();
-  if (
-    n.includes("ações") || n.includes("fii") || n.includes("bitcoin") ||
-    n.includes("cripto") || n.includes("bybit") || n.includes("binance") ||
-    n.includes("coinbase") || n.includes("dólar") || n.includes("avenue") ||
-    n.includes("robo")
-  ) {
-    return "variable";
-  }
-  return "fixed";
-}
-
-function inferRegion(name: string, explicitRegion?: string): Region {
-  if (explicitRegion === "brazil" || explicitRegion === "exterior") return explicitRegion;
-  const n = (name || "").toLowerCase();
-  if (
-    n.includes("dólar") || n.includes("avenue") || n.includes("bitcoin") ||
-    n.includes("cripto") || n.includes("bybit") || n.includes("binance") ||
-    n.includes("coinbase") || n.includes("exterior")
-  ) {
-    return "exterior";
-  }
-  return "brazil";
-}
 
 export class InvestmentNormalizationService {
   /**
@@ -198,8 +171,8 @@ export class InvestmentNormalizationService {
         finalApplied = inv.applied != null ? Number(inv.applied) : undefined;
       }
 
-      const incomeType = inferIncomeType(inv.name, inv.income_type);
-      const region = inferRegion(inv.name, inv.region);
+      const incomeType = inferIncomeType(inv.name, inv.income_type, invCurrency);
+      const region = inferRegion(inv.name, inv.region, invCurrency);
       const annualRateVal = inv.annual_rate != null ? Number(inv.annual_rate) : inv.annual_return != null ? Number(inv.annual_return) : undefined;
 
       return {
