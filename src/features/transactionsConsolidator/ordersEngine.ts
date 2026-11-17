@@ -1,7 +1,7 @@
 import type { AssetAveragePriceSummary, ConsolidatedOrder, OrderFilterState } from "./types";
 import { initialHistoricalOrders } from "./defaultOrdersData";
 
-const STORAGE_KEY = "invest_vision_consolidated_orders_v1";
+const STORAGE_KEY = "invest_vision_consolidated_orders_v2";
 
 export class OrdersConsolidatorEngine {
   private orders: ConsolidatedOrder[] = [];
@@ -61,11 +61,12 @@ export class OrdersConsolidatorEngine {
 
   private loadOrders(): void {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("invest_vision_consolidated_orders_v1");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleanParsed = parsed.filter((o: any) => !o.id.startsWith("ord_bin_btc_2026") && !o.id.startsWith("ord_bin_eth_2026"));
+          // Remove legacy uncalibrated mock entries
+          const cleanParsed = parsed.filter((o: any) => o.id !== "ord_bin_btc_2026" && o.id !== "ord_bin_eth_2026");
           const existingIds = new Set(cleanParsed.map((o: any) => o.id));
           const missingDefaults = initialHistoricalOrders.filter((o) => !existingIds.has(o.id));
           this.orders = missingDefaults.length > 0 ? [...cleanParsed, ...missingDefaults] : cleanParsed;

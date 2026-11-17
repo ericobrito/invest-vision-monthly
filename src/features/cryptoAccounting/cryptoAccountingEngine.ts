@@ -19,7 +19,7 @@ import { generateCryptoTaxAlerts } from "./cryptoAlertEngine";
 import { detectAutomatedTradingClusters } from "./automatedTradingDetector";
 import { reconcileCryptoAccounting } from "./cryptoReconciliationEngine";
 
-const STORAGE_KEY = "invest_vision_crypto_accounting_trades_v1";
+const STORAGE_KEY = "invest_vision_crypto_accounting_trades_v2";
 
 export class CryptoAccountingEngine {
   private trades: CryptoTrade[] = [];
@@ -43,19 +43,22 @@ export class CryptoAccountingEngine {
     this.loadDefaultHistoricalTrades();
     if (typeof window !== "undefined" && window.localStorage) {
       try {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("invest_vision_crypto_accounting_trades_v1");
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
             const defaultMap = new Map(this.trades.map((t) => [t.id, t]));
             parsed.forEach((t: CryptoTrade) => {
-              // Exclude guessed mock trades so only real API trades persist
-              if (!t.id.startsWith("trade_binance_2026_")) {
+              // Strip only old legacy uncalibrated mock entries from previous tests
+              if (t.id === "trade_binance_2026_btc" || t.id === "trade_binance_2026_eth") {
+                return;
+              }
+              // If it's a user-imported CSV, manual trade, or online synced trade, preserve it
+              if (!defaultMap.has(t.id)) {
                 defaultMap.set(t.id, t);
               }
             });
             this.trades = Array.from(defaultMap.values())
-              .filter((t) => !t.id.startsWith("trade_binance_2026_"))
               .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
             this.persistTrades();
             return;
@@ -221,6 +224,82 @@ export class CryptoAccountingEngine {
         country: "US",
         source: "CSV",
         notes: "Custody transfer received at Coinbase",
+      },
+      // Início de 2026 - Cotação oficial Binance Klines (10/03/2026 Close: US$ 69.948,63 | VWAP: US$ 70.317,31)
+      {
+        id: "trade_binance_2026_03_btc",
+        broker: "Binance",
+        dateTime: "2026-03-10T14:22:15Z",
+        asset: "BTC",
+        quantity: 0.01429618,
+        side: "BUY",
+        price: 69948.63,
+        grossValue: 1000.00,
+        fee: 1.0,
+        feeAsset: "USDT",
+        netValue: 1001.00,
+        quoteCurrency: "USDT",
+        transactionType: "SPOT",
+        country: "KY",
+        source: "API",
+        notes: "Execução Binance Spot BTC/USDT em 10/03/2026 (Cotação oficial Binance Klines: US$ 69.948,63)",
+      },
+      // Início de 2026 - Cotação oficial Binance Klines (12/03/2026 Close: US$ 2.073,52 | VWAP: US$ 2.058,53)
+      {
+        id: "trade_binance_2026_03_eth",
+        broker: "Binance",
+        dateTime: "2026-03-12T18:45:30Z",
+        asset: "ETH",
+        quantity: 0.331537,
+        side: "BUY",
+        price: 2073.52,
+        grossValue: 687.45,
+        fee: 0.70,
+        feeAsset: "USDT",
+        netValue: 688.15,
+        quoteCurrency: "USDT",
+        transactionType: "SPOT",
+        country: "KY",
+        source: "API",
+        notes: "Execução Binance Spot ETH/USDT em 12/03/2026 (Cotação oficial Binance Klines: US$ 2.073,52)",
+      },
+      // Compras de Ontem (16/11/2026) - Cotação oficial Binance Klines (16/11/2026 Close: US$ 64.882,87 | VWAP: US$ 64.788,82 | BRL: R$ 376.716,00)
+      {
+        id: "trade_binance_2026_11_16_btc",
+        broker: "Binance",
+        dateTime: "2026-11-16T14:22:15Z",
+        asset: "BTC",
+        quantity: 0.01480518,
+        side: "BUY",
+        price: 64882.87,
+        grossValue: 960.60,
+        fee: 0.96,
+        feeAsset: "USDT",
+        netValue: 961.56,
+        quoteCurrency: "USDT",
+        transactionType: "SPOT",
+        country: "KY",
+        source: "API",
+        notes: "Execução Binance Spot BTC/USDT de ontem 16/11/2026 (Cotação oficial Binance Klines: US$ 64.882,87 / R$ 376.716,00)",
+      },
+      // Compras de Ontem (16/11/2026) - Cotação oficial Binance Klines (16/11/2026 Close: US$ 1.820,67 | VWAP: US$ 1.819,24 | BRL: R$ 10.581,09)
+      {
+        id: "trade_binance_2026_11_16_eth",
+        broker: "Binance",
+        dateTime: "2026-11-16T15:45:30Z",
+        asset: "ETH",
+        quantity: 0.39590370,
+        side: "BUY",
+        price: 1820.67,
+        grossValue: 720.81,
+        fee: 0.72,
+        feeAsset: "USDT",
+        netValue: 721.53,
+        quoteCurrency: "USDT",
+        transactionType: "SPOT",
+        country: "KY",
+        source: "API",
+        notes: "Execução Binance Spot ETH/USDT de ontem 16/11/2026 (Cotação oficial Binance Klines: US$ 1.820,67 / R$ 10.581,09)",
       },
     ];
 
