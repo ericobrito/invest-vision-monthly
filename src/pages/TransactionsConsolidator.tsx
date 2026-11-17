@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
   Building2,
   Calculator,
+  Calendar,
   CheckCircle2,
   Coins,
   DollarSign,
@@ -90,8 +91,20 @@ export const TransactionsConsolidator = () => {
     category: "all",
     broker: "all",
     orderType: "all",
+    year: "all",
     sortBy: "date_desc",
   });
+
+  const availableYears = useMemo(() => {
+    const set = new Set<string>();
+    orders.forEach((o) => {
+      if (o.dateTime) {
+        const y = new Date(o.dateTime).getFullYear().toString();
+        if (y && y !== "NaN") set.add(y);
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [orders]);
 
   // Extract all assets declared in user's portfolio (useSnapshots)
   const declaredAssets = useMemo<DeclaredAsset[]>(() => {
@@ -949,6 +962,26 @@ export const TransactionsConsolidator = () => {
                   <SelectItem value="all">Todas Ordens</SelectItem>
                   <SelectItem value="BUY">🟢 Compras</SelectItem>
                   <SelectItem value="SELL">🔴 Vendas</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filter.year || "all"}
+                onValueChange={(val: string) => setFilter({ ...filter, year: val })}
+              >
+                <SelectTrigger className="w-[125px] h-9 text-xs">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <SelectValue placeholder="Ano" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Anos</SelectItem>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={y}>
+                      Ano {y}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 

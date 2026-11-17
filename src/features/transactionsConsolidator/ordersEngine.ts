@@ -304,6 +304,17 @@ export class OrdersConsolidatorEngine {
       result = result.filter((o) => o.orderType === filter.orderType);
     }
 
+    if (filter.year && filter.year !== "all") {
+      result = result.filter((o) => {
+        try {
+          const y = new Date(o.dateTime).getFullYear().toString();
+          return y === filter.year;
+        } catch {
+          return false;
+        }
+      });
+    }
+
     result.sort((a, b) => {
       if (filter.sortBy === "date_desc") {
         return new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime();

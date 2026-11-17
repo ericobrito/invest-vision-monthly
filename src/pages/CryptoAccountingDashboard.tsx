@@ -177,6 +177,24 @@ export function CryptoAccountingDashboard() {
     return cryptoAccountingEngine.getTrades();
   }, [refreshKey]);
 
+  const [ledgerYearFilter, setLedgerYearFilter] = useState<string>("all");
+
+  const availableCryptoYears = useMemo(() => {
+    const set = new Set<string>();
+    trades.forEach((t) => {
+      if (t.dateTime) {
+        const y = t.dateTime.slice(0, 4);
+        if (y && !isNaN(Number(y))) set.add(y);
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [trades]);
+
+  const filteredTrades = useMemo(() => {
+    if (ledgerYearFilter === "all") return trades;
+    return trades.filter((t) => t.dateTime.startsWith(ledgerYearFilter));
+  }, [trades, ledgerYearFilter]);
+
   const monthSummary = useMemo(() => {
     return (
       processed.monthlySummaries[selectedMonth] || {
@@ -641,24 +659,40 @@ export function CryptoAccountingDashboard() {
 
               {/* Transactions Ledger Table */}
               <Card className="lg:col-span-2">
-                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2 flex-wrap">
                   <div>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-emerald-400" /> Livro de Operações Executadas ({trades.length})
+                      <BookOpen className="w-4 h-4 text-emerald-400" /> Livro de Operações Executadas ({filteredTrades.length})
                     </CardTitle>
                     <CardDescription>
                       Histórico cronológico de ordenamento e preenchimento de ordens
                     </CardDescription>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleResetTrades}
-                    className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
-                    title="Restaurar lista de ordens padrão"
-                  >
-                    <RotateCcw className="w-3 h-3 mr-1" /> Restaurar Padrão
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Select value={ledgerYearFilter} onValueChange={setLedgerYearFilter}>
+                      <SelectTrigger className="w-[125px] h-7 text-xs font-medium">
+                        <SelectValue placeholder="Ano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os Anos</SelectItem>
+                        {availableCryptoYears.map((y) => (
+                          <SelectItem key={y} value={y}>
+                            Ano {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetTrades}
+                      className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+                      title="Restaurar lista de ordens padrão"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" /> Restaurar Padrão
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0 overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
@@ -677,14 +711,14 @@ export function CryptoAccountingDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {trades.length === 0 ? (
+                      {filteredTrades.length === 0 ? (
                         <tr>
                           <td colSpan={10} className="text-center p-6 text-muted-foreground">
-                            Nenhuma ordem registrada. Importe um extrato CSV ou adicione manualmente.
+                            Nenhuma ordem encontrada para o filtro de ano selecionado.
                           </td>
                         </tr>
                       ) : (
-                        trades.map((t) => {
+                        filteredTrades.map((t) => {
                           const isSell = t.side === "SELL";
                           const isTransfer = t.transactionType === "TRANSFER" || t.notes?.toLowerCase().includes("transfer");
                           return (

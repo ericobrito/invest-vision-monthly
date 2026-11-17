@@ -55,5 +55,6 @@ export interface OrderFilterState {
   category: "all" | AssetCategory;
   broker: string;
   orderType: "all" | OrderType;
+  year?: "all" | string;
   sortBy: "date_desc" | "date_asc" | "value_desc" | "realized_desc";
 }
