@@ -19,6 +19,8 @@ import { generateCryptoTaxAlerts } from "./cryptoAlertEngine";
 import { detectAutomatedTradingClusters } from "./automatedTradingDetector";
 import { reconcileCryptoAccounting } from "./cryptoReconciliationEngine";
 
+const STORAGE_KEY = "invest_vision_crypto_accounting_trades_v1";
+
 export class CryptoAccountingEngine {
   private trades: CryptoTrade[] = [];
   private costBasisEngine: CryptoCostBasisEngine;
@@ -30,12 +32,39 @@ export class CryptoAccountingEngine {
     this.costBasisEngine = new CryptoCostBasisEngine(defaultFxRateBRL);
     this.taxEngine = new CryptoTaxEngine();
 
-    // Populate with historical executed Bybit/Binance/Coinbase trades
-    this.loadDefaultHistoricalTrades();
+    this.loadTrades();
   }
 
   public getTaxRuleVersion() {
     return this.taxEngine.getTaxRuleVersion();
+  }
+
+  private loadTrades() {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.trades = parsed;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("[CryptoAccountingEngine] Failed to load trades from storage:", e);
+      }
+    }
+    this.loadDefaultHistoricalTrades();
+  }
+
+  private persistTrades() {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.trades));
+      } catch (e) {
+        console.warn("[CryptoAccountingEngine] Failed to persist trades:", e);
+      }
+    }
   }
 
   private loadDefaultHistoricalTrades() {
@@ -193,6 +222,7 @@ export class CryptoAccountingEngine {
     if (imported.length > 0) {
       this.trades.push(...imported);
       this.trades.sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+      this.persistTrades();
     }
     return imported.length;
   }
@@ -200,6 +230,22 @@ export class CryptoAccountingEngine {
   public addTrade(trade: CryptoTrade) {
     this.trades.push(trade);
     this.trades.sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+    this.persistTrades();
+  }
+
+  public deleteTrade(id: string): boolean {
+    const prev = this.trades.length;
+    this.trades = this.trades.filter((t) => t.id !== id);
+    if (this.trades.length !== prev) {
+      this.persistTrades();
+      return true;
+    }
+    return false;
+  }
+
+  public resetToDefault() {
+    this.loadDefaultHistoricalTrades();
+    this.persistTrades();
   }
 
   public getTrades(): CryptoTrade[] {

@@ -27,11 +27,13 @@ import {
   Lightbulb,
   Plus,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Sliders,
   Sparkles,
   Target,
+  Trash2,
   TrendingUp,
   Upload,
   Zap,
@@ -140,7 +142,8 @@ export function CryptoAccountingDashboard() {
 
   // Manual Trade Form State
   const [manualAsset, setManualAsset] = useState("BTC");
-  const [manualBroker, setManualBroker] = useState("Mercado Bitcoin");
+  const [manualBroker, setManualBroker] = useState("Binance");
+  const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
   const [manualSide, setManualSide] = useState<"BUY" | "SELL">("BUY");
   const [manualQty, setManualQty] = useState("0.05");
   const [manualPriceUSD, setManualPriceUSD] = useState("70000");
@@ -243,17 +246,34 @@ export function CryptoAccountingDashboard() {
   };
 
   const handleAddManualTrade = () => {
+    const qty = parseFloat(manualQty) || 0;
+    const price = parseFloat(manualPriceUSD) || 0;
+    if (qty <= 0 || price <= 0 || !manualAsset.trim()) return;
+
+    const dateStr = manualDate ? `${manualDate}T12:00:00Z` : new Date().toISOString();
     const trade = normalizeRawTrade({
-      asset: manualAsset,
+      asset: manualAsset.toUpperCase().trim(),
       broker: manualBroker,
       side: manualSide,
-      quantity: parseFloat(manualQty) || 0,
-      price: parseFloat(manualPriceUSD) || 0,
-      dateTime: new Date().toISOString(),
+      quantity: qty,
+      price: price,
+      dateTime: dateStr,
     });
 
     cryptoAccountingEngine.addTrade(trade);
     setRefreshKey((k) => k + 1);
+  };
+
+  const handleDeleteTrade = (id: string) => {
+    cryptoAccountingEngine.deleteTrade(id);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleResetTrades = () => {
+    if (window.confirm("Deseja restaurar as ordens de histórico para o padrão original?")) {
+      cryptoAccountingEngine.resetToDefault();
+      setRefreshKey((k) => k + 1);
+    }
   };
 
   const fmtBRL = (v?: number) =>
@@ -453,6 +473,13 @@ export function CryptoAccountingDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-[11px] text-muted-foreground flex items-start gap-2">
+                    <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-foreground">Sincronização de Ordens:</strong> A API da Binance importa saldos de carteira. Para a apuração tributária (GCAP/IRPF), importe o extrato CSV da corretora ou insira as ordens no formulário abaixo.
+                    </div>
+                  </div>
+
                   <div className="space-y-1">
                     <Label className="text-xs">Corretora de Origem</Label>
                     <Select value={csvBroker} onValueChange={setCsvBroker}>
@@ -488,8 +515,32 @@ export function CryptoAccountingDashboard() {
                     <Label className="text-xs font-semibold">Adicionar Lançamento Manual</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
+                        <Label className="text-[10px] text-muted-foreground">Corretora</Label>
+                        <Select value={manualBroker} onValueChange={setManualBroker}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Binance">Binance</SelectItem>
+                            <SelectItem value="Coinbase">Coinbase</SelectItem>
+                            <SelectItem value="Bybit">Bybit</SelectItem>
+                            <SelectItem value="Mercado Bitcoin">Mercado Bitcoin</SelectItem>
+                            <SelectItem value="Foxbit">Foxbit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Data da Ordem</Label>
+                        <Input
+                          type="date"
+                          value={manualDate}
+                          onChange={(e) => setManualDate(e.target.value)}
+                          className="h-7 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-[10px] text-muted-foreground">Ativo</Label>
-                        <Input value={manualAsset} onChange={(e) => setManualAsset(e.target.value)} className="h-7 text-xs" />
+                        <Input value={manualAsset} onChange={(e) => setManualAsset(e.target.value)} placeholder="BTC, ETH, SOL" className="h-7 text-xs font-mono" />
                       </div>
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Operação</Label>
@@ -505,11 +556,11 @@ export function CryptoAccountingDashboard() {
                       </div>
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Qtd</Label>
-                        <Input value={manualQty} onChange={(e) => setManualQty(e.target.value)} className="h-7 text-xs" />
+                        <Input value={manualQty} onChange={(e) => setManualQty(e.target.value)} placeholder="0.05" className="h-7 text-xs font-mono" />
                       </div>
                       <div>
                         <Label className="text-[10px] text-muted-foreground">Preço US$</Label>
-                        <Input value={manualPriceUSD} onChange={(e) => setManualPriceUSD(e.target.value)} className="h-7 text-xs" />
+                        <Input value={manualPriceUSD} onChange={(e) => setManualPriceUSD(e.target.value)} placeholder="70000" className="h-7 text-xs font-mono" />
                       </div>
                     </div>
                     <Button size="sm" variant="outline" onClick={handleAddManualTrade} className="w-full text-xs h-8 mt-1">
@@ -527,9 +578,18 @@ export function CryptoAccountingDashboard() {
                       <BookOpen className="w-4 h-4 text-emerald-400" /> Livro de Operações Executadas ({trades.length})
                     </CardTitle>
                     <CardDescription>
-                      Histórico chronológico de ordenamento e preenchimento de ordens
+                      Histórico cronológico de ordenamento e preenchimento de ordens
                     </CardDescription>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetTrades}
+                    className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+                    title="Restaurar lista de ordens padrão"
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" /> Restaurar Padrão
+                  </Button>
                 </CardHeader>
                 <CardContent className="p-0 overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
@@ -544,12 +604,13 @@ export function CryptoAccountingDashboard() {
                         <th className="p-2.5 text-right">Valor Bruto</th>
                         <th className="p-2.5 text-right">Taxa</th>
                         <th className="p-2.5 text-center">Regime</th>
+                        <th className="p-2.5 text-center w-8">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
                       {trades.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="text-center p-6 text-muted-foreground">
+                          <td colSpan={10} className="text-center p-6 text-muted-foreground">
                             Nenhuma ordem registrada. Importe um extrato CSV ou adicione manualmente.
                           </td>
                         </tr>
@@ -588,6 +649,17 @@ export function CryptoAccountingDashboard() {
                                   {t.country === "BR" ? "Nacional" : "Internacional"}
                                 </Badge>
                               </td>
+                              <td className="p-2.5 text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleDeleteTrade(t.id)}
+                                  title="Remover ordem"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </td>
                             </tr>
                           );
                         })
@@ -610,7 +682,7 @@ export function CryptoAccountingDashboard() {
                           <td className="p-2.5 text-right font-mono text-amber-400">
                             {fmtUSD(processed.reconciliation.totalFeesUSD)}
                           </td>
-                          <td className="p-2.5 text-center text-muted-foreground">-</td>
+                          <td colSpan={2} className="p-2.5 text-center text-muted-foreground">-</td>
                         </tr>
                       </tfoot>
                     )}
