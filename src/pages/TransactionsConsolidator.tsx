@@ -280,15 +280,28 @@ export const TransactionsConsolidator = () => {
     }));
   };
 
-  const assetSummaries = useMemo(() => {
-    return ordersConsolidatorEngine.getAssetSummaries();
-  }, [orders]);
-
   const filteredOrders = useMemo(() => {
     return ordersConsolidatorEngine.filterOrders(filter);
   }, [orders, filter]);
 
-  // Overall statistics
+  const isFiltered = useMemo(() => {
+    return Boolean(
+      (filter.year && filter.year !== "all") ||
+      (filter.broker && filter.broker !== "all") ||
+      (filter.category && filter.category !== "all") ||
+      (filter.orderType && filter.orderType !== "all") ||
+      filter.searchQuery.trim()
+    );
+  }, [filter]);
+
+  const assetSummaries = useMemo(() => {
+    if (isFiltered) {
+      return ordersConsolidatorEngine.getAssetSummaries(filteredOrders);
+    }
+    return ordersConsolidatorEngine.getAssetSummaries();
+  }, [orders, filteredOrders, isFiltered]);
+
+  // Statistics derived directly from filtered orders and their asset summaries
   const stats = useMemo(() => {
     let totalInvestedBRL = 0;
     let totalCurrentValueBRL = 0;
@@ -298,7 +311,7 @@ export const TransactionsConsolidator = () => {
     let buyCount = 0;
     let sellCount = 0;
 
-    orders.forEach((o) => {
+    filteredOrders.forEach((o) => {
       if (o.orderType === "BUY") {
         totalBuyVolumeBRL += o.netValueBRL;
         buyCount++;
@@ -329,9 +342,9 @@ export const TransactionsConsolidator = () => {
       totalSellVolumeBRL,
       buyCount,
       sellCount,
-      totalOrders: orders.length,
+      totalOrders: filteredOrders.length,
     };
-  }, [orders, assetSummaries]);
+  }, [filteredOrders, assetSummaries]);
 
   useEffect(() => {
     const onSynced = () => {
@@ -480,6 +493,28 @@ export const TransactionsConsolidator = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Seletor Rápido de Ano na Barra Superior */}
+            <div className="flex items-center gap-1.5 bg-card/90 border border-border px-2 py-0.5 rounded-lg shadow-sm">
+              <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">Ano:</span>
+              <Select
+                value={filter.year || "all"}
+                onValueChange={(val: string) => setFilter((prev) => ({ ...prev, year: val }))}
+              >
+                <SelectTrigger className="h-7 w-[115px] sm:w-[130px] text-xs font-bold border-none bg-muted/60 focus:ring-0">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Anos</SelectItem>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={y} className="font-semibold text-xs">
+                      Ano {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Link to="/desempenho-variavel">
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10">
                 <Flame className="w-3.5 h-3.5 text-emerald-400" /> Maiores Altas
@@ -800,17 +835,30 @@ export const TransactionsConsolidator = () => {
           <Card className="border-border bg-card shadow-sm hover:border-cyan-500/40 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-semibold uppercase tracking-wider">💼 Patrimônio Atual</span>
-                <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
-                  <Wallet className="w-4 h-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  💼 {filter.year && filter.year !== "all" ? `Patrimônio / Aportes (${filter.year})` : "Patrimônio Atual"}
                 </span>
+                <div className="flex items-center gap-1">
+                  {filter.year && filter.year !== "all" && (
+                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/40 bg-cyan-500/10 font-mono py-0">
+                      {filter.year}
+                    </Badge>
+                  )}
+                  <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                    <Wallet className="w-4 h-4" />
+                  </span>
+                </div>
               </div>
               <div>
                 <span className="text-2xl font-black text-foreground">
                   {formatBRL(stats.totalCurrentValueBRL)}
                 </span>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                  <span>Custo: {formatBRL(stats.totalInvestedBRL)}</span>
+                  <span>
+                    {filter.year && filter.year !== "all"
+                      ? `Aportes em ${filter.year}: ${formatBRL(stats.totalBuyVolumeBRL)}`
+                      : `Custo: ${formatBRL(stats.totalInvestedBRL)}`}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -819,10 +867,19 @@ export const TransactionsConsolidator = () => {
           <Card className="border-border bg-card shadow-sm hover:border-emerald-500/40 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-semibold uppercase tracking-wider">📈 Lucro Não Realizado</span>
-                <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <TrendingUp className="w-4 h-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  📈 Lucro Não Realizado
                 </span>
+                <div className="flex items-center gap-1">
+                  {filter.year && filter.year !== "all" && (
+                    <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/40 bg-emerald-500/10 font-mono py-0">
+                      {filter.year}
+                    </Badge>
+                  )}
+                  <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                    <TrendingUp className="w-4 h-4" />
+                  </span>
+                </div>
               </div>
               <div>
                 <div className="flex items-baseline gap-2">
@@ -834,7 +891,9 @@ export const TransactionsConsolidator = () => {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Variação sobre o preço médio consolidado
+                  {filter.year && filter.year !== "all"
+                    ? `Variação sobre operações de ${filter.year}`
+                    : "Variação sobre o preço médio consolidado"}
                 </p>
               </div>
             </CardContent>
@@ -843,17 +902,28 @@ export const TransactionsConsolidator = () => {
           <Card className="border-border bg-card shadow-sm hover:border-teal-500/40 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-semibold uppercase tracking-wider">💰 Lucro Realizado</span>
-                <span className="p-1.5 rounded-lg bg-teal-500/10 text-teal-400">
-                  <DollarSign className="w-4 h-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  💰 Lucro Realizado
                 </span>
+                <div className="flex items-center gap-1">
+                  {filter.year && filter.year !== "all" && (
+                    <Badge variant="outline" className="text-[10px] text-teal-400 border-teal-500/40 bg-teal-500/10 font-mono py-0">
+                      {filter.year}
+                    </Badge>
+                  )}
+                  <span className="p-1.5 rounded-lg bg-teal-500/10 text-teal-400">
+                    <DollarSign className="w-4 h-4" />
+                  </span>
+                </div>
               </div>
               <div>
-                <span className="text-2xl font-black text-teal-400">
-                  +{formatBRL(stats.totalRealizedProfitBRL)}
+                <span className={`text-2xl font-black ${stats.totalRealizedProfitBRL >= 0 ? "text-teal-400" : "text-destructive"}`}>
+                  {stats.totalRealizedProfitBRL >= 0 ? "+" : ""}{formatBRL(stats.totalRealizedProfitBRL)}
                 </span>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Embolsado em {stats.sellCount} ordens de venda executadas
+                  {filter.year && filter.year !== "all"
+                    ? `Embolsado em ${stats.sellCount} vendas de ${filter.year}`
+                    : `Embolsado em ${stats.sellCount} ordens de venda executadas`}
                 </p>
               </div>
             </CardContent>
@@ -862,10 +932,19 @@ export const TransactionsConsolidator = () => {
           <Card className="border-border bg-card shadow-sm hover:border-blue-500/40 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-semibold uppercase tracking-wider">⚡ APIs & Operações</span>
-                <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-                  <Zap className="w-4 h-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  ⚡ APIs & Operações
                 </span>
+                <div className="flex items-center gap-1">
+                  {filter.year && filter.year !== "all" && (
+                    <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/40 bg-blue-500/10 font-mono py-0">
+                      {filter.year}
+                    </Badge>
+                  )}
+                  <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+                    <Zap className="w-4 h-4" />
+                  </span>
+                </div>
               </div>
               <div>
                 <div className="flex items-baseline gap-2">
@@ -877,7 +956,8 @@ export const TransactionsConsolidator = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium mt-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> 5 APIs Integradas & Sincronizadas
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {filter.year && filter.year !== "all" ? `Filtrado para o ano ${filter.year}` : "5 APIs Integradas & Sincronizadas"}
                 </div>
               </div>
             </CardContent>

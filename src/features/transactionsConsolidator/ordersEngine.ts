@@ -168,9 +168,11 @@ export class OrdersConsolidatorEngine {
   }
 
   /**
-   * Summarizes all assets with current holdings, average prices, market value and P&L.
+   * Summarizes assets with current holdings, average prices, market value and P&L.
+   * Can accept a filtered order subset (e.g. for a specific year) or defaults to all orders.
    */
-  public getAssetSummaries(): AssetAveragePriceSummary[] {
+  public getAssetSummaries(customOrders?: ConsolidatedOrder[]): AssetAveragePriceSummary[] {
+    const ordersList = customOrders || this.orders;
     const map = new Map<string, {
       ticker: string;
       assetName: string;
@@ -186,7 +188,7 @@ export class OrdersConsolidatorEngine {
       lastOrderDate: string;
     }>();
 
-    for (const order of this.orders) {
+    for (const order of ordersList) {
       const tickerKey = order.ticker.toUpperCase().replace(".", "-");
       let item = map.get(tickerKey);
       if (!item) {
