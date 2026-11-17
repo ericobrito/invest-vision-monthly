@@ -20,6 +20,7 @@ import IncidentCenter from "./pages/IncidentCenter";
 import PassiveIncomeSimulator from "./pages/PassiveIncomeSimulator";
 import WealthGoalsManager from "./pages/WealthGoalsManager";
 import VariableIncomeMoversDashboard from "./pages/VariableIncomeMoversDashboard";
+import TransactionsConsolidator from "./pages/TransactionsConsolidator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -102,6 +103,8 @@ const App = () => {
                 <Route path="/metas" element={<ProtectedRoute><WealthGoalsManager /></ProtectedRoute>} />
                 <Route path="/desempenho-variavel" element={<ProtectedRoute><VariableIncomeMoversDashboard /></ProtectedRoute>} />
                 <Route path="/maiores-altas" element={<ProtectedRoute><VariableIncomeMoversDashboard /></ProtectedRoute>} />
+                <Route path="/historico-transacoes" element={<ProtectedRoute><TransactionsConsolidator /></ProtectedRoute>} />
+                <Route path="/consolidador-ordens" element={<ProtectedRoute><TransactionsConsolidator /></ProtectedRoute>} />
                 <Route path="/contabilidade-cripto" element={<ProtectedRoute><CryptoAccountingDashboard /></ProtectedRoute>} />
                 <Route path="/analisador-perfil" element={<ProtectedRoute><AnalisadorPerfil /></ProtectedRoute>} />
                 <Route path="/perfil-patrimonial" element={<ProtectedRoute><AnalisadorPerfil /></ProtectedRoute>} />

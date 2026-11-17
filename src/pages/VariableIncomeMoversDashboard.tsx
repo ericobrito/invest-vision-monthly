@@ -31,6 +31,7 @@ import {
   Briefcase,
   ArrowUpRight,
   ArrowDownRight,
+  Calculator,
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
 
@@ -629,6 +630,11 @@ const VariableIncomeMoversDashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <Link to="/historico-transacoes">
+              <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10">
+                <Calculator className="w-3.5 h-3.5 text-cyan-400" /> Extrato de Ordens
+              </Button>
+            </Link>
             <Link to="/radar">
               <Button variant="outline" size="sm" className="h-9 text-xs">
                 <Target className="w-3.5 h-3.5 mr-1.5 text-primary" /> Radar

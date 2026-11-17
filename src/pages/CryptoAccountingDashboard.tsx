@@ -299,6 +299,11 @@ export function CryptoAccountingDashboard() {
                 <Target className="w-4 h-4 mr-1" /> Radar Assimetria
               </Button>
             </Link>
+            <Link to="/historico-transacoes">
+              <Button variant="outline" size="sm" className="border-cyan-500/30 text-cyan-400">
+                <Calculator className="w-4 h-4 mr-1 text-cyan-400" /> Extrato de Ordens & APIs
+              </Button>
+            </Link>
             <Link to="/desempenho-variavel">
               <Button variant="outline" size="sm" className="border-emerald-500/30 text-emerald-400">
                 <Flame className="w-4 h-4 mr-1" /> Maiores Altas
@@ -324,6 +329,9 @@ export function CryptoAccountingDashboard() {
                   </Link>
                   <Link to="/radar" className="flex items-center gap-2 p-2 rounded hover:bg-muted text-sm font-medium">
                     <Target className="w-4 h-4 text-primary" /> Radar de Assimetria
+                  </Link>
+                  <Link to="/historico-transacoes" className="flex items-center gap-2 p-2 rounded hover:bg-muted text-sm font-medium text-cyan-400">
+                    <Calculator className="w-4 h-4" /> Extrato de Ordens & APIs
                   </Link>
                   <Link to="/desempenho-variavel" className="flex items-center gap-2 p-2 rounded hover:bg-muted text-sm font-medium text-emerald-400">
                     <Flame className="w-4 h-4" /> Maiores Altas e Desempenho

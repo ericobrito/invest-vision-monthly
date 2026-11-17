@@ -205,6 +205,11 @@ const Index = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer text-xs">
+                  <Link to="/historico-transacoes" className="flex items-center gap-2 text-cyan-400 font-semibold">
+                    <Calculator className="w-4 h-4 text-cyan-400" /> Extrato de Ordens & APIs
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer text-xs">
                   <Link to="/contabilidade-cripto" className="flex items-center gap-2 text-blue-400 font-medium">
                     <Calculator className="w-4 h-4 text-blue-400" /> Contabilidade Cripto
                   </Link>
