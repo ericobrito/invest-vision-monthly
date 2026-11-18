@@ -45,6 +45,7 @@ import {
 import { toast } from "sonner";
 
 import { ordersConsolidatorEngine } from "@/features/transactionsConsolidator/ordersEngine";
+import { CryptoOrdersBridgeService } from "@/services/CryptoOrdersBridgeService";
 import type { AssetCategory, ConsolidatedOrder, OrderFilterState, OrderType } from "@/features/transactionsConsolidator/types";
 
 export interface DeclaredAsset {
@@ -347,21 +348,31 @@ export const TransactionsConsolidator = () => {
   }, [filteredOrders, assetSummaries]);
 
   useEffect(() => {
+    // Ensure automatic bi-directional synchronization with crypto accounting engine
+    CryptoOrdersBridgeService.syncBothEngines();
+
     const onSynced = () => {
       setOrders(ordersConsolidatorEngine.getOrders());
     };
     window.addEventListener("exchange_orders_synced", onSynced);
+    window.addEventListener("crypto_trades_updated", onSynced);
+    window.addEventListener("consolidated_orders_updated", onSynced);
 
     // Auto-sync exchange trades in the background when opening the consolidator
     ExchangeOrdersSyncService.syncAllTrades({ silent: true }).catch(() => null);
 
-    return () => window.removeEventListener("exchange_orders_synced", onSynced);
+    return () => {
+      window.removeEventListener("exchange_orders_synced", onSynced);
+      window.removeEventListener("crypto_trades_updated", onSynced);
+      window.removeEventListener("consolidated_orders_updated", onSynced);
+    };
   }, []);
 
   const handleSyncAPIs = async () => {
     setIsSyncing(true);
     try {
       await ExchangeOrdersSyncService.syncAllTrades();
+      CryptoOrdersBridgeService.syncBothEngines();
       ordersConsolidatorEngine.recalculateAllWeightedAverages();
       setOrders(ordersConsolidatorEngine.getOrders());
     } catch (e) {
@@ -387,6 +398,7 @@ export const TransactionsConsolidator = () => {
   const handleResetDefaults = () => {
     if (window.confirm("Deseja restaurar as ordens canônicas oficiais do sistema?")) {
       ordersConsolidatorEngine.resetToDefault();
+      CryptoOrdersBridgeService.syncBothEngines();
       setOrders(ordersConsolidatorEngine.getOrders());
       toast.success("Ordens restauradas para o estado canônico oficial.");
     }
@@ -394,9 +406,9 @@ export const TransactionsConsolidator = () => {
 
   const handleDeleteOrder = (id: string, ticker: string) => {
     if (window.confirm(`Deseja excluir a ordem de ${ticker}? O preço médio será recalculado automaticamente.`)) {
-      ordersConsolidatorEngine.deleteOrder(id);
+      CryptoOrdersBridgeService.deleteTradeOrOrder(id);
       setOrders(ordersConsolidatorEngine.getOrders());
-      toast.success("Ordem removida e preços médios recalculados.");
+      toast.success("Ordem removida e sincronizada em todos os módulos.");
     }
   };
 
@@ -425,7 +437,8 @@ export const TransactionsConsolidator = () => {
     const netB = newOrderForm.orderType === "BUY" ? grossB + feeB : grossB - feeB;
     const netU = newOrderForm.orderType === "BUY" ? grossU + feeU : grossU - feeU;
 
-    ordersConsolidatorEngine.addOrder({
+    const newOrder: ConsolidatedOrder = {
+      id: `ord_usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       dateTime: new Date(newOrderForm.dateTime).toISOString(),
       orderType: newOrderForm.orderType,
       ticker: selectedAsset.ticker,
@@ -447,12 +460,14 @@ export const TransactionsConsolidator = () => {
       notes: newOrderForm.notes.trim()
         ? `[Vinculado a ${selectedAsset.investmentName}] ${newOrderForm.notes.trim()}`
         : `[Vinculado a ${selectedAsset.investmentName}] Ordem executada`,
-    });
+    };
+
+    CryptoOrdersBridgeService.addConsolidatedOrder(newOrder);
 
     setOrders(ordersConsolidatorEngine.getOrders());
     setIsAddModalOpen(false);
     setSelectedAssetId("");
-    toast.success(`Ordem de ${newOrderForm.orderType === "BUY" ? "Compra" : "Venda"} de ${selectedAsset.ticker} vinculada à carteira registrada!`);
+    toast.success(`Ordem de ${newOrderForm.orderType === "BUY" ? "Compra" : "Venda"} de ${selectedAsset.ticker} registrada e sincronizada com a Contabilidade Cripto!`);
   };
 
   const brokersList = useMemo(() => {

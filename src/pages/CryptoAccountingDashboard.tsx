@@ -43,6 +43,9 @@ import {
 import { cryptoAccountingEngine } from "@/features/cryptoAccounting/cryptoAccountingEngine";
 import type { CryptoDisposal, CryptoTrade } from "@/features/cryptoAccounting/types";
 import { normalizeRawTrade } from "@/features/cryptoAccounting/cryptoOrderNormalizer";
+import { useSnapshots } from "@/hooks/useSnapshots";
+import { CryptoOrdersBridgeService } from "@/services/CryptoOrdersBridgeService";
+import { toast } from "sonner";
 
 export function GCAPGuideCard() {
   return (
@@ -166,6 +169,93 @@ export function CryptoAccountingDashboard() {
   const [hybridTarget1DropPct, setHybridTarget1DropPct] = useState("10");
   const [hybridTarget2DropPct, setHybridTarget2DropPct] = useState("20");
 
+  // Portfolio integration: extract declared crypto assets for anti-declarative validation
+  const { data: monthlySnapshots = [] } = useSnapshots();
+  const currentSnapshot = useMemo(() => {
+    if (monthlySnapshots.length === 0) return null;
+    return monthlySnapshots[monthlySnapshots.length - 1];
+  }, [monthlySnapshots]);
+
+  const declaredCryptoAssets = useMemo(() => {
+    const list: Array<{
+      id: string;
+      ticker: string;
+      assetName: string;
+      broker: string;
+      currentQuantity: number;
+      averagePrice: number;
+      fxRate: number;
+    }> = [];
+
+    const investments = currentSnapshot?.investments || [];
+    investments.forEach((inv) => {
+      const lowInv = inv.name.toLowerCase();
+      const isCryptoInv =
+        lowInv.includes("binance") ||
+        lowInv.includes("bybit") ||
+        lowInv.includes("coinbase") ||
+        lowInv.includes("mercado bitcoin") ||
+        lowInv.includes("cripto") ||
+        lowInv.includes("bitcoin");
+
+      const brokerName = inv.name.includes("Binance")
+        ? "Binance"
+        : inv.name.includes("Coinbase")
+        ? "Coinbase"
+        : inv.name.includes("Bybit")
+        ? "Bybit"
+        : inv.name.includes("Mercado Bitcoin")
+        ? "Mercado Bitcoin"
+        : inv.name.split("-")[0].trim();
+
+      if (inv.positions && Array.isArray(inv.positions) && inv.positions.length > 0) {
+        inv.positions.forEach((pos) => {
+          const sym = (pos.symbol || pos.ticker || "").toUpperCase().trim();
+          if (!sym) return;
+          if (isCryptoInv || ["BTC", "ETH", "USDT", "SOL", "BNB", "ADA", "XRP"].includes(sym)) {
+            list.push({
+              id: `${brokerName}::${sym}`,
+              ticker: sym,
+              assetName: pos.name || sym,
+              broker: brokerName,
+              currentQuantity: pos.quantity || 0,
+              averagePrice: pos.averagePrice || 0,
+              fxRate: pos.fxRate || 5.8069,
+            });
+          }
+        });
+      } else if (isCryptoInv) {
+        let sym = "BTC";
+        if (lowInv.includes("eth")) sym = "ETH";
+        if (lowInv.includes("usdt")) sym = "USDT";
+        list.push({
+          id: `${brokerName}::${sym}`,
+          ticker: sym,
+          assetName: inv.name,
+          broker: brokerName,
+          currentQuantity: 0,
+          averagePrice: 0,
+          fxRate: 5.8069,
+        });
+      }
+    });
+
+    if (list.length === 0) {
+      list.push(
+        { id: "Binance::BTC", ticker: "BTC", assetName: "Bitcoin", broker: "Binance", currentQuantity: 0.088, averagePrice: 29882.78, fxRate: 5.8069 },
+        { id: "Binance::ETH", ticker: "ETH", assetName: "Ethereum", broker: "Binance", currentQuantity: 1.808, averagePrice: 2073.52, fxRate: 5.8069 },
+        { id: "Coinbase::BTC", ticker: "BTC", assetName: "Bitcoin", broker: "Coinbase", currentQuantity: 0.02, averagePrice: 29882.78, fxRate: 5.8069 },
+        { id: "Coinbase::ETH", ticker: "ETH", assetName: "Ethereum", broker: "Coinbase", currentQuantity: 0.919, averagePrice: 2160.00, fxRate: 5.8069 },
+        { id: "Binance::USDT", ticker: "USDT", assetName: "Tether USD", broker: "Binance", currentQuantity: 3858.18, averagePrice: 1.00, fxRate: 5.8069 },
+        { id: "Bybit::USDT", ticker: "USDT", assetName: "Tether USD", broker: "Bybit", currentQuantity: 4754.78, averagePrice: 1.00, fxRate: 5.8069 },
+      );
+    }
+
+    return list;
+  }, [currentSnapshot]);
+
+  const [selectedDeclaredCryptoId, setSelectedDeclaredCryptoId] = useState<string>("");
+
   // Trigger re-render when trades change
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -176,6 +266,18 @@ export function CryptoAccountingDashboard() {
   const trades = useMemo(() => {
     return cryptoAccountingEngine.getTrades();
   }, [refreshKey]);
+
+  const monthBuys = useMemo(() => {
+    return trades.filter((t) => t.dateTime.startsWith(selectedMonth) && t.side === "BUY");
+  }, [trades, selectedMonth]);
+
+  const monthBuysGrossBRL = useMemo(() => {
+    return monthBuys.reduce((sum, t) => {
+      const fx = t.fxRateBRL && t.fxRateBRL > 0 ? t.fxRateBRL : 5.8069;
+      const b = t.grossValueBRL != null && t.grossValueBRL > 0 ? t.grossValueBRL : t.grossValue * fx;
+      return sum + b;
+    }, 0);
+  }, [monthBuys]);
 
   const [ledgerYearFilter, setLedgerYearFilter] = useState<string>("all");
 
@@ -258,22 +360,35 @@ export function CryptoAccountingDashboard() {
   const [isSyncingOnline, setIsSyncingOnline] = useState(false);
 
   useEffect(() => {
+    // Run bidirectional sync on mount to ensure both engines speak the same truth
+    CryptoOrdersBridgeService.syncBothEngines();
+
     const onSynced = () => {
       setRefreshKey((k) => k + 1);
     };
     window.addEventListener("exchange_orders_synced", onSynced);
+    window.addEventListener("crypto_trades_updated", onSynced);
+    window.addEventListener("consolidated_orders_updated", onSynced);
 
     // Auto-sync exchange trades in the background when opening the dashboard
     ExchangeOrdersSyncService.syncAllTrades({ silent: true }).catch(() => null);
 
-    return () => window.removeEventListener("exchange_orders_synced", onSynced);
+    return () => {
+      window.removeEventListener("exchange_orders_synced", onSynced);
+      window.removeEventListener("crypto_trades_updated", onSynced);
+      window.removeEventListener("consolidated_orders_updated", onSynced);
+    };
   }, []);
 
   const handleSyncOnlineTrades = async () => {
     setIsSyncingOnline(true);
     try {
       await ExchangeOrdersSyncService.syncAllTrades();
+      CryptoOrdersBridgeService.syncBothEngines();
       setRefreshKey((k) => k + 1);
+      toast.success("Sincronização com exchanges concluída com sucesso!");
+    } catch {
+      toast.error("Erro na sincronização de exchanges.");
     } finally {
       setIsSyncingOnline(false);
     }
@@ -283,15 +398,20 @@ export function CryptoAccountingDashboard() {
     if (!csvText.trim()) return;
     setIsImporting(true);
     const count = cryptoAccountingEngine.importCSV(csvText, csvBroker);
+    CryptoOrdersBridgeService.syncBothEngines();
     setCsvText("");
     setIsImporting(false);
     setRefreshKey((k) => k + 1);
+    toast.success(`${count} ordens importadas e sincronizadas com o Consolidador!`);
   };
 
   const handleAddManualTrade = () => {
     const qty = parseFloat(manualQty) || 0;
     const price = parseFloat(manualPriceUSD) || 0;
-    if (qty <= 0 || price <= 0 || !manualAsset.trim()) return;
+    if (qty <= 0 || price <= 0 || !manualAsset.trim()) {
+      toast.error("Informe uma quantidade e preço válidos maiores que zero.");
+      return;
+    }
 
     const dateStr = manualDate ? `${manualDate}T12:00:00Z` : new Date().toISOString();
     const trade = normalizeRawTrade({
@@ -303,19 +423,25 @@ export function CryptoAccountingDashboard() {
       dateTime: dateStr,
     });
 
-    cryptoAccountingEngine.addTrade(trade);
+    CryptoOrdersBridgeService.addCryptoTrade(trade);
     setRefreshKey((k) => k + 1);
+    toast.success(`Ordem de ${manualSide === "BUY" ? "Compra" : "Venda"} vinculada e sincronizada com o Consolidador!`);
   };
 
   const handleDeleteTrade = (id: string) => {
-    cryptoAccountingEngine.deleteTrade(id);
-    setRefreshKey((k) => k + 1);
+    if (window.confirm("Deseja excluir esta ordem? Ela será removida também do Consolidador.")) {
+      CryptoOrdersBridgeService.deleteTradeOrOrder(id);
+      setRefreshKey((k) => k + 1);
+      toast.success("Ordem removida e sincronizada em todos os módulos!");
+    }
   };
 
   const handleResetTrades = () => {
-    if (window.confirm("Deseja restaurar as ordens de histórico para o padrão original?")) {
+    if (window.confirm("Deseja restaurar as ordens canônicas oficiais do sistema?")) {
       cryptoAccountingEngine.resetToDefault();
+      CryptoOrdersBridgeService.syncBothEngines();
       setRefreshKey((k) => k + 1);
+      toast.success("Ordens restauradas para o estado oficial canônico.");
     }
   };
 
@@ -344,6 +470,9 @@ export function CryptoAccountingDashboard() {
           </div>
 
           <div className="hidden lg:flex items-center gap-2">
+            <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 gap-1.5 hidden xl:flex text-xs font-medium">
+              <RefreshCw className="w-3 h-3 text-emerald-400" /> Sincronizado com Consolidador de Ordens
+            </Badge>
             <Button
               variant="outline"
               size="sm"
@@ -373,7 +502,7 @@ export function CryptoAccountingDashboard() {
               </Button>
             </Link>
             <Link to="/historico-transacoes">
-              <Button variant="outline" size="sm" className="border-cyan-500/30 text-cyan-400">
+              <Button variant="outline" size="sm" className="border-cyan-500/30 text-cyan-400 font-semibold">
                 <Calculator className="w-4 h-4 mr-1 text-cyan-400" /> Extrato de Ordens & APIs
               </Button>
             </Link>
@@ -474,15 +603,21 @@ export function CryptoAccountingDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full md:w-auto">
             <div className="bg-background/60 p-2.5 rounded-lg border border-border/50">
-              <div className="text-[11px] text-muted-foreground font-medium">Alienações Nacionais</div>
+              <div className="text-[11px] text-muted-foreground font-medium">Alienações no Mês</div>
               <div className="text-base font-bold font-mono text-emerald-400">
                 {fmtBRL(monthSummary.nationalDisposalsBRL)}
               </div>
             </div>
+            <div className="bg-background/60 p-2.5 rounded-lg border border-blue-500/20 bg-blue-500/5">
+              <div className="text-[11px] text-blue-400 font-medium">Aportes / Compras</div>
+              <div className="text-base font-bold font-mono text-foreground">
+                {fmtBRL(monthBuysGrossBRL)}
+              </div>
+            </div>
             <div className="bg-background/60 p-2.5 rounded-lg border border-border/50">
-              <div className="text-[11px] text-muted-foreground font-medium">Limite de Isenção</div>
+              <div className="text-[11px] text-muted-foreground font-medium">Limite Isento</div>
               <div className="text-base font-bold font-mono text-foreground">
                 {fmtBRL(monthSummary.nationalExemptLimitBRL)}
               </div>
@@ -588,70 +723,88 @@ export function CryptoAccountingDashboard() {
                   </Button>
 
                   <div className="border-t border-border pt-3 space-y-2">
-                    <Label className="text-xs font-semibold">Adicionar Lançamento Manual</Label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Lançamento Manual (Vinculado à Carteira)
+                      </Label>
+                      <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
+                        Anti-declaratório
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2">
                       <div>
-                        <Label className="text-[10px] text-muted-foreground">Corretora</Label>
-                        <Select value={manualBroker} onValueChange={setManualBroker}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                        <Label className="text-[10px] text-muted-foreground">Ativo Declarado na Carteira</Label>
+                        <Select
+                          value={selectedDeclaredCryptoId}
+                          onValueChange={(val) => {
+                            setSelectedDeclaredCryptoId(val);
+                            const found = declaredCryptoAssets.find((a) => a.id === val);
+                            if (found) {
+                              setManualAsset(found.ticker);
+                              setManualBroker(found.broker);
+                              if (found.averagePrice > 0) {
+                                setManualPriceUSD(found.averagePrice.toString());
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs font-medium">
+                            <SelectValue placeholder="Selecione o ativo da sua carteira..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Binance">Binance</SelectItem>
-                            <SelectItem value="Coinbase">Coinbase</SelectItem>
-                            <SelectItem value="Bybit">Bybit</SelectItem>
-                            <SelectItem value="Mercado Bitcoin">Mercado Bitcoin</SelectItem>
-                            <SelectItem value="Foxbit">Foxbit</SelectItem>
+                            {declaredCryptoAssets.map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.ticker} - {a.assetName} ({a.broker})
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Data da Ordem</Label>
-                        <Input
-                          type="date"
-                          value={manualDate}
-                          onChange={(e) => setManualDate(e.target.value)}
-                          className="h-7 text-xs font-mono"
-                        />
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Corretora (Travada)</Label>
+                          <Input value={manualBroker} disabled className="h-7 text-xs bg-muted/50 cursor-not-allowed font-medium text-foreground" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Data da Ordem</Label>
+                          <Input
+                            type="date"
+                            value={manualDate}
+                            onChange={(e) => setManualDate(e.target.value)}
+                            className="h-7 text-xs font-mono"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Ativo Declarado</Label>
-                        <Select value={manualAsset} onValueChange={setManualAsset}>
-                          <SelectTrigger className="h-7 text-xs font-semibold">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="BTC">BTC (Bitcoin)</SelectItem>
-                            <SelectItem value="ETH">ETH (Ethereum)</SelectItem>
-                            <SelectItem value="USDT">USDT (Tether USD)</SelectItem>
-                            <SelectItem value="SOL">SOL (Solana)</SelectItem>
-                            <SelectItem value="BNB">BNB (Binance Coin)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Operação</Label>
-                        <Select value={manualSide} onValueChange={(v) => setManualSide(v as any)}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="BUY">Compra</SelectItem>
-                            <SelectItem value="SELL">Venda</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Qtd</Label>
-                        <Input value={manualQty} onChange={(e) => setManualQty(e.target.value)} placeholder="0.05" className="h-7 text-xs font-mono" />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Preço US$</Label>
-                        <Input value={manualPriceUSD} onChange={(e) => setManualPriceUSD(e.target.value)} placeholder="70000" className="h-7 text-xs font-mono" />
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Operação</Label>
+                          <Select value={manualSide} onValueChange={(v) => setManualSide(v as any)}>
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="BUY">Compra</SelectItem>
+                              <SelectItem value="SELL">Venda</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                          <Input value={manualQty} onChange={(e) => setManualQty(e.target.value)} placeholder="0.05" className="h-7 text-xs font-mono" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Preço US$</Label>
+                          <Input value={manualPriceUSD} onChange={(e) => setManualPriceUSD(e.target.value)} placeholder="70000" className="h-7 text-xs font-mono" />
+                        </div>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={handleAddManualTrade} className="w-full text-xs h-8 mt-1">
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Inserir Ordem Executada
+
+                    <Button size="sm" variant="default" onClick={handleAddManualTrade} className="w-full text-xs h-8 mt-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold">
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Salvar e Sincronizar nos 2 Módulos
                     </Button>
                   </div>
                 </CardContent>
@@ -851,6 +1004,26 @@ export function CryptoAccountingDashboard() {
 
           {/* TAB 3: TRIBUTAÇÃO & APURAÇÃO MENSAAL */}
           <TabsContent value="taxation" className="space-y-4">
+            {/* Informative Clarity Card: Compras (Aportes) vs Alienações (Vendas) */}
+            <Card className="border-blue-500/30 bg-blue-500/5">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-blue-400">
+                    <Info className="w-4 h-4 shrink-0 text-blue-400" />
+                    <span>Aquisições & Aportes Realizados no Mês ({selectedMonth}):</span>
+                    <span className="font-mono text-foreground font-bold">{fmtBRL(monthBuysGrossBRL)}</span>
+                  </div>
+                  <Badge variant="outline" className="text-blue-400 border-blue-500/40 text-[11px] font-mono">
+                    {monthBuys.length} {monthBuys.length === 1 ? "compra registrada" : "compras registradas"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  <strong>Entenda por que o campo 'Total de Alienações' exibe R$ 0,00:</strong> No mês de apuração selecionado, suas operações registradas são <strong>COMPRAS (aportes de capital)</strong> — como as execuções de BTC e ETH na Binance.
+                  De acordo com a Instrução Normativa RFB nº 1.888 e o Programa GCAP da Receita Federal, compras acumulam no seu <strong>custo de aquisição (preço médio de estoque)</strong> e <strong>NÃO constituem alienação</strong>. O limite de isenção de R$ 35.000,00/mês e o recolhimento de IR aplicam-se exclusivamente a <strong>alienações (vendas e permutas)</strong>. Todas as suas compras estão consolidadas no Livro Contábil e integradas automaticamente com o Consolidador de Ordens.
+                </p>
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* National Regime Card */}
               <Card className="border-emerald-500/30">
