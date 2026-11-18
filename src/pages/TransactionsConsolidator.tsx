@@ -24,15 +24,19 @@ import {
   DollarSign,
   Download,
   FileSpreadsheet,
+  FileText,
   Flame,
   Globe,
+  HelpCircle,
   Info,
+  Landmark,
   Layers,
   Link as LinkIcon,
   Lock,
   Plus,
   RefreshCw,
   Search,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Target,
@@ -79,7 +83,7 @@ export const TransactionsConsolidator = () => {
   const currentSnapshot = monthlyData.length > 0 ? monthlyData[monthlyData.length - 1] : undefined;
 
   const [orders, setOrders] = useState<ConsolidatedOrder[]>(() => ordersConsolidatorEngine.getOrders());
-  const [activeTab, setActiveTab] = useState<"orders" | "assets" | "apis">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "assets" | "taxation" | "apis">("orders");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -346,6 +350,11 @@ export const TransactionsConsolidator = () => {
       totalOrders: filteredOrders.length,
     };
   }, [filteredOrders, assetSummaries]);
+
+  // Tax calculation: offshore assets (Lei 14.754/23), crypto (IN 1888/GCAP) and B3 swing trade
+  const taxSummary = useMemo(() => {
+    return ordersConsolidatorEngine.getTaxSummary(filter.year);
+  }, [orders, filter.year]);
 
   useEffect(() => {
     // Ensure automatic bi-directional synchronization with crypto accounting engine
@@ -846,7 +855,7 @@ export const TransactionsConsolidator = () => {
       {/* Main Content */}
       <main className="container max-w-7xl mx-auto px-4 py-4 sm:py-6 space-y-6">
         {/* Metric Cards Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <Card className="border-border bg-card shadow-sm hover:border-cyan-500/40 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
@@ -944,6 +953,39 @@ export const TransactionsConsolidator = () => {
             </CardContent>
           </Card>
 
+          {/* NOVO CARD: IMPOSTO ESTIMADO (IRPF 2027 / LEI 14.754) */}
+          <Card
+            onClick={() => setActiveTab("taxation")}
+            className="border-amber-500/30 bg-amber-500/5 shadow-sm hover:border-amber-500/60 cursor-pointer transition-all"
+            title="Clique para ver o demonstrativo tributário detalhado para o IRPF"
+          >
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 text-amber-400">
+                  🏛️ Imposto Estimado (IRPF)
+                </span>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/40 bg-amber-500/10 font-mono py-0">
+                    {filter.year && filter.year !== "all" ? `IRPF ${Number(filter.year) + 1}` : "IRPF 2027"}
+                  </Badge>
+                  <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                    <Landmark className="w-4 h-4" />
+                  </span>
+                </div>
+              </div>
+              <div>
+                <span className="text-2xl font-black text-amber-400 font-mono">
+                  {formatBRL(taxSummary.totalEstimatedTaxBRL)}
+                </span>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {taxSummary.totalOffshoreProfitBRL > 0
+                    ? `15% s/ ${formatBRL(taxSummary.totalOffshoreProfitBRL)} lucro US (Lei 14.754) · Pago no IRPF 2027`
+                    : "Sem imposto devido no período apurado"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-border bg-card shadow-sm hover:border-blue-500/40 transition-all">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
@@ -988,6 +1030,9 @@ export const TransactionsConsolidator = () => {
               </TabsTrigger>
               <TabsTrigger value="assets" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-card">
                 <Layers className="w-3.5 h-3.5 text-cyan-400" /> Preço Médio por Ativo ({assetSummaries.length})
+              </TabsTrigger>
+              <TabsTrigger value="taxation" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-card">
+                <Landmark className="w-3.5 h-3.5 text-amber-400" /> Apuração Fiscal & IRPF 2027
               </TabsTrigger>
               <TabsTrigger value="apis" className="text-xs font-semibold gap-1.5 data-[state=active]:bg-card">
                 <Zap className="w-3.5 h-3.5 text-emerald-400" /> Conexões de APIs (5)
@@ -1495,6 +1540,231 @@ export const TransactionsConsolidator = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* TAB 4: APURAÇÃO FISCAL & IRPF 2027 (LEI 14.754/2023) */}
+          <TabsContent value="taxation" className="space-y-4">
+            {/* Regulatory Notice Banner */}
+            <Card className="border-amber-500/30 bg-amber-500/5 shadow-sm">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
+                    <Landmark className="w-5 h-5 text-amber-400 shrink-0" />
+                    Regra Oficial: Tributação de Ações Americanas & Offshores (Lei nº 14.754/2023)
+                  </div>
+                  <Badge className="bg-amber-500 text-black font-bold text-[10px]">
+                    Alíquota Fixa de 15% · Pago na DAA IRPF 2027
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Para os lucros auferidos em investimentos no exterior (como ações americanas na Avenue), a <strong>Lei nº 14.754/2023 extinguiu o recolhimento mensal via carnê-leão e DARF mensal</strong>. A apuração é <strong>anual</strong> à alíquota uniforme de <strong>15% sobre o ganho de capital líquido</strong>, com recolhimento efetuado diretamente na <strong>Declaração de Ajuste Anual (IRPF 2027, ano-calendário 2026)</strong> com vencimento até o último dia útil de Maio de 2027.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Regime Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Card 1: Ações Americanas */}
+              <Card className="border-blue-500/30 bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-blue-400" /> Ações Americanas (Avenue)
+                    </span>
+                    <Badge variant="outline" className="text-blue-400 border-blue-500/40 text-[10px]">
+                      Lei 14.754/23
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Lucro Realizado no Período:</span>
+                    <span className="font-mono font-bold text-emerald-400">{formatBRL(taxSummary.totalOffshoreProfitBRL)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Alíquota Legal:</span>
+                    <span className="font-mono font-semibold text-foreground">15,00%</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50 bg-amber-500/10 p-2 rounded">
+                    <span className="font-bold text-amber-400">Imposto a Recolher (IRPF 2027):</span>
+                    <span className="font-mono font-black text-amber-400 text-sm">{formatBRL(taxSummary.totalOffshoreTaxBRL)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pt-1">
+                    Vencimento: <strong>Último dia útil de Maio/2027</strong> na entrega da DAA (sem DARF mensal).
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 2: Criptoativos */}
+              <Card className="border-emerald-500/30 bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-emerald-400" /> Criptoativos (GCAP)
+                    </span>
+                    <Badge variant="outline" className="text-emerald-400 border-emerald-500/40 text-[10px]">
+                      IN RFB 1.888
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Ganhos em Cripto:</span>
+                    <span className="font-mono font-bold">{formatBRL(taxSummary.totalCryptoGainsBRL)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Limite de Isenção Mensal:</span>
+                    <span className="font-mono text-foreground font-semibold">R$ 35.000,00</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50 bg-muted/20 p-2 rounded">
+                    <span className="font-semibold">Imposto GCAP a Pagar:</span>
+                    <span className="font-mono font-bold text-emerald-400">{formatBRL(taxSummary.totalCryptoTaxBRL)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pt-1">
+                    {taxSummary.totalCryptoTaxBRL === 0 ? "🟢 Totalmente isento (dentro do limite de R$ 35k/mês)." : "Sujeito a DARF 4600."}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Total Consolidado */}
+              <Card className="border-primary/40 bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-primary" /> Total a Pagar Consolidado
+                    </span>
+                    <Badge variant="outline" className="text-primary border-primary/40 text-[10px]">
+                      Exercício 2027
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total de Vendas Realizadas:</span>
+                    <span className="font-mono font-bold">{formatBRL(taxSummary.totalRealizedSalesBRL)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Total de Lucro Líquido Realizado:</span>
+                    <span className="font-mono font-bold text-emerald-400">{formatBRL(taxSummary.totalRealizedProfitBRL)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50 bg-primary/10 p-2 rounded">
+                    <span className="font-bold text-foreground">Imposto Total Estimado:</span>
+                    <span className="font-mono font-black text-primary text-base">{formatBRL(taxSummary.totalEstimatedTaxBRL)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pt-1">
+                    Estimativa baseada estritamente nas vendas e execuções registradas no extrato.
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Detailed Sales Tax Ledger */}
+            <Card>
+              <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-amber-400" /> Extrato de Vendas e Memória de Cálculo Tributário ({taxSummary.items.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Detalhamento de cada alienação com base de custo, lucro apurado e data de vencimento do imposto
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table className="text-xs">
+                  <TableHeader>
+                    <TableRow className="bg-muted/40">
+                      <TableHead>Data da Venda</TableHead>
+                      <TableHead>Ticker / Ativo</TableHead>
+                      <TableHead>Corretora</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead className="text-right">Valor da Venda</TableHead>
+                      <TableHead className="text-right">Custo de Aquisição</TableHead>
+                      <TableHead className="text-right">Lucro Realizado</TableHead>
+                      <TableHead className="text-center">Alíquota</TableHead>
+                      <TableHead className="text-right">Imposto Estimado</TableHead>
+                      <TableHead>Vencimento & Onde Pagar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {taxSummary.items.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                          Nenhuma ordem de venda registrada para o período selecionado.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      taxSummary.items.map((item) => (
+                        <TableRow key={item.orderId} className="hover:bg-muted/30">
+                          <TableCell className="font-mono font-medium whitespace-nowrap">
+                            {new Date(item.dateTime).toLocaleDateString("pt-BR")}
+                          </TableCell>
+                          <TableCell className="font-bold font-mono">
+                            {item.ticker}
+                            <span className="text-[11px] text-muted-foreground font-normal block truncate max-w-[130px]">
+                              {item.assetName}
+                            </span>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">{item.broker}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {item.category === "stocks_us" ? "Ações US" : item.category === "crypto" ? "Cripto" : "Ações B3"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-semibold">
+                            {formatBRL(item.grossProceedsBRL)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-muted-foreground">
+                            {formatBRL(item.costBRL)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-emerald-400">
+                            +{formatBRL(item.profitBRL)}
+                          </TableCell>
+                          <TableCell className="text-center font-mono font-bold">
+                            {item.taxRatePct}%
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-black text-amber-400 text-sm">
+                            {formatBRL(item.estimatedTaxBRL)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-foreground text-[11px] block">
+                                {item.filingLabel}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground block">
+                                {item.legalBasis}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Step-by-Step Guide for IRPF 2027 */}
+            <Card className="border-primary/30 bg-muted/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-primary" /> Instruções Oficiais para a Declaração no IRPF 2027 (Ações Americanas)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-xs text-muted-foreground">
+                <ol className="list-decimal list-inside space-y-1.5 leading-relaxed">
+                  <li>
+                    <strong className="text-foreground">Ficha de Bens e Direitos (Grupo 04 - Aplicações e Investimentos):</strong> Informe a posição em 31/12/2026 de cada ação remanescente com o custo de aquisição acumulado em Reais.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Ficha de Rendimentos de Aplicações Financeiras no Exterior:</strong> Lance o lucro líquido de <strong>R$ 7.000,00</strong> auferido na Avenue. O próprio programa do IRPF 2027 calculará os <strong>15% (R$ 1.050,00)</strong> no quadro de apuração definitiva da DAA.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Sem DARF Mensal:</strong> Não emita DARF mensal pelo SicalcWeb no decorrer do ano para ações no exterior. O recolhimento é consolidado na quota única ou parcelas do IRPF 2027 até <strong>Maio/2027</strong>.
+                  </li>
+                </ol>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

@@ -1,4 +1,4 @@
-import type { AssetAveragePriceSummary, ConsolidatedOrder, OrderFilterState } from "./types";
+import type { AssetAveragePriceSummary, ConsolidatedOrder, OrderFilterState, TaxEstimationItem, YearTaxSummary } from "./types";
 import { initialHistoricalOrders } from "./defaultOrdersData";
 
 const STORAGE_KEY = "invest_vision_consolidated_orders_v2";
@@ -388,6 +388,156 @@ export class OrdersConsolidatorEngine {
     ]);
 
     return [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
+  }
+
+  /**
+   * Calculates comprehensive tax estimations across all asset classes and fiscal regimes:
+   * 1. Ações Americanas / Exterior (Lei 14.754/2023 - 15% na DAA IRPF do ano seguinte)
+   * 2. Criptoativos (IN 1888 / GCAP - isenção R$ 35k/mês ou 15% via DARF 4600 / DAA)
+   * 3. Ações Brasil (Isenção R$ 20k/mês ou 15% Swing Trade via DARF 6015)
+   */
+  public getTaxSummary(targetYear?: string): YearTaxSummary {
+    const sellOrders = this.orders.filter((o) => o.orderType === "SELL");
+
+    // Filter by year if targetYear is passed and not "all"
+    const filteredSells = targetYear && targetYear !== "all"
+      ? sellOrders.filter((o) => {
+          try {
+            return new Date(o.dateTime).getFullYear().toString() === targetYear;
+          } catch {
+            return false;
+          }
+        })
+      : sellOrders;
+
+    // Group monthly gross sales for exemption threshold calculation
+    const monthlyGrossByBrokerAndCat = new Map<string, number>();
+    for (const order of filteredSells) {
+      const monthKey = order.dateTime.slice(0, 7);
+      const key = `${monthKey}::${order.broker}::${order.category}`;
+      monthlyGrossByBrokerAndCat.set(key, (monthlyGrossByBrokerAndCat.get(key) || 0) + order.grossValueBRL);
+    }
+
+    const items: TaxEstimationItem[] = [];
+    let totalOffshoreProfitBRL = 0;
+    let totalOffshoreTaxBRL = 0;
+    let totalCryptoGainsBRL = 0;
+    let totalCryptoTaxBRL = 0;
+    let totalStocksBRGainsBRL = 0;
+    let totalStocksBRTaxBRL = 0;
+    let totalRealizedSalesBRL = 0;
+    let totalRealizedProfitBRL = 0;
+
+    for (const order of filteredSells) {
+      const saleDate = new Date(order.dateTime);
+      const saleYear = saleDate.getFullYear();
+      const monthKey = order.dateTime.slice(0, 7);
+      const dueYear = (saleYear + 1).toString();
+
+      const profit = order.realizedProfitBRL || 0;
+      const grossProceeds = order.grossValueBRL;
+      const costBRL = Math.max(0, grossProceeds - profit);
+
+      totalRealizedSalesBRL += grossProceeds;
+      totalRealizedProfitBRL += profit;
+
+      const isOffshore = order.category === "stocks_us" || order.broker.toLowerCase().includes("avenue");
+
+      if (isOffshore) {
+        // Lei 14.754/2023 - 15% taxa uniforme sobre ganho de capital e aplicações financeiras no exterior na DAA
+        const taxRate = 15;
+        const tax = profit > 0 ? profit * 0.15 : 0;
+        totalOffshoreProfitBRL += profit;
+        totalOffshoreTaxBRL += tax;
+
+        items.push({
+          orderId: order.id,
+          dateTime: order.dateTime,
+          ticker: order.ticker,
+          assetName: order.assetName,
+          broker: order.broker,
+          category: order.category,
+          grossProceedsBRL: grossProceeds,
+          costBRL,
+          profitBRL: profit,
+          taxRatePct: taxRate,
+          estimatedTaxBRL: Number(tax.toFixed(2)),
+          taxRegime: "OFFSHORE_DAA_15",
+          dueYear,
+          filingLabel: `DAA IRPF ${dueYear} (Ano-Calendário ${saleYear})`,
+          legalBasis: "Art. 2º da Lei nº 14.754/2023 (Tributação de Investimentos no Exterior)",
+        });
+      } else if (order.category === "crypto") {
+        const brokerLow = order.broker.toLowerCase();
+        const isNational = brokerLow.includes("mercado bitcoin") || brokerLow.includes("foxbit") || brokerLow.includes("novadax");
+        const monthTotal = monthlyGrossByBrokerAndCat.get(`${monthKey}::${order.broker}::${order.category}`) || grossProceeds;
+        const isExempt = isNational && monthTotal <= 35000;
+
+        const taxRate = isExempt ? 0 : 15;
+        const tax = !isExempt && profit > 0 ? profit * 0.15 : 0;
+        totalCryptoGainsBRL += profit;
+        totalCryptoTaxBRL += tax;
+
+        items.push({
+          orderId: order.id,
+          dateTime: order.dateTime,
+          ticker: order.ticker,
+          assetName: order.assetName,
+          broker: order.broker,
+          category: order.category,
+          grossProceedsBRL: grossProceeds,
+          costBRL,
+          profitBRL: profit,
+          taxRatePct: taxRate,
+          estimatedTaxBRL: Number(tax.toFixed(2)),
+          taxRegime: isExempt ? "CRYPTO_EXEMPT_35K" : "CRYPTO_TAXABLE_15",
+          dueYear: isExempt ? `IRPF ${dueYear}` : `${order.dateTime.slice(0, 7)} (DARF 4600)`,
+          filingLabel: isExempt ? "Isento GCAP (≤ R$ 35k/mês nacional)" : "GCAP / DARF Cód. 4600 (15%)",
+          legalBasis: "IN RFB nº 1.888/2019 e Art. 21 da Lei nº 8.981/1995",
+        });
+      } else if (order.category === "stocks_br") {
+        const monthTotal = monthlyGrossByBrokerAndCat.get(`${monthKey}::${order.broker}::${order.category}`) || grossProceeds;
+        const isExempt = monthTotal <= 20000;
+        const taxRate = isExempt ? 0 : 15;
+        const tax = !isExempt && profit > 0 ? profit * 0.15 : 0;
+        totalStocksBRGainsBRL += profit;
+        totalStocksBRTaxBRL += tax;
+
+        items.push({
+          orderId: order.id,
+          dateTime: order.dateTime,
+          ticker: order.ticker,
+          assetName: order.assetName,
+          broker: order.broker,
+          category: order.category,
+          grossProceedsBRL: grossProceeds,
+          costBRL,
+          profitBRL: profit,
+          taxRatePct: taxRate,
+          estimatedTaxBRL: Number(tax.toFixed(2)),
+          taxRegime: isExempt ? "STOCKS_BR_EXEMPT_20K" : "STOCKS_BR_SWING_15",
+          dueYear: isExempt ? `IRPF ${dueYear}` : `${order.dateTime.slice(0, 7)} (DARF 6015)`,
+          filingLabel: isExempt ? "Isento B3 (≤ R$ 20k/mês)" : "DARF Cód. 6015 (15% Swing Trade)",
+          legalBasis: "Art. 72 da Lei nº 8.981/1995",
+        });
+      }
+    }
+
+    const totalEstimatedTaxBRL = totalOffshoreTaxBRL + totalCryptoTaxBRL + totalStocksBRTaxBRL;
+
+    return {
+      year: targetYear || "all",
+      totalRealizedSalesBRL: Number(totalRealizedSalesBRL.toFixed(2)),
+      totalRealizedProfitBRL: Number(totalRealizedProfitBRL.toFixed(2)),
+      totalOffshoreProfitBRL: Number(totalOffshoreProfitBRL.toFixed(2)),
+      totalOffshoreTaxBRL: Number(totalOffshoreTaxBRL.toFixed(2)),
+      totalCryptoGainsBRL: Number(totalCryptoGainsBRL.toFixed(2)),
+      totalCryptoTaxBRL: Number(totalCryptoTaxBRL.toFixed(2)),
+      totalStocksBRGainsBRL: Number(totalStocksBRGainsBRL.toFixed(2)),
+      totalStocksBRTaxBRL: Number(totalStocksBRTaxBRL.toFixed(2)),
+      totalEstimatedTaxBRL: Number(totalEstimatedTaxBRL.toFixed(2)),
+      items: items.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()),
+    };
   }
 }
 

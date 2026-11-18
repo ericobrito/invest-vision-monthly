@@ -58,3 +58,35 @@ export interface OrderFilterState {
   year?: "all" | string;
   sortBy: "date_desc" | "date_asc" | "value_desc" | "realized_desc";
 }
+
+export interface TaxEstimationItem {
+  orderId: string;
+  dateTime: string;
+  ticker: string;
+  assetName: string;
+  broker: string;
+  category: AssetCategory;
+  grossProceedsBRL: number;
+  costBRL: number;
+  profitBRL: number;
+  taxRatePct: number;
+  estimatedTaxBRL: number;
+  taxRegime: "OFFSHORE_DAA_15" | "CRYPTO_EXEMPT_35K" | "CRYPTO_TAXABLE_15" | "STOCKS_BR_SWING_15" | "STOCKS_BR_EXEMPT_20K";
+  dueYear: string;
+  filingLabel: string;
+  legalBasis: string;
+}
+
+export interface YearTaxSummary {
+  year: string;
+  totalRealizedSalesBRL: number;
+  totalRealizedProfitBRL: number;
+  totalOffshoreProfitBRL: number;
+  totalOffshoreTaxBRL: number;
+  totalCryptoGainsBRL: number;
+  totalCryptoTaxBRL: number;
+  totalStocksBRGainsBRL: number;
+  totalStocksBRTaxBRL: number;
+  totalEstimatedTaxBRL: number;
+  items: TaxEstimationItem[];
+}

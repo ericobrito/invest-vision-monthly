@@ -1094,6 +1094,11 @@ export function CryptoAccountingDashboard() {
                     <span className="font-semibold">Imposto Estimado (15%):</span>
                     <span className="font-mono font-bold text-amber-400">{fmtBRL(monthSummary.internationalEstimatedTaxBRL)}</span>
                   </div>
+                  <div className="pt-1">
+                    <Link to="/historico-transacoes" className="text-cyan-400 hover:underline flex items-center gap-1 font-semibold text-[11px]">
+                      <Calculator className="w-3.5 h-3.5" /> Ver Apuração Geral de Ações Americanas (Avenue) e IRPF 2027 →
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             </div>

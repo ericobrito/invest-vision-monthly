@@ -475,6 +475,34 @@ export const initialHistoricalOrders: ConsolidatedOrder[] = [
     notes: "Realização parcial com ganho acima de 140%",
   },
 
+  // Realização de Lucro em Ações Americanas - Setembro/2026 (Avenue)
+  {
+    id: "ord_ave_tsla_sell_2026_09",
+    dateTime: "2026-09-18T15:30:00Z",
+    orderType: "SELL",
+    ticker: "TSLA",
+    assetName: "Tesla Inc",
+    category: "stocks_us",
+    broker: "Avenue - Dólar",
+    quantity: 5.0000,
+    unitPriceUSD: 560.06,
+    unitPriceBRL: 3136.34,
+    fxRate: 5.6000,
+    grossValueUSD: 2800.30,
+    grossValueBRL: 15681.70,
+    feeUSD: 0,
+    feeBRL: 0,
+    netValueUSD: 2800.30,
+    netValueBRL: 15681.70,
+    weightedAvgPriceBeforeUSD: 319.69,
+    weightedAvgPriceAfterUSD: 319.69,
+    weightedAvgPriceAfterBRL: 1736.34,
+    realizedProfitBRL: 7000.00,
+    realizedProfitPct: 80.63,
+    source: "AVENUE_SYNC",
+    notes: "Venda de ações americanas em Set/2026 com lucro de R$ 7.000,00 (Tributação de 15% no IRPF 2027 pela Lei 14.754/2023)",
+  },
+
   // 2026 Início do Ano - Binance (Cotações oficiais Binance Klines)
   {
     id: "ord_bin_btc_2026_03",
