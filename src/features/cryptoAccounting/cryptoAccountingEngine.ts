@@ -47,8 +47,15 @@ export class CryptoAccountingEngine {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const defaultMap = new Map(this.trades.map((t) => [t.id, t]));
+            const deletedTradeIds = new Set<string>();
+            try {
+              const storedDeleted = JSON.parse(localStorage.getItem("invest_vision_deleted_trade_ids") || "[]");
+              if (Array.isArray(storedDeleted)) storedDeleted.forEach((id: string) => deletedTradeIds.add(id));
+            } catch (e) {}
+
+            const defaultMap = new Map(this.trades.filter((t) => !deletedTradeIds.has(t.id)).map((t) => [t.id, t]));
             const legacyIdsToSkip = new Set([
+              "ord_bin_btc_sell_1",
               "trade_binance_2026_btc",
               "trade_binance_2026_eth",
               "trade_binance_2026_03_btc",
@@ -64,10 +71,15 @@ export class CryptoAccountingEngine {
             ]);
 
             parsed.forEach((t: CryptoTrade) => {
+              // Priority 1: User manual records and CSV imports are SACROSANCT and ALWAYS preserved
+              if (t.source === "MANUAL" || t.id?.startsWith("ord_usr_") || t.id?.startsWith("trade_usr_") || t.source === "CSV_IMPORT") {
+                defaultMap.set(t.id, t);
+                return;
+              }
               if (legacyIdsToSkip.has(t.id)) {
                 return;
               }
-              // If it's a user-imported CSV, manual trade, or online synced trade, preserve it
+              // If it's an online synced trade or custom trade, preserve it
               if (!defaultMap.has(t.id)) {
                 defaultMap.set(t.id, t);
               }
@@ -223,24 +235,6 @@ export class CryptoAccountingEngine {
         source: "API",
         notes: "Ordem a Mercado Mercado Bitcoin",
       },
-      {
-        id: "ord_bin_btc_sell_1",
-        broker: "Binance",
-        dateTime: "2024-03-28T18:30:00Z",
-        asset: "BTC",
-        quantity: 0.01000000,
-        side: "SELL",
-        price: 68500.00,
-        grossValue: 685.00,
-        fee: 0.68,
-        feeAsset: "USD",
-        netValue: 684.32,
-        quoteCurrency: "USD",
-        transactionType: "SPOT",
-        country: "KY",
-        source: "API",
-        notes: "Realização parcial de lucro no topo de Março/24",
-      },
       // Início de 2026 - Cotação oficial Binance Klines (10/03/2026 Close: US$ 69.948,63)
       {
         id: "ord_bin_btc_2026_03",
@@ -342,6 +336,17 @@ export class CryptoAccountingEngine {
     const prev = this.trades.length;
     this.trades = this.trades.filter((t) => t.id !== id);
     if (this.trades.length !== prev) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          const storedDeleted = JSON.parse(localStorage.getItem("invest_vision_deleted_trade_ids") || "[]");
+          if (Array.isArray(storedDeleted) && !storedDeleted.includes(id)) {
+            storedDeleted.push(id);
+            localStorage.setItem("invest_vision_deleted_trade_ids", JSON.stringify(storedDeleted));
+          }
+        }
+      } catch (e) {
+        console.warn("[CryptoAccountingEngine] Could not persist deleted trade id:", e);
+      }
       this.persistTrades();
       return true;
     }

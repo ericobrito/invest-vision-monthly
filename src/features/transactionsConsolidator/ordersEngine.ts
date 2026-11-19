@@ -46,6 +46,17 @@ export class OrdersConsolidatorEngine {
     const initialLen = this.orders.length;
     this.orders = this.orders.filter((o) => o.id !== orderId);
     if (this.orders.length !== initialLen) {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          const storedDeleted = JSON.parse(localStorage.getItem("invest_vision_deleted_order_ids") || "[]");
+          if (Array.isArray(storedDeleted) && !storedDeleted.includes(orderId)) {
+            storedDeleted.push(orderId);
+            localStorage.setItem("invest_vision_deleted_order_ids", JSON.stringify(storedDeleted));
+          }
+        }
+      } catch (e) {
+        console.warn("[OrdersEngine] Could not persist deleted order id:", e);
+      }
       this.recalculateAllWeightedAverages();
       this.persistOrders();
       return true;
@@ -65,10 +76,31 @@ export class OrdersConsolidatorEngine {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Remove legacy uncalibrated mock entries or temporary simulations
-          const cleanParsed = parsed.filter((o: any) => o.id !== "ord_bin_btc_2026" && o.id !== "ord_bin_eth_2026" && o.id !== "ord_ave_tsla_sell_2026_09");
+          // Purge only known legacy test/synthetic IDs, NEVER touch user manual records
+          const mockIdsToPurge = new Set([
+            "ord_bin_btc_2026",
+            "ord_bin_eth_2026",
+            "ord_ave_tsla_sell_2026_09",
+            "ord_ave_meta_sell_1",
+            "ord_bin_btc_sell_1",
+          ]);
+
+          const cleanParsed = parsed.filter((o: any) => {
+            // Priority 1: User manual records are SACROSANCT and ALWAYS preserved
+            if (o.source === "MANUAL" || o.id?.startsWith("ord_usr_") || o.id?.startsWith("trade_usr_")) {
+              return true;
+            }
+            // Priority 2: Filter out known fictional/mock template orders
+            return !mockIdsToPurge.has(o.id);
+          });
+          const deletedIds = new Set<string>();
+          try {
+            const rawDeleted = JSON.parse(localStorage.getItem("invest_vision_deleted_order_ids") || "[]");
+            if (Array.isArray(rawDeleted)) rawDeleted.forEach((id: string) => deletedIds.add(id));
+          } catch (e) {}
+
           const existingIds = new Set(cleanParsed.map((o: any) => o.id));
-          const missingDefaults = initialHistoricalOrders.filter((o) => !existingIds.has(o.id));
+          const missingDefaults = initialHistoricalOrders.filter((o) => !existingIds.has(o.id) && !deletedIds.has(o.id));
           this.orders = missingDefaults.length > 0 ? [...cleanParsed, ...missingDefaults] : cleanParsed;
           this.recalculateAllWeightedAverages();
           this.persistOrders();
