@@ -65,8 +65,8 @@ export class OrdersConsolidatorEngine {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Remove legacy uncalibrated mock entries
-          const cleanParsed = parsed.filter((o: any) => o.id !== "ord_bin_btc_2026" && o.id !== "ord_bin_eth_2026");
+          // Remove legacy uncalibrated mock entries or temporary simulations
+          const cleanParsed = parsed.filter((o: any) => o.id !== "ord_bin_btc_2026" && o.id !== "ord_bin_eth_2026" && o.id !== "ord_ave_tsla_sell_2026_09");
           const existingIds = new Set(cleanParsed.map((o: any) => o.id));
           const missingDefaults = initialHistoricalOrders.filter((o) => !existingIds.has(o.id));
           this.orders = missingDefaults.length > 0 ? [...cleanParsed, ...missingDefaults] : cleanParsed;
